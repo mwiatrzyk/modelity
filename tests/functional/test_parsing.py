@@ -1,5 +1,6 @@
 from types import NoneType
 from typing import Any, Optional, Type, Union
+
 import pytest
 
 from modelity.exc import ParsingError
@@ -19,23 +20,25 @@ def parser(registry: IParserRegistry, tp: Type):
 
 class TestSuccessfulParsing:
 
-    @pytest.fixture(params=[
-        (int, 1, 1),
-        (int, 3.14, 3),
-        (int, "4", 4),
-        (str, "foo", "foo"),
-        (str, "4", "4"),
-        (type(None), None, None),
-        (Optional[int], None, None),
-        (Optional[int], 1, 1),
-        (Optional[int], "2", 2),
-        (Optional[str], None, None),
-        (Optional[str], "foo", "foo"),
-        (Union[int, str, NoneType], 0, 0),
-        (Union[int, str, NoneType], "123", 123),
-        (Union[int, str, NoneType], "foo", "foo"),
-        (Union[int, str, NoneType], None, None),
-    ])
+    @pytest.fixture(
+        params=[
+            (int, 1, 1),
+            (int, 3.14, 3),
+            (int, "4", 4),
+            (str, "foo", "foo"),
+            (str, "4", "4"),
+            (type(None), None, None),
+            (Optional[int], None, None),
+            (Optional[int], 1, 1),
+            (Optional[int], "2", 2),
+            (Optional[str], None, None),
+            (Optional[str], "foo", "foo"),
+            (Union[int, str, NoneType], 0, 0),
+            (Union[int, str, NoneType], "123", 123),
+            (Union[int, str, NoneType], "foo", "foo"),
+            (Union[int, str, NoneType], None, None),
+        ]
+    )
     def data(self, request: pytest.FixtureRequest):
         return request.param
 
@@ -57,14 +60,20 @@ class TestSuccessfulParsing:
 
 class TestParsingErrors:
 
-    @pytest.fixture(params=[
-        (int, None, "Not a valid integer number"),
-        (int, "foo", "Not a valid integer number"),
-        (str, 123, "String value required"),
-        (type(None), 123, "None value required"),
-        (Optional[str], 123, "Unsupported type of input value; supported ones are: <class 'str'>, <class 'NoneType'>"),
-        (Optional[int], "foo", "Unsupported type of input value; supported ones are: <class 'int'>, <class 'NoneType'>"),
-    ])
+    @pytest.fixture(
+        params=[
+            (int, None, "Not a valid integer number"),
+            (int, "foo", "Not a valid integer number"),
+            (str, 123, "String value required"),
+            (type(None), 123, "None value required"),
+            (Optional[str], 123, "Unsupported type of input value; supported ones are: <class 'str'>, <class 'NoneType'>"),
+            (
+                Optional[int],
+                "foo",
+                "Unsupported type of input value; supported ones are: <class 'int'>, <class 'NoneType'>",
+            ),
+        ]
+    )
     def data(self, request: pytest.FixtureRequest):
         return request.param
 

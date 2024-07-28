@@ -10,7 +10,7 @@ registry = ParserRegistry()
 @registry.type_parser_factory(Union)
 def make_union_parser(root_parser_registry: IParserRegistry, tp: Type):
 
-    def parse_optional(value):
+    def parse_union(value):
         for parser in parsers:
             try:
                 return parser(value)
@@ -20,4 +20,4 @@ def make_union_parser(root_parser_registry: IParserRegistry, tp: Type):
 
     args = get_args(tp)
     parsers = [root_parser_registry.require_parser(x) for x in args]
-    return parse_optional
+    return parse_union

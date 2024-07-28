@@ -3,6 +3,7 @@ from typing import Type
 
 class ModelityError(Exception):
     """Base class for Modelity-specific exceptions."""
+
     __message_template__: str = None
 
     def __str__(self) -> str:
@@ -17,10 +18,11 @@ class ParsingError(ModelityError):
 
 class UnsupportedType(ModelityError):
     """Raised when type is unsupported.
-    
+
     This can be solved by manually registering type if this is not a bug, but a
     custom type not known to Modelity was used.
     """
+
     __message_template__ = "unsupported type used: {self.tp!r}"
 
     #: The type that is not supported.
