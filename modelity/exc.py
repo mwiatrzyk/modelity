@@ -15,6 +15,17 @@ class ModelityError(Exception):
 class ParsingError(ModelityError):
     """Raised when it was not possible to parse input value to an expected type."""
 
+    #: The location where error happened.
+    loc: tuple
+
+    #: Error message.
+    msg: str
+
+    def __init__(self, loc: tuple, msg: str):
+        super().__init__()
+        self.loc = loc
+        self.msg = msg
+
 
 class UnsupportedType(ModelityError):
     """Raised when type is unsupported.

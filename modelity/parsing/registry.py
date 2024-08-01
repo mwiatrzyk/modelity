@@ -6,20 +6,20 @@ from modelity.exc import UnsupportedType
 from .interface import T, IParser, IParserRegistry
 
 
-class ParserRegistry(IParserRegistry):
+class TypeParserRegistry(IParserRegistry):
 
     def __init__(self):
         self._type_parser_factories = {}
 
-    def attach(self, other: "ParserRegistry"):
+    def attach(self, other: "TypeParserRegistry"):
         self._type_parser_factories.update(other._type_parser_factories)
 
     def register_type_parser_factory(self, tp: Type, func: Callable):
 
         def proxy(root_registry: IParserRegistry, tp: Type):
             kw = {}
-            if "root_parser_registry" in declared_params:
-                kw["root_parser_registry"] = root_registry
+            if "registry" in declared_params:
+                kw["registry"] = root_registry
             if "tp" in declared_params:
                 kw["tp"] = tp
             return func(**kw)
