@@ -2,8 +2,8 @@ from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
 from modelity.parsing.registry import TypeParserRegistry
 
-_TRUE_VALUES = (True, 1, "on", "On", "ON", "true", "True", "TRUE")
-_FALSE_VALUES = (False, 0, "off", "Off", "OFF", "false", "False", "FALSE")
+_TRUE_VALUES = (True, 1, "on", "true")
+_FALSE_VALUES = (False, 0, "off", "false")
 
 registry = TypeParserRegistry()
 

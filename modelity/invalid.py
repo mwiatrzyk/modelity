@@ -18,3 +18,6 @@ class Invalid:
     def __init__(self, value: Any, error: Error, *more_errors: Error):
         self.value = value
         self.errors = (error,) + more_errors
+
+    def __repr__(self):
+        return f"<{self.__module__}.{self.__class__.__qualname__}(value={self.value!r})>"

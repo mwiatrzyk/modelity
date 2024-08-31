@@ -6,9 +6,11 @@ class ErrorCode:
     NONE_REQUIRED = "modelity.NoneRequired"
     INTEGER_REQUIRED = "modelity.IntegerRequired"
     STRING_REQUIRED = "modelity.StringRequired"
-    UNSUPPORTED_TYPE = "modelity.UnsupportedType"
     FLOAT_REQUIRED = "modelity.FloatRequired"
     BOOLEAN_REQUIRED = "modelity.BooleanRequired"
+    ITERABLE_REQUIRED = "modelity.IterableRequired"
+    UNSUPPORTED_TYPE = "modelity.UnsupportedType"
+    INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
 
 
 @dataclasses.dataclass
@@ -31,3 +33,7 @@ class Error:
     @classmethod
     def create_unsupported_type(cls, loc: tuple, supported_types: Tuple[Type]) -> "Error":
         return cls.create(loc, ErrorCode.UNSUPPORTED_TYPE, supported_types=supported_types)
+
+    @classmethod
+    def create_invalid_tuple_format(cls, loc: tuple, expected_format: Tuple[Type]) -> "Error":
+        return cls.create(loc, ErrorCode.INVALID_TUPLE_FORMAT, expected_format=expected_format)
