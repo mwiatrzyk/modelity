@@ -1,9 +1,10 @@
 from types import NoneType
-from typing import Any, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import pytest
 
 from modelity.error import Error
+from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.parsing.parsers import all
 from modelity.parsing.interface import IParser, IParserRegistry
@@ -289,3 +290,141 @@ class TestTupleParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == expected_errors
+
+
+class TestListParser:
+
+    @pytest.mark.parametrize(
+        "tp, given, expected",
+        [
+            (list, [], []),
+            (list, "123", ["1", "2", "3"]),
+            (List[Any], [1, 2, "foo"], [1, 2, "foo"]),
+            (List[int], [1, 2, "3"], [1, 2, 3]),
+            (List[Union[int, str]], [1, 2, "foo"], [1, 2, "foo"]),
+        ],
+    )
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize(
+        "tp, given, expected_errors",
+        [
+            (list, None, (make_error(tuple(), "modelity.IterableRequired"),)),
+            (list[int], None, (make_error(tuple(), "modelity.IterableRequired"),)),
+            (
+                List[int],
+                ["spam", 123, "dummy"],
+                (
+                    make_error((0,), "modelity.IntegerRequired"),
+                    make_error((2,), "modelity.IntegerRequired"),
+                ),
+            ),
+        ],
+    )
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == expected_errors
+
+    class TestInterface:
+
+        @pytest.fixture
+        def tp(self):
+            return List[int]
+
+        @pytest.fixture
+        def sut(self, parser: IParser, initial_value, loc):
+            return parser(initial_value, loc)
+
+        @pytest.mark.parametrize("initial_value, given_list", [
+            ([], []),
+            ([1, 2], [1, 2]),
+            (["1", 2, 3], [1, 2, 3]),
+        ])
+        def test_check_equality_of_two_lists(self, sut: list, given_list):
+            assert sut == given_list
+
+        @pytest.mark.parametrize("initial_value, expected_repr", [
+            ([], "[]"),
+            ([1, 2], "[1, 2]"),
+            (["1"], "[1]"),
+        ])
+        def test_repr(self, sut: list, expected_repr):
+            assert repr(sut) == expected_repr
+
+        @pytest.mark.parametrize("initial_value, index, expected_result", [
+            ([1], 0, []),
+        ])
+        def test_delitem(self, sut: list, index, expected_result):
+            del sut[index]
+            assert sut == expected_result
+
+        @pytest.mark.parametrize("initial_value, index", [
+            ([], 0),
+            ([1, 2], 2),
+        ])
+        def test_delitem_throws_index_error_if_index_is_invalid(self, sut: list, index):
+            with pytest.raises(IndexError) as excinfo:
+                del sut[index]
+            assert str(excinfo.value) == "list assignment index out of range"
+
+        @pytest.mark.parametrize("initial_value, index, expected_result", [
+            ([1], 0, 1),
+            ([1, "2"], 1, 2),
+        ])
+        def test_getitem(self, sut: list, index, expected_result):
+            assert sut[index] == expected_result
+
+        @pytest.mark.parametrize("initial_value, index", [
+            ([], 0),
+            ([1, 2], 2),
+        ])
+        def test_getitem_throws_index_error_if_index_is_invalid(self, sut: list, index):
+            with pytest.raises(IndexError) as excinfo:
+                _ = sut[index]
+            assert str(excinfo.value) == "list index out of range"
+
+        @pytest.mark.parametrize("initial_value, index, value, expected_result", [
+            ([1], 0, 2, [2]),
+            ([1, 2], 0, "3", [3, 2]),
+            ([1, 2, 3], 2, "4", [1, 2, 4]),
+        ])
+        def test_setitem(self, sut: list, index, value, expected_result):
+            sut[index] = value
+            assert sut == expected_result
+
+        @pytest.mark.parametrize("initial_value, index, value, expected_result", [
+            ([1], 0, "spam", [1]),
+        ])
+        def test_setitem_fails_if_invalid_input_given(self, sut: list, index, value, expected_result):
+            with pytest.raises(ParsingError) as excinfo:
+                sut[index] = value
+            assert sut == expected_result
+            assert excinfo.value.errors == (Error.create(tuple(), "modelity.IntegerRequired"),)
+
+        @pytest.mark.parametrize("initial_value, expected_length", [
+            ([], 0),
+            ([1, 2, 3], 3),
+        ])
+        def test_length(self, sut: list, expected_length):
+            assert len(sut) == expected_length
+
+        @pytest.mark.parametrize("initial_value, index, value, expected_result", [
+            ([], 0, "1", [1]),
+            ([2], 0, "1", [1, 2]),
+            ([1, 2], 1, "3", [1, 3, 2]),
+        ])
+        def test_insert_element_to_the_list(self, sut: list, index, value, expected_result):
+            sut.insert(index, value)
+            assert sut == expected_result
+
+        @pytest.mark.parametrize("initial_value, index, value, expected_result", [
+            ([1], 0, "spam", [1]),
+        ])
+        def test_insert_fails_if_invalid_input_given(self, sut: list, index, value, expected_result):
+            with pytest.raises(ParsingError) as excinfo:
+                sut.insert(index, value)
+            assert sut == expected_result
+            assert excinfo.value.errors == (Error.create(tuple(), "modelity.IntegerRequired"),)

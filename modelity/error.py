@@ -26,6 +26,11 @@ class Error:
     #: Optional error data, with format depending on the :attr:`code`.
     data: dict = dataclasses.field(default_factory=dict)
 
+    @property
+    def loc_str(self) -> str:
+        """Location of the error formatted as string."""
+        return ".".join(str(x) for x in self.loc)
+
     @classmethod
     def create(cls, loc: tuple, code: str, **data: Any) -> "Error":
         return cls(loc, code, data)
