@@ -1,5 +1,5 @@
 from types import NoneType
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import pytest
 
@@ -428,3 +428,115 @@ class TestListParser:
                 sut.insert(index, value)
             assert sut == expected_result
             assert excinfo.value.errors == (Error.create(tuple(), "modelity.IntegerRequired"),)
+
+
+class TestDictParser:
+
+    @pytest.mark.parametrize(
+        "tp, given, expected",
+        [
+            (dict, [], {}),
+            (dict, [("one", 1)], {"one": 1}),
+            (Dict[str, int], [("one", 1)], {"one": 1}),
+            (Dict[str, int], [("one", "1")], {"one": 1}),
+            (Dict[int, str], {"1": "one"}, {1: "one"}),
+            (Dict[str, Union[int, float]], {"foo": 1, "bar": "3.14"}, {"foo": 1, "bar": 3.14}),
+            (Dict[str, List[int]], {"foo": [1, "2", "3"]}, {"foo": [1, 2, 3]}),
+        ]
+    )
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize(
+        "tp, given, expected_errors",
+        [
+            (dict, None, (make_error(tuple(), "modelity.MappingRequired"),)),
+            (dict, [1, 2, 3], (make_error(tuple(), "modelity.MappingRequired"),)),
+            (Dict[str, int], [("one", "spam")], (make_error(("one",), "modelity.IntegerRequired"),)),
+            (Dict[int, str], [("one", "spam")], (make_error(tuple(), "modelity.IntegerRequired"),)),
+            (Dict[int, str], None, (make_error(tuple(), "modelity.MappingRequired"),)),
+        ],
+    )
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == expected_errors
+
+    class TestInterface:
+
+        @pytest.fixture
+        def tp(self):
+            return Dict[str, int]
+
+        @pytest.fixture
+        def sut(self, parser: IParser, initial, loc):
+            return parser(initial, loc)
+
+        @pytest.mark.parametrize("initial, other", [
+            ({}, {}),
+            ({"one": 1}, {"one": 1}),
+            ({"one": "1"}, {"one": 1}),
+        ])
+        def test_check_equality_of_two_dicts(self, sut: dict, other):
+            assert sut == other
+
+        @pytest.mark.parametrize("initial, key, value, expected_result", [
+            ({}, "one", "2", {"one": 2}),
+        ])
+        def test_set_item_to_given_value(self, sut: dict, key, value, expected_result):
+            sut[key] = value
+            assert sut == expected_result
+
+        @pytest.mark.parametrize("initial, key, value, expected_errors", [
+            ({}, "one", "spam", [Error.create(tuple(), "modelity.IntegerRequired")]),
+            ({}, 1, 2, [Error.create(tuple(), "modelity.StringRequired")]),
+        ])
+        def test_setting_item_to_invalid_value_causes_parsing_error(self, sut: dict, initial, key, value, expected_errors):
+            with pytest.raises(ParsingError) as excinfo:
+                sut[key] = value
+            assert sut == initial
+            assert excinfo.value.errors == tuple(expected_errors)
+
+        @pytest.mark.parametrize("initial, key, expected", [
+            ({"one": 1}, "one", {})
+        ])
+        def test_delete_item(self, sut: dict, key, expected):
+            del sut[key]
+            assert sut == expected
+
+        @pytest.mark.parametrize("initial, key", [
+            ({"one": 1}, "two")
+        ])
+        def test_deleting_a_non_existing_key_causes_key_error(self, sut: dict, key):
+            with pytest.raises(KeyError) as excinfo:
+                del sut[key]
+            assert excinfo.value.args[0] == key
+
+        @pytest.mark.parametrize("initial, key, expected_value", [
+            ({"one": "1"}, "one", 1)
+        ])
+        def test_get_item(self, sut: dict, key, expected_value):
+            assert sut[key] == expected_value
+
+        @pytest.mark.parametrize("initial, key", [
+            ({"one": 1}, "two")
+        ])
+        def test_getting_a_non_existing_key_causes_key_error(self, sut: dict, key):
+            with pytest.raises(KeyError) as excinfo:
+                _ = sut[key]
+            assert excinfo.value.args[0] == key
+
+        @pytest.mark.parametrize("initial, expected_keys", [
+            ({"one": 1, "two": 2}, ["one", "two"])
+        ])
+        def test_iterator_yields_dict_keys(self, sut: dict, expected_keys):
+            assert list(iter(sut)) == expected_keys
+
+        @pytest.mark.parametrize("initial, expected_len", [
+            ({}, 0),
+            ({"one": 1}, 1),
+            ({"one": 1, "two": 2}, 2),
+        ])
+        def test_len_returns_number_of_items(self, sut: dict, expected_len):
+            assert len(sut) == expected_len

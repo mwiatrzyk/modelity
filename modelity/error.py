@@ -9,6 +9,7 @@ class ErrorCode:
     FLOAT_REQUIRED = "modelity.FloatRequired"
     BOOLEAN_REQUIRED = "modelity.BooleanRequired"
     ITERABLE_REQUIRED = "modelity.IterableRequired"
+    MAPPING_REQUIRED = "modelity.MappingRequired"
     UNSUPPORTED_TYPE = "modelity.UnsupportedType"
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
 

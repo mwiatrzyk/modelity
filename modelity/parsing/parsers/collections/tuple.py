@@ -12,23 +12,26 @@ registry = TypeParserRegistry()
 def make_tuple_parser(registry: IParserRegistry, tp: type):
 
     def parse_any_tuple(value, loc):
-        if not isinstance(value, Iterable):
+        try:
+            return tuple(value)
+        except TypeError:
             return Invalid(value, Error.create(loc, ErrorCode.ITERABLE_REQUIRED))
-        return tuple(value)
 
     def parse_any_length_typed_tuple(value, loc):
-        if not isinstance(value, Iterable):
-            return Invalid(value, Error.create(loc, ErrorCode.ITERABLE_REQUIRED))
-        result = tuple(parser(x, loc + (pos,)) for pos, x in enumerate(value))
+        result = parse_any_tuple(value, loc)
+        if isinstance(result, Invalid):
+            return result
+        result = tuple(parser(x, loc + (pos,)) for pos, x in enumerate(result))
         errors = tuple(itertools.chain(*(x.errors for x in result if isinstance(x, Invalid))))
         if len(errors) > 0:
             return Invalid(value, *errors)
         return result
 
     def parse_fixed_length_typed_tuple(value, loc):
-        if not isinstance(value, Iterable):
-            return Invalid(value, Error.create(loc, ErrorCode.ITERABLE_REQUIRED))
-        result = tuple(parse(elem, loc + (i,)) for i, parse, elem in zip(range(len(value)), parsers, value))
+        result = parse_any_tuple(value, loc)
+        if isinstance(result, Invalid):
+            return result
+        result = tuple(parse(elem, loc + (i,)) for i, parse, elem in zip(range(len(result)), parsers, result))
         if len(result) != len(args):
             return Invalid(value, Error.create_invalid_tuple_format(loc, args))
         errors = tuple(itertools.chain(*(x.errors for x in result if isinstance(x, Invalid))))
