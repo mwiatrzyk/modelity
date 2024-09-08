@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+from numbers import Number
 from typing import Any, Tuple, Type
 
 from modelity.loc import Loc
@@ -17,6 +18,9 @@ class ErrorCode:
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
     INVALID_LITERAL = "modelity.InvalidLiteral"
+    VALUE_OUT_OF_RANGE = "modelity.ValueOutOfRange"
+    VALUE_TOO_LOW = "modelity.ValueTooLow"
+    VALUE_TOO_HIGH = "modelity.ValueTooHigh"
 
 
 @dataclasses.dataclass
@@ -85,3 +89,15 @@ class ErrorFactory:
         """Returned for :class:`typing.Literal` types, when user input does not
         match literal type being used."""
         return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
+
+    @classmethod
+    def value_out_of_range(cls, loc: Loc, min: Number, max: Number) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_OUT_OF_RANGE, min=min, max=max)
+
+    @classmethod
+    def value_too_low(cls, loc: Loc, min: Number) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min=min)
+
+    @classmethod
+    def value_too_high(cls, loc: Loc, max: Number) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max=max)

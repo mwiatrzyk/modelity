@@ -1,6 +1,6 @@
 import enum
 from types import NoneType
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
 import pytest
 
@@ -10,6 +10,7 @@ from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.parsing.parsers import all
 from modelity.parsing.interface import IParser, IParserRegistry
+from modelity.validators import Max, Min, Range
 
 
 def make_error(loc: Loc, code: str, **data: Any) -> Error:
@@ -189,40 +190,87 @@ class TestEnumParser:
     def tp(self):
         return self.Dummy
 
-    @pytest.mark.parametrize("given, expected", [
-        (1, Dummy.FOO),
-        (2, Dummy.BAR),
-        (3, Dummy.BAZ),
-    ])
+    @pytest.mark.parametrize(
+        "given, expected",
+        [
+            (1, Dummy.FOO),
+            (2, Dummy.BAR),
+            (3, Dummy.BAZ),
+        ],
+    )
     def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
         assert parser(given, loc) == expected
 
-    @pytest.mark.parametrize("given", [
-        0,
-    ])
+    @pytest.mark.parametrize(
+        "given",
+        [
+            0,
+        ],
+    )
     def test_parsing_fails_if_input_value_does_not_match_any_enum(self, parser: IParser, given, loc):
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == tuple([make_error(loc, "modelity.InvalidEnum", supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ))])
+        assert result.errors == tuple(
+            [make_error(loc, "modelity.InvalidEnum", supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ))]
+        )
 
 
 class TestLiteralParser:
 
-    @pytest.mark.parametrize("tp, given", [
-        (Literal["foo"], "foo"),
-    ])
+    @pytest.mark.parametrize(
+        "tp, given",
+        [
+            (Literal["foo"], "foo"),
+        ],
+    )
     def test_successfully_parse_input_value(self, parser: IParser, loc, given):
         assert parser(given, loc) == given
 
-    @pytest.mark.parametrize("tp, given, supported_values", [
-        (Literal["foo"], "bar", ["foo"]),
-    ])
+    @pytest.mark.parametrize(
+        "tp, given, supported_values",
+        [
+            (Literal["foo"], "bar", ["foo"]),
+        ],
+    )
     def test_parsing_fails_if_input_value_is_out_of_literal_range(self, parser: IParser, given, supported_values):
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == tuple([make_error(loc, "modelity.InvalidLiteral", supported_values=tuple(supported_values))])
+        assert result.errors == tuple(
+            [make_error(loc, "modelity.InvalidLiteral", supported_values=tuple(supported_values))]
+        )
+
+
+class TestAnnotated:
+
+    @pytest.mark.parametrize(
+        "tp, given, expected",
+        [
+            (Annotated[int, Range(1, 10)], 1, 1),
+            (Annotated[int, Range(1, 10)], "10", 10),
+            (Annotated[float, Range(0, 1)], "0", 0.0),
+            (Annotated[float, Range(0, 1)], "1", 1.0),
+        ],
+    )
+    def test_successfully_parse_annotated_type(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize(
+        "tp, given, invalid_value, expected_error",
+        [
+            (Annotated[int, Range(1, 10)], "spam", "spam", make_error(Loc(), "modelity.IntegerRequired")),
+            (Annotated[int, Range(1, 10)], "0", 0, make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10)),
+            (Annotated[int, Range(1, 10)], "11", 11, make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10)),
+            (Annotated[int, Min(1), Max(2)], 0, 0, make_error(Loc(), "modelity.ValueTooLow", min=1)),
+            (Annotated[int, Min(1), Max(2)], 3, 3, make_error(Loc(), "modelity.ValueTooHigh", max=2)),
+        ],
+    )
+    def test_parsing_fails_if_input_value_is_invalid(self, parser: IParser, given, invalid_value, loc, expected_error):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == invalid_value
+        assert result.errors == tuple([expected_error])
 
 
 class TestOptionalParser:
