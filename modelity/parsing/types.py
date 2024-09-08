@@ -75,3 +75,32 @@ class MutableSequenceProxy(collections.abc.MutableSequence):
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
         return self._target.insert(index, value)
+
+
+class MutableSetProxy(collections.abc.MutableSet):
+
+    def __init__(self, target: set, loc: tuple, item_parser: IParser):
+        self._target = target
+        self._loc = loc
+        self._item_parser = item_parser
+
+    def __repr__(self) -> str:
+        return repr(self._target)
+
+    def __contains__(self, x: object) -> bool:
+        return x in self._target
+
+    def __iter__(self) -> collections.abc.Iterator:
+        return iter(self._target)
+
+    def __len__(self) -> int:
+        return len(self._target)
+
+    def add(self, value: Any):
+        value = self._item_parser(value, self._loc)
+        if isinstance(value, Invalid):
+            raise ParsingError(value.errors)
+        self._target.add(value)
+
+    def discard(self, value: Any):
+        self._target.discard(value)

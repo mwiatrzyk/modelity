@@ -23,10 +23,7 @@ def make_dict_parser(registry: IParserRegistry, tp: type):
         result = parse_dict(value, loc)
         if isinstance(result, Invalid):
             return result
-        result = dict(
-            (key_parser(k, loc), value_parser(v, loc + (k,)))
-            for k, v in result.items()
-        )
+        result = dict((key_parser(k, loc), value_parser(v, loc + (k,))) for k, v in result.items())
         value_errors = itertools.chain(*(x.errors for x in result.values() if isinstance(x, Invalid)))
         key_errors = itertools.chain(*(x.errors for x in result.keys() if isinstance(x, Invalid)))
         errors = tuple(itertools.chain(key_errors, value_errors))
