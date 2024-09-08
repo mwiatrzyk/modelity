@@ -1,10 +1,10 @@
 import enum
 from types import NoneType
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
 import pytest
 
-from modelity.error import Error, ErrorFactory
+from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
@@ -205,6 +205,24 @@ class TestEnumParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([make_error(loc, "modelity.InvalidEnum", supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ))])
+
+
+class TestLiteralParser:
+
+    @pytest.mark.parametrize("tp, given", [
+        (Literal["foo"], "foo"),
+    ])
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given):
+        assert parser(given, loc) == given
+
+    @pytest.mark.parametrize("tp, given, supported_values", [
+        (Literal["foo"], "bar", ["foo"]),
+    ])
+    def test_parsing_fails_if_input_value_is_out_of_literal_range(self, parser: IParser, given, supported_values):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == tuple([make_error(loc, "modelity.InvalidLiteral", supported_values=tuple(supported_values))])
 
 
 class TestOptionalParser:

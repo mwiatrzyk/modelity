@@ -16,6 +16,7 @@ class ErrorCode:
     UNSUPPORTED_TYPE = "modelity.UnsupportedType"
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
+    INVALID_LITERAL = "modelity.InvalidLiteral"
 
 
 @dataclasses.dataclass
@@ -78,3 +79,9 @@ class ErrorFactory:
             Tuple containing supported enum values.
         """
         return cls.create(loc, ErrorCode.INVALID_ENUM, supported_values=tuple(x for x in tp))
+
+    @classmethod
+    def create_invalid_literal(cls, loc: Loc, supported_values: tuple) -> Error:
+        """Returned for :class:`typing.Literal` types, when user input does not
+        match literal type being used."""
+        return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
