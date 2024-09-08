@@ -1,5 +1,5 @@
 import collections.abc
-from typing import Any
+from typing import Any, MutableMapping, MutableSequence, MutableSet
 
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
@@ -8,7 +8,7 @@ from modelity.parsing.interface import IParser
 
 class MutableMappingProxy(collections.abc.MutableMapping):
 
-    def __init__(self, target: dict, loc: tuple, key_parser: IParser, value_parser: IParser):
+    def __init__(self, target: MutableMapping, loc: tuple, key_parser: IParser, value_parser: IParser):
         self._target = target
         self._loc = loc
         self._key_parser = key_parser
@@ -44,7 +44,7 @@ class MutableMappingProxy(collections.abc.MutableMapping):
 
 class MutableSequenceProxy(collections.abc.MutableSequence):
 
-    def __init__(self, target: list, loc: tuple, item_parser: IParser):
+    def __init__(self, target: MutableSequence, loc: tuple, item_parser: IParser):
         self._loc = loc
         self._target = target
         self._item_parser = item_parser
@@ -79,7 +79,7 @@ class MutableSequenceProxy(collections.abc.MutableSequence):
 
 class MutableSetProxy(collections.abc.MutableSet):
 
-    def __init__(self, target: set, loc: tuple, item_parser: IParser):
+    def __init__(self, target: MutableSet, loc: tuple, item_parser: IParser):
         self._target = target
         self._loc = loc
         self._item_parser = item_parser
