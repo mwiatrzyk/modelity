@@ -44,4 +44,8 @@ class TypeParserRegistry(IParserRegistry):
         make_parser = self._type_parser_factories.get(origin)
         if make_parser is not None:
             return make_parser(self, tp)
+        for base in inspect.getmro(tp):
+            make_parser = self._type_parser_factories.get(base)
+            if make_parser is not None:
+                return make_parser(self, tp)
         raise UnsupportedType(tp)

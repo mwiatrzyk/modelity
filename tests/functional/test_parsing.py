@@ -1,9 +1,10 @@
+import enum
 from types import NoneType
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import pytest
 
-from modelity.error import Error
+from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
@@ -175,6 +176,35 @@ class TestBoolParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == (make_error(loc, "modelity.BooleanRequired"),)
+
+
+class TestEnumParser:
+
+    class Dummy(enum.Enum):
+        FOO = 1
+        BAR = 2
+        BAZ = 3
+
+    @pytest.fixture
+    def tp(self):
+        return self.Dummy
+
+    @pytest.mark.parametrize("given, expected", [
+        (1, Dummy.FOO),
+        (2, Dummy.BAR),
+        (3, Dummy.BAZ),
+    ])
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize("given", [
+        0,
+    ])
+    def test_parsing_fails_if_input_value_does_not_match_any_enum(self, parser: IParser, given, loc):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == tuple([make_error(loc, "modelity.InvalidEnum", supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ))])
 
 
 class TestOptionalParser:
