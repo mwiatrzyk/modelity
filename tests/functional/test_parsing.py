@@ -6,15 +6,16 @@ import pytest
 from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
+from modelity.loc import Loc
 from modelity.parsing.parsers import all
 from modelity.parsing.interface import IParser, IParserRegistry
 
 
-def make_error(loc: tuple, code: str, **data: Any) -> Error:
+def make_error(loc: Loc, code: str, **data: Any) -> Error:
     return Error(loc, code, data)
 
 
-def make_unsupported_type_error(loc: tuple, supported_types: tuple[type]) -> Error:
+def make_unsupported_type_error(loc: Loc, supported_types: tuple[type]) -> Error:
     return make_error(loc, "modelity.UnsupportedType", supported_types=supported_types)
 
 
@@ -628,7 +629,7 @@ class TestSetParser:
         @pytest.mark.parametrize(
             "initial, expected_repr",
             [
-                (set(), "{}"),
+                (set(), "set()"),
                 ({1, "2"}, "{1, 2}"),
             ],
         )

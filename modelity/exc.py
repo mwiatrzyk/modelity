@@ -27,7 +27,7 @@ class ParsingError(ModelityError):
     def __str__(self):
         out = [f"parsing failed with {len(self.errors)} error(-s):"]
         for error in sorted(self.errors, key=lambda x: x.loc):
-            out.append(f"  {error.loc_str}:")
+            out.append(f"  {error.loc}:")
             out.append(f"    {error.code} {error.data}")
         return "\n".join(out)
 

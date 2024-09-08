@@ -1,6 +1,8 @@
 import dataclasses
 from typing import Any, Tuple, Type
 
+from modelity.loc import Loc
+
 
 class ErrorCode:
     NONE_REQUIRED = "modelity.NoneRequired"
@@ -19,7 +21,7 @@ class Error:
     """Object describing error."""
 
     #: Location of the error.
-    loc: tuple
+    loc: Loc
 
     #: Error code.
     code: str
@@ -27,19 +29,14 @@ class Error:
     #: Optional error data, with format depending on the :attr:`code`.
     data: dict = dataclasses.field(default_factory=dict)
 
-    @property
-    def loc_str(self) -> str:
-        """Location of the error formatted as string."""
-        return ".".join(str(x) for x in self.loc)
-
     @classmethod
-    def create(cls, loc: tuple, code: str, **data: Any) -> "Error":
+    def create(cls, loc: Loc, code: str, **data: Any) -> "Error":
         return cls(loc, code, data)
 
     @classmethod
-    def create_unsupported_type(cls, loc: tuple, supported_types: Tuple[Type]) -> "Error":
+    def create_unsupported_type(cls, loc: Loc, supported_types: Tuple[Type]) -> "Error":
         return cls.create(loc, ErrorCode.UNSUPPORTED_TYPE, supported_types=supported_types)
 
     @classmethod
-    def create_invalid_tuple_format(cls, loc: tuple, expected_format: Tuple[Type]) -> "Error":
+    def create_invalid_tuple_format(cls, loc: Loc, expected_format: Tuple[Type]) -> "Error":
         return cls.create(loc, ErrorCode.INVALID_TUPLE_FORMAT, expected_format=expected_format)
