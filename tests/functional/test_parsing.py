@@ -507,6 +507,15 @@ class TestDictParser:
             return parser(initial, loc)
 
         @pytest.mark.parametrize(
+            "initial, expected_repr",
+            [
+                ({}, "{}"),
+            ],
+        )
+        def test_repr(self, sut: list, expected_repr):
+            assert repr(sut) == expected_repr
+
+        @pytest.mark.parametrize(
             "initial, other",
             [
                 ({}, {}),
@@ -615,6 +624,16 @@ class TestSetParser:
         @pytest.fixture
         def sut(self, parser: IParser, initial, loc):
             return parser(initial, loc)
+
+        @pytest.mark.parametrize(
+            "initial, expected_repr",
+            [
+                (set(), "{}"),
+                ({1, "2"}, "{1, 2}"),
+            ],
+        )
+        def test_repr(self, sut: list, expected_repr):
+            assert repr(sut) == expected_repr
 
         @pytest.mark.parametrize(
             "initial, other",
