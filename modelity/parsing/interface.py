@@ -27,12 +27,15 @@ class IParser(Protocol, Generic[T]):
         """
 
 
-class IParserRegistry(Protocol):
+class IParserProvider(Protocol):
     """Represents connected collection of type parsers."""
 
-    def require_parser(self, tp: Type[T]) -> IParser[T]:
-        """Require parser for given type.
+    def provide_parser(self, tp: Type[T]) -> IParser[T]:
+        """Provide parser for given type.
 
-        Returns parser callable or raises :exc:`UnsupportedType` if parser was
-        not found.
+        Returns parser for given type or raises :exc:`UnsupportedType` if parser
+        was not found.
+
+        :param tp:
+            The type to find parser for.
         """

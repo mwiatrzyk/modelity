@@ -2,7 +2,7 @@ import itertools
 from typing import get_args
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.interface import IParserRegistry
+from modelity.parsing.interface import IParserProvider
 from modelity.parsing.registry import TypeParserRegistry
 from modelity.parsing.types import MutableSetProxy
 
@@ -10,7 +10,7 @@ registry = TypeParserRegistry()
 
 
 @registry.type_parser_factory(set)
-def make_set_parser(registry: IParserRegistry, tp: type):
+def make_set_parser(registry: IParserProvider, tp: type):
 
     def parse_any_set(value, loc):
         try:
@@ -31,5 +31,5 @@ def make_set_parser(registry: IParserRegistry, tp: type):
     args = get_args(tp)
     if not args:
         return parse_any_set
-    item_parser = registry.require_parser(args[0])
+    item_parser = registry.provide_parser(args[0])
     return parse_typed_set

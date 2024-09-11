@@ -21,6 +21,7 @@ class ErrorCode:
     VALUE_OUT_OF_RANGE = "modelity.ValueOutOfRange"
     VALUE_TOO_LOW = "modelity.ValueTooLow"
     VALUE_TOO_HIGH = "modelity.ValueTooHigh"
+    REQUIRED_MISSING = "modelity.RequiredMissing"
 
 
 @dataclasses.dataclass
@@ -89,6 +90,10 @@ class ErrorFactory:
         """Returned for :class:`typing.Literal` types, when user input does not
         match literal type being used."""
         return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
+
+    @classmethod
+    def required_missing(cls, loc: Loc) -> Error:
+        return cls.create(loc, ErrorCode.REQUIRED_MISSING)
 
     @classmethod
     def value_out_of_range(cls, loc: Loc, min: Number, max: Number) -> Error:

@@ -2,14 +2,14 @@ import itertools
 from typing import Iterable, get_args
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.interface import IParserRegistry
+from modelity.parsing.interface import IParserProvider
 from modelity.parsing.registry import TypeParserRegistry
 
 registry = TypeParserRegistry()
 
 
 @registry.type_parser_factory(tuple)
-def make_tuple_parser(registry: IParserRegistry, tp: type):
+def make_tuple_parser(registry: IParserProvider, tp: type):
 
     def parse_any_tuple(value, loc):
         try:
@@ -43,7 +43,7 @@ def make_tuple_parser(registry: IParserRegistry, tp: type):
     if not args:
         return parse_any_tuple
     if args[-1] is Ellipsis:
-        parser = registry.require_parser(args[0])
+        parser = registry.provide_parser(args[0])
         return parse_any_length_typed_tuple
-    parsers = tuple(registry.require_parser(x) for x in args)
+    parsers = tuple(registry.provide_parser(x) for x in args)
     return parse_fixed_length_typed_tuple

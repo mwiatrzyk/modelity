@@ -9,7 +9,7 @@ from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.parsing.parsers import all
-from modelity.parsing.interface import IParser, IParserRegistry
+from modelity.parsing.interface import IParser, IParserProvider
 from modelity.validators import Max, Min, Range
 
 
@@ -27,8 +27,8 @@ def registry():
 
 
 @pytest.fixture
-def parser(registry: IParserRegistry, tp: Type):
-    return registry.require_parser(tp)
+def parser(registry: IParserProvider, tp: Type):
+    return registry.provide_parser(tp)
 
 
 @pytest.fixture

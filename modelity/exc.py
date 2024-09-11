@@ -1,4 +1,4 @@
-from typing import Tuple, Type
+from typing import Any, Tuple, Type
 
 from modelity.error import Error
 
@@ -26,6 +26,26 @@ class ParsingError(ModelityError):
 
     def __str__(self):
         out = [f"parsing failed with {len(self.errors)} error(-s):"]
+        for error in sorted(self.errors, key=lambda x: x.loc):
+            out.append(f"  {error.loc}:")
+            out.append(f"    {error.code} {error.data}")
+        return "\n".join(out)
+
+
+class ValidationError(ModelityError):
+    #: The model for which validation has failed.
+    model: Any
+
+    #: Tuple with validation errors.
+    errors: Tuple[Error, ...]
+
+    def __init__(self, model: Any, errors: Tuple[Error, ...]):
+        super().__init__()
+        self.model = model
+        self.errors = errors
+
+    def __str__(self):
+        out = [f"validation of model {self.model.__class__.__qualname__!r} failed with {len(self.errors)} error(-s):"]
         for error in sorted(self.errors, key=lambda x: x.loc):
             out.append(f"  {error.loc}:")
             out.append(f"    {error.code} {error.data}")

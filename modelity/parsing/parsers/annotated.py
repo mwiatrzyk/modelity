@@ -1,13 +1,13 @@
 from typing import Annotated, Tuple, get_args
 from modelity.invalid import Invalid
-from modelity.parsing.interface import IParser, IParserRegistry
+from modelity.parsing.interface import IParser, IParserProvider
 from modelity.parsing.registry import TypeParserRegistry
 
 registry = TypeParserRegistry()
 
 
 @registry.type_parser_factory(Annotated)
-def make_annotated_parser(registry: IParserRegistry, tp: Annotated):
+def make_annotated_parser(registry: IParserProvider, tp: Annotated):
 
     def parse_annotated(value, loc):
         result = type_parser(value, loc)
@@ -21,6 +21,6 @@ def make_annotated_parser(registry: IParserRegistry, tp: Annotated):
 
     args = get_args(tp)
     assert len(args) >= 2
-    type_parser = registry.require_parser(args[0])
+    type_parser = registry.provide_parser(args[0])
     additional_parsers: Tuple[IParser, ...] = args[1:]
     return parse_annotated

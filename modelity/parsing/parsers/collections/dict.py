@@ -3,7 +3,7 @@ from typing import get_args
 
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.interface import IParserRegistry
+from modelity.parsing.interface import IParserProvider
 from modelity.parsing.registry import TypeParserRegistry
 from modelity.parsing.types import MutableMappingProxy
 
@@ -11,7 +11,7 @@ registry = TypeParserRegistry()
 
 
 @registry.type_parser_factory(dict)
-def make_dict_parser(registry: IParserRegistry, tp: type):
+def make_dict_parser(registry: IParserProvider, tp: type):
 
     def parse_dict(value, loc):
         try:
@@ -35,6 +35,6 @@ def make_dict_parser(registry: IParserRegistry, tp: type):
     if not args:
         return parse_dict
     key_type, value_type = args
-    key_parser = registry.require_parser(key_type)
-    value_parser = registry.require_parser(value_type)
+    key_parser = registry.provide_parser(key_type)
+    value_parser = registry.provide_parser(value_type)
     return parse_typed_dict

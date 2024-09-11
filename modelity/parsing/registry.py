@@ -3,10 +3,10 @@ from typing import Callable, Type, get_origin
 
 from modelity.exc import UnsupportedType
 
-from .interface import T, IParser, IParserRegistry
+from .interface import T, IParser, IParserProvider
 
 
-class TypeParserRegistry(IParserRegistry):
+class TypeParserRegistry(IParserProvider):
 
     def __init__(self):
         self._type_parser_factories = {}
@@ -16,7 +16,7 @@ class TypeParserRegistry(IParserRegistry):
 
     def register_type_parser_factory(self, tp: Type, func: Callable):
 
-        def proxy(root_registry: IParserRegistry, tp: Type):
+        def proxy(root_registry: IParserProvider, tp: Type):
             kw = {}
             if "registry" in declared_params:
                 kw["registry"] = root_registry
@@ -36,7 +36,7 @@ class TypeParserRegistry(IParserRegistry):
 
         return decorator
 
-    def require_parser(self, tp: Type[T]) -> IParser[T]:
+    def provide_parser(self, tp: Type[T]) -> IParser[T]:
         make_parser = self._type_parser_factories.get(tp)
         if make_parser is not None:
             return make_parser(self, tp)
