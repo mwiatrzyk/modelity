@@ -79,7 +79,7 @@ class TestModelType:
         with pytest.raises(ValidationError) as excinfo:
             model.validate()
         assert excinfo.value.model is model
-        assert excinfo.value.errors == tuple([Error.create(("a",), "modelity.RequiredMissing")])
+        assert excinfo.value.errors == tuple([Error.create(Loc("a"), "modelity.RequiredMissing")])
 
     @pytest.mark.parametrize("initial_params, expected_errors", [
         ({"a": "spam"}, [Error.create(Loc("a"), "modelity.IntegerRequired")])

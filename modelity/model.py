@@ -95,6 +95,10 @@ class Model(metaclass=ModelMeta):
         for name, field_info in fields.items():
             setattr(self, name, kwargs.get(name, field_info.compute_default()))
 
+    def __repr__(self) -> str:
+        items = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__fields__)
+        return f"{self.__class__.__qualname__}({", ".join(items)})"
+
     def __setattr__(self, name: str, value: Any):
         if value is Undefined:
             return super().__setattr__(name, value)
