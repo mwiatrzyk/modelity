@@ -11,6 +11,7 @@ from modelity.loc import Loc
 from modelity.parsing.parsers import all
 from modelity.parsing.interface import IParser, IParserProvider
 from modelity.validators import Max, Min, Range
+from tests.helpers import ErrorFactoryHelper
 
 
 def make_error(loc: Loc, code: str, **data: Any) -> Error:
@@ -56,7 +57,7 @@ class TestNoneParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_error(loc, "modelity.NoneRequired"),)
+        assert result.errors == tuple([ErrorFactoryHelper.none_required(loc)])
 
 
 class TestIntParser:
@@ -90,7 +91,7 @@ class TestIntParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_error(loc, "modelity.IntegerRequired"),)
+        assert result.errors == tuple([ErrorFactoryHelper.integer_required(loc)])
 
 
 class TestFloatParser:
@@ -123,7 +124,7 @@ class TestFloatParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_error(loc, "modelity.FloatRequired"),)
+        assert result.errors == tuple([ErrorFactoryHelper.float_required(loc)])
 
 
 class TestStrParser:
@@ -146,7 +147,7 @@ class TestStrParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_error(loc, "modelity.StringRequired"),)
+        assert result.errors == tuple([ErrorFactoryHelper.string_required(loc)])
 
 
 class TestBoolParser:
@@ -176,7 +177,7 @@ class TestBoolParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_error(loc, "modelity.BooleanRequired"),)
+        assert result.errors == tuple([ErrorFactoryHelper.boolean_required(loc)])
 
 
 class TestEnumParser:
@@ -213,9 +214,8 @@ class TestEnumParser:
         assert result.value == given
         assert result.errors == tuple(
             [
-                make_error(
+                ErrorFactoryHelper.invalid_enum(
                     loc,
-                    "modelity.InvalidEnum",
                     supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ),
                 )
             ]
@@ -244,7 +244,7 @@ class TestLiteralParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(
-            [make_error(loc, "modelity.InvalidLiteral", supported_values=tuple(supported_values))]
+            [ErrorFactoryHelper.invalid_literal(loc, supported_values=tuple(supported_values))]
         )
 
 
@@ -269,31 +269,31 @@ class TestAnnotated:
                 Annotated[int, Range(1, 10)],
                 "spam",
                 "spam",
-                make_error(Loc(), "modelity.IntegerRequired"),
+                ErrorFactoryHelper.integer_required(Loc()),
             ),
             (
                 Annotated[int, Range(1, 10)],
                 "0",
                 0,
-                make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10),
+                ErrorFactoryHelper.value_out_of_range(Loc(), min=1, max=10),
             ),
             (
                 Annotated[int, Range(1, 10)],
                 "11",
                 11,
-                make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10),
+                ErrorFactoryHelper.value_out_of_range(Loc(), min=1, max=10),
             ),
             (
                 Annotated[int, Min(1), Max(2)],
                 0,
                 0,
-                make_error(Loc(), "modelity.ValueTooLow", min=1),
+                ErrorFactoryHelper.value_too_low(Loc(), min=1),
             ),
             (
                 Annotated[int, Min(1), Max(2)],
                 3,
                 3,
-                make_error(Loc(), "modelity.ValueTooHigh", max=2),
+                ErrorFactoryHelper.value_too_high(Loc(), max=2),
             ),
         ],
     )
@@ -327,7 +327,7 @@ class TestOptionalParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_unsupported_type_error(loc, supported_types),)
+        assert result.errors == (ErrorFactoryHelper.unsupported_type(loc, supported_types),)
 
 
 class TestUnionParser:
@@ -352,7 +352,7 @@ class TestUnionParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == (make_unsupported_type_error(loc, supported_types),)
+        assert result.errors == (ErrorFactoryHelper.unsupported_type(loc, supported_types),)
 
 
 class TestTupleParser:
@@ -376,44 +376,44 @@ class TestTupleParser:
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
         [
-            (tuple, None, (make_error(Loc(), "modelity.IterableRequired"),)),
-            (Tuple[int, ...], None, (make_error(Loc(), "modelity.IterableRequired"),)),
-            (Tuple[int, str, float], None, (make_error(Loc(), "modelity.IterableRequired"),)),
+            (tuple, None, (ErrorFactoryHelper.iterable_required(Loc()),)),
+            (Tuple[int, ...], None, (ErrorFactoryHelper.iterable_required(Loc()),)),
+            (Tuple[int, str, float], None, (ErrorFactoryHelper.iterable_required(Loc()),)),
             (
                 Tuple[int, str, float],
                 ["1"],
-                (make_error(Loc(), "modelity.InvalidTupleFormat", expected_format=(int, str, float)),),
+                (ErrorFactoryHelper.invalid_tuple_format(Loc(), expected_format=(int, str, float)),),
             ),
             (
                 Tuple[int, str, float],
                 ["foo"],
-                (make_error(Loc(), "modelity.InvalidTupleFormat", expected_format=(int, str, float)),),
+                (ErrorFactoryHelper.invalid_tuple_format(Loc(), expected_format=(int, str, float)),),
             ),
             (
                 Tuple[int, str, float],
                 [123, "foo", "bar"],
-                (make_error(Loc(2), "modelity.FloatRequired"),),
+                (ErrorFactoryHelper.float_required(Loc(2)),),
             ),
             (
                 Tuple[int, str, float],
                 ["spam", "foo", "3.14"],
-                (make_error(Loc(0), "modelity.IntegerRequired"),),
+                (ErrorFactoryHelper.integer_required(Loc(0)),),
             ),
             (
                 Tuple[int, str, float],
                 ["spam", 123, "dummy"],
                 (
-                    make_error(Loc(0), "modelity.IntegerRequired"),
-                    make_error(Loc(1), "modelity.StringRequired"),
-                    make_error(Loc(2), "modelity.FloatRequired"),
+                    ErrorFactoryHelper.integer_required(Loc(0)),
+                    ErrorFactoryHelper.string_required(Loc(1)),
+                    ErrorFactoryHelper.float_required(Loc(2)),
                 ),
             ),
-            (Tuple[int, ...], [1, 2, 3, "spam"], (make_error(Loc(3), "modelity.IntegerRequired"),)),
-            (Tuple[Tuple[int]], [1], (make_error(Loc(0), "modelity.IterableRequired"),)),
+            (Tuple[int, ...], [1, 2, 3, "spam"], (ErrorFactoryHelper.integer_required(Loc(3)),)),
+            (Tuple[Tuple[int]], [1], (ErrorFactoryHelper.iterable_required(Loc(0)),)),
             (
                 Tuple[Tuple[int, ...]],
                 [["1", 2, "3", "spam", 4]],
-                (make_error(Loc(0, 3), "modelity.IntegerRequired"),),
+                (ErrorFactoryHelper.integer_required(Loc(0, 3)),),
             ),
         ],
     )
@@ -442,14 +442,14 @@ class TestListParser:
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
         [
-            (list, None, (make_error(Loc(), "modelity.IterableRequired"),)),
-            (list[int], None, (make_error(Loc(), "modelity.IterableRequired"),)),
+            (list, None, (ErrorFactoryHelper.iterable_required(Loc()),)),
+            (list[int], None, (ErrorFactoryHelper.iterable_required(Loc()),)),
             (
                 List[int],
                 ["spam", 123, "dummy"],
                 (
-                    make_error(Loc(0), "modelity.IntegerRequired"),
-                    make_error(Loc(2), "modelity.IntegerRequired"),
+                    ErrorFactoryHelper.integer_required(Loc(0)),
+                    ErrorFactoryHelper.integer_required(Loc(2)),
                 ),
             ),
         ],
@@ -558,7 +558,7 @@ class TestListParser:
             with pytest.raises(ParsingError) as excinfo:
                 sut[index] = value
             assert sut == expected_result
-            assert excinfo.value.errors == (Error.create(Loc(), "modelity.IntegerRequired"),)
+            assert excinfo.value.errors == (ErrorFactoryHelper.integer_required(Loc()),)
 
         @pytest.mark.parametrize(
             "initial_value, expected_length",
@@ -592,7 +592,7 @@ class TestListParser:
             with pytest.raises(ParsingError) as excinfo:
                 sut.insert(index, value)
             assert sut == expected_result
-            assert excinfo.value.errors == (Error.create(Loc(), "modelity.IntegerRequired"),)
+            assert excinfo.value.errors == (ErrorFactoryHelper.integer_required(Loc()),)
 
 
 class TestDictParser:
@@ -615,15 +615,15 @@ class TestDictParser:
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
         [
-            (dict, None, (make_error(Loc(), "modelity.MappingRequired"),)),
-            (dict, [1, 2, 3], (make_error(Loc(), "modelity.MappingRequired"),)),
+            (dict, None, (ErrorFactoryHelper.mapping_required(Loc()),)),
+            (dict, [1, 2, 3], (ErrorFactoryHelper.mapping_required(Loc()),)),
             (
                 Dict[str, int],
                 [("one", "spam")],
-                (make_error(Loc("one"), "modelity.IntegerRequired"),),
+                (ErrorFactoryHelper.integer_required(Loc("one")),),
             ),
-            (Dict[int, str], [("one", "spam")], (make_error(Loc(), "modelity.IntegerRequired"),)),
-            (Dict[int, str], None, (make_error(Loc(), "modelity.MappingRequired"),)),
+            (Dict[int, str], [("one", "spam")], (ErrorFactoryHelper.integer_required(Loc()),)),
+            (Dict[int, str], None, (ErrorFactoryHelper.mapping_required(Loc()),)),
         ],
     )
     def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
@@ -675,8 +675,8 @@ class TestDictParser:
         @pytest.mark.parametrize(
             "initial, key, value, expected_errors",
             [
-                ({}, "one", "spam", [Error.create(Loc(), "modelity.IntegerRequired")]),
-                ({}, 1, 2, [Error.create(Loc(), "modelity.StringRequired")]),
+                ({}, "one", "spam", [ErrorFactoryHelper.integer_required(Loc())]),
+                ({}, 1, 2, [ErrorFactoryHelper.string_required(Loc())]),
             ],
         )
         def test_setting_item_to_invalid_value_causes_parsing_error(
@@ -742,9 +742,9 @@ class TestSetParser:
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
         [
-            (set, None, [make_error(Loc(), "modelity.IterableRequired")]),
-            (Set[int], None, [make_error(Loc(), "modelity.IterableRequired")]),
-            (Set[int], [1, "spam"], [make_error(Loc(), "modelity.IntegerRequired")]),
+            (set, None, [ErrorFactoryHelper.iterable_required(Loc())]),
+            (Set[int], None, [ErrorFactoryHelper.iterable_required(Loc())]),
+            (Set[int], [1, "spam"], [ErrorFactoryHelper.integer_required(Loc())]),
         ],
     )
     def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
@@ -796,7 +796,7 @@ class TestSetParser:
         @pytest.mark.parametrize(
             "initial, given, expected_errors",
             [
-                (set(), "foo", [Error.create(Loc(), "modelity.IntegerRequired")]),
+                (set(), "foo", [ErrorFactoryHelper.integer_required(Loc())]),
             ],
         )
         def test_when_adding_invalid_item_then_parsing_error_is_raised(self, sut: set, initial, given, expected_errors):
