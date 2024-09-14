@@ -113,6 +113,15 @@ class Model(metaclass=ModelMeta):
             raise ParsingError(value.errors)
         super().__setattr__(name, parser(value, Loc(name)))
 
+    def __eq__(self, value: object) -> bool:
+        for name in self.__class__.__fields__:
+            if getattr(self, name) != getattr(value, name):
+                return False
+        return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
+
     def validate(self):
         errors = []
         for name, field_info in self.__class__.__fields__.items():
