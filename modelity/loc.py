@@ -5,6 +5,7 @@ from typing import Any
 
 class Loc(collections.abc.Iterable):
     """Object used to keep error location."""
+
     __slots__ = ("_path",)
 
     def __init__(self, *path: Any):

@@ -3,7 +3,7 @@ from typing import Any, Mapping, Type, get_args
 from typing_extensions import dataclass_transform
 
 from modelity.error import ErrorFactory
-from modelity.exc import ValidationError
+from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.parsing.interface import IParserProvider
@@ -32,16 +32,13 @@ class FieldInfo:
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, FieldInfo):
             return False
-        return self.name == value.name and\
-            self.type == value.type and\
-            self.default == value.default
+        return self.name == value.name and self.type == value.type and self.default == value.default
 
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
 
     def is_optional(self):
-        return self.default is not Undefined or\
-            type(None) in get_args(self.type)
+        return self.default is not Undefined or type(None) in get_args(self.type)
 
     def is_required(self):
         return not self.is_optional()
@@ -91,9 +88,16 @@ class ModelMeta(type):
 class Model(metaclass=ModelMeta):
 
     def __init__(self, **kwargs):
+        errors = []
         fields = self.__class__.__fields__
         for name, field_info in fields.items():
-            setattr(self, name, kwargs.get(name, field_info.compute_default()))
+            default = field_info.compute_default()
+            try:
+                setattr(self, name, kwargs.get(name, default))
+            except ParsingError as e:
+                errors.extend(e.errors)
+        if errors:
+            raise ParsingError(tuple(errors))
 
     def __repr__(self) -> str:
         items = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__fields__)
@@ -104,6 +108,9 @@ class Model(metaclass=ModelMeta):
             return super().__setattr__(name, value)
         field = self.__class__.__fields__[name]
         parser = self.__class__.__config__.parser_provider.provide_parser(field.type)
+        value = parser(value, Loc(name))
+        if isinstance(value, Invalid):
+            raise ParsingError(value.errors)
         super().__setattr__(name, parser(value, Loc(name)))
 
     def validate(self):

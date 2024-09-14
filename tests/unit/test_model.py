@@ -3,11 +3,11 @@ from typing import Optional, Type
 import pytest
 
 from modelity.error import Error
-from modelity.exc import ValidationError
-from modelity.invalid import Invalid
+from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import field, FieldInfo, Model
 from modelity.undefined import Undefined
+from tests.helpers import ErrorFactoryHelper
 
 
 class TestModelType:
@@ -55,40 +55,63 @@ class TestModelType:
         [
             ({}, [("a", Undefined), ("b", Undefined), ("c", 2.71), ("d", "spam")]),
             ({"c": 3.14}, [("a", Undefined), ("b", Undefined), ("c", 3.14), ("d", "spam")]),
-            ({"d": "more spam"}, [("a", Undefined), ("b", Undefined), ("c", 2.71), ("d", "more spam")]),
+            (
+                {"d": "more spam"},
+                [("a", Undefined), ("b", Undefined), ("c", 2.71), ("d", "more spam")],
+            ),
             ({"a": "123"}, [("a", 123), ("b", Undefined), ("c", 2.71), ("d", "spam")]),
             ({"a": "123", "b": None}, [("a", 123), ("b", None), ("c", 2.71), ("d", "spam")]),
         ],
     )
-    def test_create_model_object(self, model: Model, expected_values):
+    def test_create_model_object_successfully(self, model: Model, expected_values):
         for name, expected_value in expected_values:
             assert getattr(model, name) == expected_value
 
-    @pytest.mark.parametrize("name, value, expected_error_codes", [
-        ("a", "spam", ["modelity.IntegerRequired"]),
-        ("b", 123, ["modelity.UnsupportedType"]),
-    ])
-    def test_setting_field_to_invalid_value_causes_invalid_to_be_set(self, model: Model, name, value, expected_error_codes):
-        setattr(model, name, value)
-        result = getattr(model, name)
-        assert isinstance(result, Invalid)
-        assert result.value == value
-        assert result.error_codes == tuple(expected_error_codes)
+    @pytest.mark.parametrize(
+        "initial_params, expected_errors",
+        [
+            ({"a": "spam"}, [ErrorFactoryHelper.integer_required(Loc("a"))]),
+            (
+                {"b": 123},
+                [ErrorFactoryHelper.unsupported_type(Loc("b"), supported_types=(str, type(None)))],
+            ),
+            (
+                {"a": "spam", "b": 123},
+                [
+                    ErrorFactoryHelper.integer_required(Loc("a")),
+                    ErrorFactoryHelper.unsupported_type(Loc("b"), supported_types=(str, type(None))),
+                ],
+            ),
+        ],
+    )
+    def test_creating_model_object_fails_if_one_or_more_params_have_incorrect_type(
+        self, model_type: Type[Model], initial_params, expected_errors
+    ):
+        with pytest.raises(ParsingError) as excinfo:
+            _ = model_type(**initial_params)
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize(
+        "name, value, expected_errors",
+        [
+            ("a", "spam", [ErrorFactoryHelper.integer_required(Loc("a"))]),
+            (
+                "b",
+                123,
+                [ErrorFactoryHelper.unsupported_type(Loc("b"), supported_types=(str, type(None)))],
+            ),
+        ],
+    )
+    def test_setting_field_to_wrong_type_causes_parsing_error(self, model: Model, name, value, expected_errors):
+        with pytest.raises(ParsingError) as excinfo:
+            setattr(model, name, value)
+        assert excinfo.value.errors == tuple(expected_errors)
 
     def test_validating_model_fails_if_required_fields_are_missing(self, model: Model):
         with pytest.raises(ValidationError) as excinfo:
             model.validate()
         assert excinfo.value.model is model
-        assert excinfo.value.errors == tuple([Error.create(Loc("a"), "modelity.RequiredMissing")])
-
-    @pytest.mark.parametrize("initial_params, expected_errors", [
-        ({"a": "spam"}, [Error.create(Loc("a"), "modelity.IntegerRequired")])
-    ])
-    def test_validating_model_fails_if_field_is_set_to_invalid_value(self, model: Model, expected_errors):
-        with pytest.raises(ValidationError) as excinfo:
-            model.validate()
-        assert excinfo.value.model is model
-        assert excinfo.value.errors == tuple(expected_errors)
+        assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("a"))])
 
     class TestInheritance:
 

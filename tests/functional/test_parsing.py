@@ -212,7 +212,13 @@ class TestEnumParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(
-            [make_error(loc, "modelity.InvalidEnum", supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ))]
+            [
+                make_error(
+                    loc,
+                    "modelity.InvalidEnum",
+                    supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ),
+                )
+            ]
         )
 
 
@@ -259,11 +265,36 @@ class TestAnnotated:
     @pytest.mark.parametrize(
         "tp, given, invalid_value, expected_error",
         [
-            (Annotated[int, Range(1, 10)], "spam", "spam", make_error(Loc(), "modelity.IntegerRequired")),
-            (Annotated[int, Range(1, 10)], "0", 0, make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10)),
-            (Annotated[int, Range(1, 10)], "11", 11, make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10)),
-            (Annotated[int, Min(1), Max(2)], 0, 0, make_error(Loc(), "modelity.ValueTooLow", min=1)),
-            (Annotated[int, Min(1), Max(2)], 3, 3, make_error(Loc(), "modelity.ValueTooHigh", max=2)),
+            (
+                Annotated[int, Range(1, 10)],
+                "spam",
+                "spam",
+                make_error(Loc(), "modelity.IntegerRequired"),
+            ),
+            (
+                Annotated[int, Range(1, 10)],
+                "0",
+                0,
+                make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10),
+            ),
+            (
+                Annotated[int, Range(1, 10)],
+                "11",
+                11,
+                make_error(Loc(), "modelity.ValueOutOfRange", min=1, max=10),
+            ),
+            (
+                Annotated[int, Min(1), Max(2)],
+                0,
+                0,
+                make_error(Loc(), "modelity.ValueTooLow", min=1),
+            ),
+            (
+                Annotated[int, Min(1), Max(2)],
+                3,
+                3,
+                make_error(Loc(), "modelity.ValueTooHigh", max=2),
+            ),
         ],
     )
     def test_parsing_fails_if_input_value_is_invalid(self, parser: IParser, given, invalid_value, loc, expected_error):
@@ -379,7 +410,11 @@ class TestTupleParser:
             ),
             (Tuple[int, ...], [1, 2, 3, "spam"], (make_error(Loc(3), "modelity.IntegerRequired"),)),
             (Tuple[Tuple[int]], [1], (make_error(Loc(0), "modelity.IterableRequired"),)),
-            (Tuple[Tuple[int, ...]], [["1", 2, "3", "spam", 4]], (make_error(Loc(0, 3), "modelity.IntegerRequired"),)),
+            (
+                Tuple[Tuple[int, ...]],
+                [["1", 2, "3", "spam", 4]],
+                (make_error(Loc(0, 3), "modelity.IntegerRequired"),),
+            ),
         ],
     )
     def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
@@ -582,7 +617,11 @@ class TestDictParser:
         [
             (dict, None, (make_error(Loc(), "modelity.MappingRequired"),)),
             (dict, [1, 2, 3], (make_error(Loc(), "modelity.MappingRequired"),)),
-            (Dict[str, int], [("one", "spam")], (make_error(Loc("one"), "modelity.IntegerRequired"),)),
+            (
+                Dict[str, int],
+                [("one", "spam")],
+                (make_error(Loc("one"), "modelity.IntegerRequired"),),
+            ),
             (Dict[int, str], [("one", "spam")], (make_error(Loc(), "modelity.IntegerRequired"),)),
             (Dict[int, str], None, (make_error(Loc(), "modelity.MappingRequired"),)),
         ],
@@ -640,7 +679,9 @@ class TestDictParser:
                 ({}, 1, 2, [Error.create(Loc(), "modelity.StringRequired")]),
             ],
         )
-        def test_setting_item_to_invalid_value_causes_parsing_error(self, sut: dict, initial, key, value, expected_errors):
+        def test_setting_item_to_invalid_value_causes_parsing_error(
+            self, sut: dict, initial, key, value, expected_errors
+        ):
             with pytest.raises(ParsingError) as excinfo:
                 sut[key] = value
             assert sut == initial

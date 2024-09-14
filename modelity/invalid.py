@@ -9,6 +9,7 @@ class Invalid:
 
     This allows to glue invalid input value with errors that it caused.
     """
+
     __slots__ = ("value", "errors")
 
     #: The given invalid value.

@@ -4,6 +4,7 @@ class UndefinedType:
     This type is used by Modelity to distinguish between unset values and f.e.
     values set to ``None``.
     """
+
     _instance = None
 
     def __new__(cls):

@@ -12,16 +12,19 @@ def test_repr_of_undefined():
     assert repr(Undefined) == "Undefined"
 
 
-@pytest.mark.parametrize("left, right, is_equal", [
-    (Undefined, Undefined, True),
-    (Undefined, None, False),
-    (Undefined, 0, False),
-    (Undefined, "", False),
-    (Undefined, False, False),
-    (UndefinedType(), Undefined, True),
-    (Undefined, UndefinedType(), True),
-    (UndefinedType(), UndefinedType(), True),
-])
+@pytest.mark.parametrize(
+    "left, right, is_equal",
+    [
+        (Undefined, Undefined, True),
+        (Undefined, None, False),
+        (Undefined, 0, False),
+        (Undefined, "", False),
+        (Undefined, False, False),
+        (UndefinedType(), Undefined, True),
+        (Undefined, UndefinedType(), True),
+        (UndefinedType(), UndefinedType(), True),
+    ],
+)
 def test_equality_checks(left, right, is_equal):
     computed_equality = left == right
     assert computed_equality == is_equal

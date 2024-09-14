@@ -10,4 +10,4 @@ def test(ctx: invoke.Context):
 @invoke.task
 def format(ctx: invoke.Context):
     """Run code formatting tools."""
-    ctx.run("black --line-length=123 .")
+    ctx.run("black --line-length=120 .")
