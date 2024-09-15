@@ -5,8 +5,12 @@ from typing import Literal, Optional, Union
 
 import pytest
 
-from modelity.model import Model
+from modelity.exc import ParsingError
+from modelity.loc import Loc
+from modelity.model import Model, field
 from modelity.undefined import Undefined
+
+from tests.helpers import ErrorFactoryHelper
 
 JSONRPC = Literal["2.0"]
 
@@ -18,7 +22,7 @@ IdType = Union[str, int]
 class Request(Model):
     jsonrpc: JSONRPC
     method: str
-    params: Optional[StructuredType]
+    params: StructuredType = field(optional=True)
     id: IdType
 
 
@@ -37,6 +41,14 @@ class TestRequest:
         def test_jsonrpc(self, req: Request, expected_value):
             assert req.jsonrpc == expected_value
 
+        @pytest.mark.parametrize("value, expected_errors", [
+            ("3.0", [ErrorFactoryHelper.invalid_literal(Loc("jsonrpc"), ("2.0",))]),
+        ])
+        def test_jsonrpc_invalid(self, value, expected_errors):
+            with pytest.raises(ParsingError) as excinfo:
+                _ = Request(jsonrpc=value)
+            assert excinfo.value.errors == tuple(expected_errors)
+
         @pytest.mark.parametrize("data, expected_value", [
             ({}, Undefined),
             ({"method": "foo"}, "foo"),
@@ -53,6 +65,15 @@ class TestRequest:
         ])
         def test_params(self, req: Request, expected_value):
             assert req.params == expected_value
+
+        @pytest.mark.parametrize("value, expected_errors", [
+            (123, [ErrorFactoryHelper.unsupported_type(Loc("params"), (list, dict))]),
+            (None, [ErrorFactoryHelper.unsupported_type(Loc("params"), (list, dict))]),
+        ])
+        def test_params_invalid(self, value, expected_errors):
+            with pytest.raises(ParsingError) as excinfo:
+                _ = Request(params=value)
+            assert excinfo.value.errors == tuple(expected_errors)
 
         @pytest.mark.parametrize("data, expected_value", [
             ({}, Undefined),

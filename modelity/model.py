@@ -11,26 +11,53 @@ from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
 
 
-def field(default: Any = Undefined) -> "FieldInfo":
-    return FieldInfo(default=default)
+def field(default: Any = Undefined, optional: bool=False) -> "FieldInfo":
+    """Helper used to declare additional metadata for model field.
+
+    :param default:
+        Field's default value.
+
+    :param optional:
+        Flag telling that the field is optional.
+
+        This can be used to declare fields that can either be set to given type
+        or not set at all, as opposed to :class:`typing.Optional`, which is
+        defacto an union of type ``T`` and ``NoneType``.
+    """
+    return FieldInfo(default=default, optional=optional)
 
 
 @dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class FieldInfo:
+    """Object containing field metadata.
+
+    Objects of this type are automatically created from type annotations, but
+    can also be created explicitly to override field defaults (see :meth:`field`
+    for details).
+    """
     #: Field's name.
     name: str = Undefined
 
-    #: Field's type.
+    #: Field's full type.
     type: Type = Undefined
 
     #: Field's default value.
     default: Any = Undefined
 
+    #: Flag telling if this field is optional.
+    #:
+    #: Normally, you should use :class:`typing.Optional` to indicate that the
+    #: field is optional. However, field declared like that allow ``None`` to be
+    #: explicitly set. If you need to indicate that the field is optional, but
+    #: to also disallow ``None`` as the valid value, then this is the option
+    #: you'll need.
+    optional: bool = False
+
     def __repr__(self) -> str:
         return f"<{self.__module__}.{self.__class__.__qualname__}(name={self.name!r}, type={self.type!r}, default={self.default!r})>"
 
     def __eq__(self, value: object) -> bool:
-        if not isinstance(value, FieldInfo):
+        if type(value) is not FieldInfo:
             return False
         return self.name == value.name and self.type == value.type and self.default == value.default
 
@@ -38,12 +65,20 @@ class FieldInfo:
         return not self.__eq__(value)
 
     def is_optional(self):
-        return self.default is not Undefined or type(None) in get_args(self.type)
+        """Check if this field is optional."""
+        return self.optional or\
+            self.default is not Undefined or\
+            type(None) in get_args(self.type)
 
     def is_required(self):
+        """Check if this field is required.
+
+        This is simply a negation of :meth:`is_optional` method.
+        """
         return not self.is_optional()
 
     def compute_default(self) -> Any:
+        """Compute default value for this field."""
         return self.default
 
 
@@ -53,6 +88,7 @@ class ModelConfig:
 
 
 class ModelMeta(type):
+    """Metaclass for :class:`Model` class."""
     __fields__: Mapping[str, FieldInfo]
     __config__: ModelConfig
 
@@ -74,7 +110,7 @@ class ModelMeta(type):
             if field_info is None:
                 field_info = FieldInfo(field_name, annotation)
             elif isinstance(field_info, FieldInfo):
-                field_info = FieldInfo(field_name, annotation, default=field_info.default)
+                field_info = FieldInfo(field_name, annotation, default=field_info.default, optional=field_info.optional)
             else:
                 field_info = FieldInfo(field_name, annotation, default=field_info)
             fields[field_name] = field_info
@@ -86,6 +122,11 @@ class ModelMeta(type):
 
 @dataclass_transform(kw_only_default=True)
 class Model(metaclass=ModelMeta):
+    """Base class for models.
+
+    To create custom model, you simply need to create subclass of this type and
+    declare fields via annotations.
+    """
 
     def __init__(self, **kwargs):
         errors = []
@@ -129,7 +170,5 @@ class Model(metaclass=ModelMeta):
             if value is Undefined:
                 if field_info.is_required():
                     errors.append(ErrorFactory.required_missing(Loc(name)))
-            elif isinstance(value, Invalid):
-                errors.extend(value.errors)
         if errors:
             raise ValidationError(self, tuple(errors))
