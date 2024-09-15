@@ -5,7 +5,7 @@ from typing import Literal, Optional, Union
 
 import pytest
 
-from modelity.exc import ParsingError
+from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import Model, field
 from modelity.undefined import Undefined
@@ -115,3 +115,28 @@ class TestRequest:
     def test_create_valid_request_object(self, req: Request, expected_req):
         req.validate()
         assert req == expected_req
+
+    @pytest.mark.parametrize(
+        "data, expected_errors",
+        [
+            (
+                {},
+                [
+                    ErrorFactoryHelper.required_missing(Loc("jsonrpc")),
+                    ErrorFactoryHelper.required_missing(Loc("method")),
+                    ErrorFactoryHelper.required_missing(Loc("id")),
+                ],
+            ),
+            (
+                {"jsonrpc": "2.0", "method": "spam"},
+                [
+                    ErrorFactoryHelper.required_missing(Loc("id")),
+                ],
+            ),
+        ],
+    )
+    def test_create_invalid_request_object(self, req: Request, expected_errors):
+        with pytest.raises(ValidationError) as excinfo:
+            req.validate()
+        assert excinfo.value.model is req
+        assert excinfo.value.errors == tuple(expected_errors)
