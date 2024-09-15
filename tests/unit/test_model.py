@@ -113,18 +113,21 @@ class TestModelType:
         assert excinfo.value.model is model
         assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("a"))])
 
-    @pytest.mark.parametrize("left, right, is_equal", [
-        ({}, {}, True),
-        ({"a": 1}, {"a": 1}, True),
-        ({"a": 1}, {"a": 2}, False),
-        ({"a": 1, "b": "spam"}, {"a": 1, "b": "spam"}, True),
-        ({"a": 2, "b": "spam"}, {"a": 1, "b": "spam"}, False),
-        ({"a": 2, "b": "spam"}, {"a": 2, "b": "more spam"}, False),
-        ({"c": 2.71}, {}, True),
-        ({"c": 2.71}, {"c": 3.14}, False),
-        ({"d": "spam"}, {}, True),
-        ({"d": "spam"}, {"d": "more spam"}, False),
-    ])
+    @pytest.mark.parametrize(
+        "left, right, is_equal",
+        [
+            ({}, {}, True),
+            ({"a": 1}, {"a": 1}, True),
+            ({"a": 1}, {"a": 2}, False),
+            ({"a": 1, "b": "spam"}, {"a": 1, "b": "spam"}, True),
+            ({"a": 2, "b": "spam"}, {"a": 1, "b": "spam"}, False),
+            ({"a": 2, "b": "spam"}, {"a": 2, "b": "more spam"}, False),
+            ({"c": 2.71}, {}, True),
+            ({"c": 2.71}, {"c": 3.14}, False),
+            ({"d": "spam"}, {}, True),
+            ({"d": "spam"}, {"d": "more spam"}, False),
+        ],
+    )
     def test_eq_and_ne_operators(self, model_type: Type[Model], left, right, is_equal):
         left = model_type(**left)
         right = model_type(**right)

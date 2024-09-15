@@ -1,17 +1,17 @@
 import dataclasses
-from typing import Any, Mapping, Type, get_args
+from typing import Any, Mapping, Optional, Type, get_args, get_origin
 from typing_extensions import dataclass_transform
 
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.parsing.interface import IParserProvider
+from modelity.parsing.interface import IParser, IParserProvider
 from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
 
 
-def field(default: Any = Undefined, optional: bool=False) -> "FieldInfo":
+def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
     """Helper used to declare additional metadata for model field.
 
     :param default:
@@ -27,7 +27,7 @@ def field(default: Any = Undefined, optional: bool=False) -> "FieldInfo":
     return FieldInfo(default=default, optional=optional)
 
 
-@dataclasses.dataclass(frozen=True, eq=False, repr=False)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False, slots=True)
 class FieldInfo:
     """Object containing field metadata.
 
@@ -35,11 +35,23 @@ class FieldInfo:
     can also be created explicitly to override field defaults (see :meth:`field`
     for details).
     """
+
     #: Field's name.
     name: str = Undefined
 
     #: Field's full type.
     type: Type = Undefined
+
+    #: Field's type origin.
+    #:
+    #: For example, if :attr:`type` is ``List[str]``, then this will be set to ``list``.
+    type_origin: Optional[Type] = None
+
+    #: Field's type args.
+    #:
+    #: For example, if :attr:`type` is ``Dict[str, int]``, then this will be set
+    #: to ``(str, int)`` tuple.
+    type_args: tuple = tuple()
 
     #: Field's default value.
     default: Any = Undefined
@@ -66,9 +78,7 @@ class FieldInfo:
 
     def is_optional(self):
         """Check if this field is optional."""
-        return self.optional or\
-            self.default is not Undefined or\
-            type(None) in get_args(self.type)
+        return self.optional or self.default is not Undefined or type(None) in self.type_args
 
     def is_required(self):
         """Check if this field is required.
@@ -89,6 +99,7 @@ class ModelConfig:
 
 class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
+
     __fields__: Mapping[str, FieldInfo]
     __config__: ModelConfig
 
@@ -105,14 +116,18 @@ class ModelMeta(type):
             yield from attrs.get("__annotations__", {}).items()
 
         fields = dict(iter_inherited_fields())
-        for field_name, annotation in iter_annotations():
+        for field_name, type in iter_annotations():
+            type_origin = get_origin(type)
+            type_args = get_args(type)
             field_info = attrs.pop(field_name, None)
             if field_info is None:
-                field_info = FieldInfo(field_name, annotation)
+                field_info = FieldInfo(field_name, type, type_origin, type_args)
             elif isinstance(field_info, FieldInfo):
-                field_info = FieldInfo(field_name, annotation, default=field_info.default, optional=field_info.optional)
+                field_info = FieldInfo(
+                    field_name, type, type_origin, type_args, default=field_info.default, optional=field_info.optional
+                )
             else:
-                field_info = FieldInfo(field_name, annotation, default=field_info)
+                field_info = FieldInfo(field_name, type, type_origin, type_args, default=field_info)
             fields[field_name] = field_info
         attrs["__fields__"] = fields
         attrs["__slots__"] = tuple(fields)
