@@ -170,6 +170,8 @@ class Model(metaclass=ModelMeta):
         super().__setattr__(name, parser(value, Loc(name)))
 
     def __eq__(self, value: object) -> bool:
+        if type(value) is not self.__class__:
+            return False
         for name in self.__class__.__fields__:
             if getattr(self, name) != getattr(value, name):
                 return False

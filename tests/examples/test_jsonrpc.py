@@ -1,5 +1,6 @@
 # Example models for the JSONRPC 2.0 protocol
 
+from numbers import Number
 from types import NoneType
 from typing import Literal, Optional, Union
 
@@ -14,6 +15,8 @@ from tests.helpers import ErrorFactoryHelper
 
 JSONRPC = Literal["2.0"]
 
+PrimitiveType = Union[str, Number, bool, NoneType]
+
 StructuredType = Union[list, dict]
 
 IdType = Union[str, int]
@@ -27,6 +30,12 @@ class Notification(Model):
 
 class Request(Notification):
     id: IdType
+
+
+class Error(Model):
+    code: int
+    message: str
+    data: Union[PrimitiveType, StructuredType] = field(optional=True)
 
 
 class TestNotification:
@@ -177,4 +186,41 @@ class TestRequest:
         with pytest.raises(ValidationError) as excinfo:
             req.validate()
         assert excinfo.value.model is req
+        assert excinfo.value.errors == tuple(expected_errors)
+
+
+class TestError:
+
+    @pytest.fixture
+    def obj(self, data: dict):
+        return Error(**data)
+
+    @pytest.mark.parametrize("data, expected_obj", [
+        ({"code": -32601, "message": "Method not found"}, Error(code=-32601, message="Method not found")),
+        ({"code": -32601, "message": "Method not found", "data": "foo"}, Error(code=-32601, message="Method not found", data="foo")),
+        ({"code": -32601, "message": "Method not found", "data": "on"}, Error(code=-32601, message="Method not found", data="on")),
+        ({"code": -32601, "message": "Method not found", "data": 123}, Error(code=-32601, message="Method not found", data=123)),
+        ({"code": -32601, "message": "Method not found", "data": 2.71}, Error(code=-32601, message="Method not found", data=2.71)),
+        ({"code": -32601, "message": "Method not found", "data": True}, Error(code=-32601, message="Method not found", data=True)),
+    ])
+    def test_create_valid_object(self, obj: Error, expected_obj):
+        obj.validate()
+        assert obj == expected_obj
+
+    @pytest.mark.parametrize(
+        "data, expected_errors",
+        [
+            (
+                {},
+                [
+                    ErrorFactoryHelper.required_missing(Loc("code")),
+                    ErrorFactoryHelper.required_missing(Loc("message")),
+                ],
+            ),
+        ],
+    )
+    def test_create_invalid_object(self, obj: Error, expected_errors):
+        with pytest.raises(ValidationError) as excinfo:
+            obj.validate()
+        assert excinfo.value.model is obj
         assert excinfo.value.errors == tuple(expected_errors)
