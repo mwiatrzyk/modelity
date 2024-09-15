@@ -1,5 +1,6 @@
 import inspect
-from typing import Callable, Type, get_origin
+import abc
+from typing import Callable, Optional, Type, get_origin
 
 from modelity.exc import UnsupportedType
 
@@ -47,5 +48,8 @@ class TypeParserRegistry(IParserProvider):
         for base in inspect.getmro(tp):
             make_parser = self._type_parser_factories.get(base)
             if make_parser is not None:
+                return make_parser(self, tp)
+        for maybe_base, make_parser in self._type_parser_factories.items():
+            if isinstance(maybe_base, type) and issubclass(tp, maybe_base):
                 return make_parser(self, tp)
         raise UnsupportedType(tp)

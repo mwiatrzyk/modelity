@@ -1,9 +1,10 @@
-from typing import Protocol
+import abc
 
 
-class IValidatable(Protocol):
+class IValidatable(abc.ABC):
     """Interface that all models implement."""
 
+    @abc.abstractmethod
     def validate(self):
         """Validate this model.
 
@@ -16,3 +17,7 @@ class IValidatable(Protocol):
         it can be called several times. It is completely up to the user if,
         when, and how many times this method must be called.
         """
+
+
+class IModel(IValidatable):
+    """Interface for models."""

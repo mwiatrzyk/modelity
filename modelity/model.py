@@ -9,6 +9,7 @@ from modelity.loc import Loc
 from modelity.parsing.interface import IParser, IParserProvider
 from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
+from modelity.interface import IModel
 
 
 def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
@@ -135,6 +136,7 @@ class ModelMeta(type):
         return super().__new__(tp, classname, bases, attrs)
 
 
+@IModel.register
 @dataclass_transform(kw_only_default=True)
 class Model(metaclass=ModelMeta):
     """Base class for models.

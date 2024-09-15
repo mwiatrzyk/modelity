@@ -8,6 +8,7 @@ from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
+from modelity.model import Model
 from modelity.parsing.parsers import all
 from modelity.parsing.interface import IParser, IParserProvider
 from modelity.validators import Max, Min, Range
@@ -814,3 +815,36 @@ class TestSetParser:
         def test_remove_element_from_set(self, sut: set, element, expected_result):
             sut.discard(element)
             assert sut == expected_result
+
+
+class Dummy(Model):
+    value: int
+
+
+class TestModelParser:
+
+    @pytest.mark.parametrize(
+        "tp, given, expected",
+        [
+            (Dummy, {}, Dummy()),
+            (Dummy, Dummy(value=123), Dummy(value=123)),
+            (Dummy, {"value": "123"}, Dummy(value=123)),
+        ],
+    )
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize(
+        "tp, loc, given, expected_errors",
+        [
+            (Dummy, Loc(), None, [ErrorFactoryHelper.mapping_required(Loc())]),
+            (Dummy, Loc("root"), None, [ErrorFactoryHelper.mapping_required(Loc("root"))]),
+            (Dummy, Loc(), {"value": "spam"}, [ErrorFactoryHelper.integer_required(Loc("value"))]),
+            (Dummy, Loc("root"), {"value": "spam"}, [ErrorFactoryHelper.integer_required(Loc("root", "value"))]),
+        ],
+    )
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == tuple(expected_errors)

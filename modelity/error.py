@@ -92,6 +92,10 @@ class ErrorFactory:
         return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
 
     @classmethod
+    def mapping_required(cls, loc: Loc) -> Error:
+        return cls.create(loc, ErrorCode.MAPPING_REQUIRED)
+
+    @classmethod
     def required_missing(cls, loc: Loc) -> Error:
         return cls.create(loc, ErrorCode.REQUIRED_MISSING)
 
