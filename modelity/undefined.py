@@ -5,6 +5,8 @@ class UndefinedType:
     values set to ``None``.
     """
 
+    __slots__ = tuple()
+
     _instance = None
 
     def __new__(cls):

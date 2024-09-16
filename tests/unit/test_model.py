@@ -2,12 +2,31 @@ from typing import Optional, Type
 
 import pytest
 
-from modelity.error import Error
+from mockify.api import Mock, satisfied, Raise, ordered, Return
+
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import field, FieldInfo, Model
+from modelity.model import field, field_validator, model_validator, FieldInfo, Model
 from modelity.undefined import Undefined
+
 from tests.helpers import ErrorFactoryHelper
+
+
+@pytest.fixture
+def mock():
+    mock = Mock("mock")
+    with satisfied(mock):
+        yield mock
+
+
+@pytest.fixture
+def initial_params():
+    return {}
+
+
+@pytest.fixture
+def model(model_type: Type[Model], initial_params: dict):
+    return model_type(**initial_params)
 
 
 class TestModelType:
@@ -22,14 +41,6 @@ class TestModelType:
             d: str = field(default="spam")
 
         return Dummy
-
-    @pytest.fixture
-    def initial_params(self):
-        return {}
-
-    @pytest.fixture
-    def model(self, model_type: Type[Model], initial_params: dict):
-        return model_type(**initial_params)
 
     @pytest.fixture
     def expected_fields(self):
@@ -191,26 +202,652 @@ class TestModelType:
             assert list(model_type.__fields__.keys()) == expected_field_names
 
 
-class TestModel:
+class TestNestedModel:
 
     @pytest.fixture
     def model_type(self):
 
+        class Child(Model):
+            foo: int
+
+        class Parent(Model):
+            child: Child
+
+        return Parent
+
+    @pytest.mark.parametrize(
+        "initial_params, expected_foo",
+        [
+            ({"child": {"foo": "123"}}, 123),
+        ],
+    )
+    def test_create_valid_model(self, model: Model, expected_foo):
+        model.validate()
+        assert model.child.foo == expected_foo
+
+    @pytest.mark.parametrize(
+        "initial_params, expected_errors",
+        [
+            ({}, [ErrorFactoryHelper.required_missing(Loc("child"))]),
+            ({"child": {}}, [ErrorFactoryHelper.required_missing(Loc("child", "foo"))]),
+        ],
+    )
+    def test_create_invalid_model(self, model: Model, expected_errors):
+        with pytest.raises(ValidationError) as excinfo:
+            model.validate()
+        assert excinfo.value.model is model
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize(
+        "given_child, expected_foo",
+        [
+            ({"foo": "123"}, 123),
+        ],
+    )
+    def test_set_child_attribute_to_valid_value(self, model: Model, given_child, expected_foo):
+        model.child = given_child
+        assert model.child.foo == expected_foo
+
+    @pytest.mark.parametrize(
+        "given_child, expected_errors",
+        [
+            (None, [ErrorFactoryHelper.mapping_required(Loc("child"))]),
+            ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("child", "foo"))]),
+        ],
+    )
+    def test_set_child_attribute_to_invalid_value(self, model: Model, given_child, expected_errors):
+        with pytest.raises(ParsingError) as excinfo:
+            model.child = given_child
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    def test_set_child_foo_to_valid_value(self, model: Model):
+        model.child = {}
+        model.child.foo = "123"
+        assert model.child.foo == 123
+
+    def test_set_child_foo_to_invalid_value(self, model: Model):
+        model.child = {}
+        with pytest.raises(ParsingError) as excinfo:
+            model.child.foo = "spam"
+        assert excinfo.value.errors == tuple([ErrorFactoryHelper.integer_required(Loc("child", "foo"))])
+
+
+class TestFieldValidator:
+
+    @pytest.fixture
+    def model_type(self, mock):
+
         class Dummy(Model):
-            a: int
-            b: Optional[str]
+            foo: Optional[int]
+            bar: Optional[int]
+
+            @field_validator()
+            def _validate_foo(name, value):
+                return mock(name, value)
 
         return Dummy
 
-    @pytest.fixture
-    def initial_args(self):
-        return {}
+    def test_field_validator_is_not_called_if_fields_are_not_set(self, model: Model):
+        model.validate()
+
+    def test_when_only_foo_field_set_then_validator_is_called_for_foo_field_only(self, model: Model, mock):
+        model.foo = 123
+        mock.expect_call("foo", 123)
+        model.validate()
+
+    def test_when_all_fields_set_then_validator_is_called_for_all_fields(self, model: Model, mock):
+        model.foo = 123
+        model.bar = 456
+        mock.expect_call("foo", 123)
+        mock.expect_call("bar", 456)
+        with ordered(mock):
+            model.validate()
+
+    @pytest.mark.parametrize(
+        "name, value, converted_value, given_error, expected_error",
+        [
+            (
+                "foo",
+                "123",
+                123,
+                ErrorFactoryHelper.value_error(Loc(), "an error"),
+                ErrorFactoryHelper.value_error(Loc("foo"), "an error"),
+            ),
+            (
+                "foo",
+                "123",
+                123,
+                ErrorFactoryHelper.value_error(Loc(1), "an error"),
+                ErrorFactoryHelper.value_error(Loc("foo", 1), "an error"),
+            ),
+        ],
+    )
+    def test_when_validator_returns_error_then_validation_fails_with_that_error(
+        self, model: Model, mock, name, value, converted_value, given_error, expected_error
+    ):
+        setattr(model, name, value)
+        mock.expect_call(name, converted_value).will_once(Return(given_error))
+        with pytest.raises(ValidationError) as excinfo:
+            model.validate()
+        assert excinfo.value.model == model
+        assert excinfo.value.errors == tuple([expected_error])
+
+    @pytest.mark.parametrize(
+        "name, value, converted_value, given_errors, expected_errors",
+        [
+            (
+                "foo",
+                "123",
+                123,
+                [ErrorFactoryHelper.value_error(Loc(), "an error")],
+                [ErrorFactoryHelper.value_error(Loc("foo"), "an error")],
+            ),
+            (
+                "foo",
+                "123",
+                123,
+                [ErrorFactoryHelper.value_error(Loc(1), "an error")],
+                [ErrorFactoryHelper.value_error(Loc("foo", 1), "an error")],
+            ),
+        ],
+    )
+    def test_when_validator_returns_tuple_of_errors_then_validation_fails_with_that_errors(
+        self, model: Model, mock, name, value, converted_value, given_errors, expected_errors
+    ):
+        setattr(model, name, value)
+        mock.expect_call(name, converted_value).will_once(Return(tuple(given_errors)))
+        with pytest.raises(ValidationError) as excinfo:
+            model.validate()
+        assert excinfo.value.model == model
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize(
+        "name, value, exception, expected_error",
+        [
+            ("foo", 123, ValueError("an error"), ErrorFactoryHelper.value_error(Loc("foo"), "an error")),
+            ("foo", 123, TypeError("an error"), ErrorFactoryHelper.type_error(Loc("foo"), "an error")),
+        ],
+    )
+    def test_when_validator_raises_value_or_type_error_then_it_is_converted_to_error(
+        self, model: Model, mock, name, value, exception, expected_error
+    ):
+        setattr(model, name, value)
+        mock.expect_call(name, value).will_once(Raise(exception))
+        with pytest.raises(ValidationError) as excinfo:
+            model.validate()
+        assert excinfo.value.errors == tuple([expected_error])
+
+    def test_when_validator_declared_with_wrong_signature_then_raise_type_error(self):
+        with pytest.raises(TypeError) as excinfo:
+
+            class Dummy(Model):
+                @field_validator("foo")
+                def _validate_foo(value, name):
+                    pass
+
+        assert (
+            str(excinfo.value)
+            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, model, name, value)"
+        )
+
+    def test_declare_validator_without_args(self, mock):
+        class Dummy(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo():
+                return mock()
+
+        dummy = Dummy(foo=123)
+        mock.expect_call()
+        dummy.validate()
+
+    def test_declare_validator_with_cls_only(self, mock):
+        class Dummy(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo(cls):
+                return mock(cls)
+
+        dummy = Dummy(foo=123)
+        mock.expect_call(Dummy)
+        dummy.validate()
+
+    def test_declare_validator_with_model_only(self, mock):
+        class Dummy(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo(model):
+                return mock(model)
+
+        dummy = Dummy(foo=123)
+        mock.expect_call(dummy)
+        dummy.validate()
+
+    def test_declare_validator_with_name_only(self, mock):
+        class Dummy(Model):
+            foo: int
+            bar: int
+
+            @field_validator()
+            def _validate_all(name):
+                return mock(name)
+
+        dummy = Dummy(foo=123, bar=456)
+        mock.expect_call("foo")
+        mock.expect_call("bar")
+        with ordered(mock):
+            dummy.validate()
+
+    def test_declare_validator_with_value_only(self, mock):
+        class Dummy(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo(value):
+                return mock(value)
+
+        dummy = Dummy(foo=123)
+        mock.expect_call(123)
+        dummy.validate()
+
+    class TestValidateSelectedField:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: Optional[int]
+                bar: Optional[int]
+
+                @field_validator("foo")
+                def _validate_foo(name: str, value: int):
+                    return mock(name, value)
+
+            return Dummy
+
+        def test_validator_is_not_triggered_if_field_is_not_set(self, model: Model):
+            model.bar = 123
+            model.validate()
+
+        def test_validator_is_triggered_if_field_is_set(self, model: Model, mock):
+            model.foo = 123
+            mock.expect_call("foo", 123)
+            model.validate()
+
+    class TestMultipleValidators:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: Optional[int]
+                bar: Optional[int]
+
+                @field_validator("foo")
+                def _validate_foo(name: str, value: int):
+                    return mock.foo(name, value)
+
+                @field_validator("bar")
+                def _validate_bar(name: str, value: int):
+                    return mock.bar(name, value)
+
+            return Dummy
+
+        def test_when_foo_set_then_run_foo_validator_only(self, model: Model, mock):
+            model.foo = 123
+            mock.foo.expect_call("foo", 123)
+            model.validate()
+
+        def test_when_bar_set_then_run_bar_validator_only(self, model: Model, mock):
+            model.bar = 123
+            mock.bar.expect_call("bar", 123)
+            model.validate()
+
+        def test_when_both_fields_set_then_run_both_validators(self, model: Model, mock):
+            model.foo = 1
+            model.bar = 2
+            mock.foo.expect_call("foo", 1)
+            mock.bar.expect_call("bar", 2)
+            with ordered(mock):
+                model.validate()
+
+    class TestMultipleValidatorsForSameField:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: Optional[int]
+
+                @field_validator("foo")
+                def _validate_foo_1(name: str, value: int):
+                    return mock.foo1(name, value)
+
+                @field_validator("foo")
+                def _validate_foo_2(name: str, value: int):
+                    return mock.foo2(name, value)
+
+            return Dummy
+
+        def test_when_field_set_then_both_validators_are_called(self, model: Model, mock):
+            model.foo = 123
+            mock.foo1.expect_call("foo", 123).will_once(Raise(ValueError("first error")))
+            mock.foo2.expect_call("foo", 123).will_once(Raise(ValueError("second error")))
+            with pytest.raises(ValidationError) as excinfo:
+                with ordered(mock):
+                    model.validate()
+            assert excinfo.value.errors == tuple(
+                [
+                    ErrorFactoryHelper.value_error(Loc("foo"), "first error"),
+                    ErrorFactoryHelper.value_error(Loc("foo"), "second error"),
+                ]
+            )
+
+    class TestInheritedValidator:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Base(Model):
+                foo: Optional[int]
+
+                @field_validator("foo")
+                def _validate_base(name, value):
+                    return mock.base(name, value)
+
+            class Child(Base):
+
+                @field_validator("foo")
+                def _validate_child(name, value):
+                    return mock.child(name, value)
+
+            return Child
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 123}])
+        def test_when_child_is_validated_then_validator_inherited_from_base_is_also_called(self, model: Model, mock):
+            mock.base.expect_call("foo", 123)
+            mock.child.expect_call("foo", 123)
+            with ordered(mock):
+                model.validate()
+
+    class TestMixedInValidator:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Foo:
+                foo: int
+
+                @field_validator("foo")
+                def _validate_foo(name, value):
+                    return mock.foo(name, value)
+
+            class Bar:
+                bar: int
+
+                @field_validator("bar")
+                def _validate_bar(name, value):
+                    return mock.bar(name, value)
+
+            class Dummy(Model, Foo, Bar):
+                pass
+
+            return Dummy
+
+        @pytest.mark.parametrize(
+            "initial_params",
+            [
+                {"foo": 1, "bar": 2},
+            ],
+        )
+        def test_when_class_is_validated_then_mixed_in_validators_are_also_called(self, model: Model, mock):
+            mock.foo.expect_call("foo", 1)
+            mock.bar.expect_call("bar", 2)
+            with ordered(mock):
+                model.validate()
+
+
+class TestModelValidator:
 
     @pytest.fixture
-    def model(self, model_type: Type[Model], initial_args):
-        return model_type(**initial_args)
+    def model_type(self, mock):
 
-    @pytest.mark.parametrize("initial_args, expected_values", [({}, [("a", Undefined), ("b", Undefined)])])
-    def test_create_model_object(self, model: Model, expected_values):
-        for name, expected_value in expected_values:
-            assert getattr(model, name) == expected_value
+        class Dummy(Model):
+            foo: int
+
+            @model_validator
+            def _validate_dummy():
+                return mock()
+
+        return Dummy
+
+    @pytest.mark.parametrize("initial_params", [{"foo": 1}])
+    def test_model_validator_is_called_when_validate_is_called(self, model: Model, mock):
+        mock.expect_call()
+        model.validate()
+
+    @pytest.mark.parametrize(
+        "validator_action, expected_errors",
+        [
+            (
+                Return(ErrorFactoryHelper.value_error(Loc(), "an error")),
+                [ErrorFactoryHelper.value_error(Loc(), "an error")],
+            ),
+            (
+                Return(tuple([ErrorFactoryHelper.value_error(Loc(), "an error")])),
+                [ErrorFactoryHelper.value_error(Loc(), "an error")],
+            ),
+            (
+                Raise(ValueError("foo")),
+                [ErrorFactoryHelper.value_error(Loc(), "foo")],
+            ),
+            (
+                Raise(TypeError("bar")),
+                [ErrorFactoryHelper.type_error(Loc(), "bar")],
+            ),
+            (Return(None), []),
+        ],
+    )
+    def test_model_validator_is_called_after_built_in_validators(
+        self, model: Model, mock, validator_action, expected_errors
+    ):
+        mock.expect_call().will_once(validator_action)
+        with pytest.raises(ValidationError) as excinfo:
+            model.validate()
+        assert excinfo.value.errors == (ErrorFactoryHelper.required_missing(Loc("foo")),) + tuple(expected_errors)
+
+    def test_when_declared_with_wrong_signature_then_type_error_is_raised(self):
+        with pytest.raises(TypeError) as excinfo:
+
+            class Dummy(Model):
+                @model_validator
+                def _invalid_validator(cls, foo, model):
+                    pass
+
+        assert (
+            str(excinfo.value)
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, model, errors, root_model)"
+        )
+
+    def test_declare_with_cls_only(self, mock):
+
+        class Dummy(Model):
+            @model_validator
+            def _validator(cls):
+                return mock(cls)
+
+        dummy = Dummy()
+        mock.expect_call(Dummy)
+        dummy.validate()
+
+    def test_declare_with_model_only(self, mock):
+
+        class Dummy(Model):
+            @model_validator
+            def _validator(model):
+                return mock(model)
+
+        dummy = Dummy()
+        mock.expect_call(dummy)
+        dummy.validate()
+
+    def test_declare_with_root_model_only(self, mock):
+
+        class Dummy(Model):
+            @model_validator
+            def _validator(root_model):
+                return mock(root_model)
+
+        dummy = Dummy()
+        mock.expect_call(dummy)
+        dummy.validate()
+
+    def test_declare_with_errors_only(self, mock):
+
+        class Dummy(Model):
+            foo: int
+
+            @model_validator
+            def _validator(errors):
+                return mock(errors)
+
+        dummy = Dummy()
+        mock.expect_call(tuple([ErrorFactoryHelper.required_missing(Loc("foo"))]))
+        with pytest.raises(ValidationError):
+            dummy.validate()
+
+    class TestMultipleValidators:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: int
+
+                @model_validator
+                def _first():
+                    return mock.first()
+
+                @model_validator
+                def _second():
+                    return mock.second()
+
+            return Dummy
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 123}])
+        def test_validators_are_called_in_their_declaration_order(self, model: Model, mock):
+            mock.first.expect_call()
+            mock.second.expect_call()
+            with ordered(mock):
+                model.validate()
+
+    class TestInheritedValidators:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Base(Model):
+
+                @model_validator
+                def _validate_child():
+                    return mock.base()
+
+            class Child(Base):
+                foo: int
+
+                @model_validator
+                def _validate_child():
+                    return mock.child()
+
+            return Child
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 123}])
+        def test_when_base_class_contains_validator_then_it_is_also_called_for_child_class(self, model: Model, mock):
+            mock.base.expect_call()
+            mock.child.expect_call()
+            with ordered(mock):
+                model.validate()
+
+    class TestMixedInValidators:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Foo:
+
+                @model_validator
+                def _validate_foo():
+                    return mock.foo()
+
+            class Bar:
+
+                @model_validator
+                def _validate_bar():
+                    return mock.bar()
+
+            class Dummy(Model, Foo, Bar):
+                pass
+
+            return Dummy
+
+        def test_validators_provided_by_mixins_are_also_called_when_validate_is_called(self, model: Model, mock):
+            mock.foo.expect_call()
+            mock.bar.expect_call()
+            with ordered(mock):
+                model.validate()
+
+    class TestNestedModelValidation:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Child(Model):
+                bar: Optional[int]
+
+                @model_validator
+                def _validate_child(model: "Child", root_model: "Parent"):
+                    return mock.child(model, root_model)
+
+            class Parent(Model):
+                foo: Optional[int]
+                child: Optional[Child]
+
+            return Parent
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 1, "child": {"bar": 2}}])
+        def test_when_parent_is_validated_then_child_validator_receives_parent_model_as_root_model_argument(
+            self, model: Model, mock
+        ):
+            mock.child.expect_call(model.child, model)
+            model.validate()
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 1, "child": {"bar": 2}}])
+        def test_when_child_validator_fails_then_it_contains_proper_error_location(self, model: Model, mock):
+            mock.child.expect_call(model.child, model).will_once(Raise(ValueError("an error")))
+            with pytest.raises(ValidationError) as excinfo:
+                model.validate()
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("child"), "an error")])
+
+        @pytest.mark.parametrize("initial_params", [{"foo": 1, "child": {"bar": 2}}])
+        def test_when_child_validator_fails_with_tuple_of_errors_then_reported_errors_contain_proper_error_location(
+            self, model: Model, mock
+        ):
+            mock.child.expect_call(model.child, model).will_once(
+                Return(
+                    [
+                        ErrorFactoryHelper.value_error(Loc(), "foo"),
+                        ErrorFactoryHelper.value_error(Loc(1), "bar"),
+                    ]
+                )
+            )
+            with pytest.raises(ValidationError) as excinfo:
+                model.validate()
+            assert excinfo.value.errors == tuple(
+                [
+                    ErrorFactoryHelper.value_error(Loc("child"), "foo"),
+                    ErrorFactoryHelper.value_error(Loc("child", 1), "bar"),
+                ]
+            )

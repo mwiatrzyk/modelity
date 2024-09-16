@@ -22,6 +22,8 @@ class ErrorCode:
     VALUE_TOO_LOW = "modelity.ValueTooLow"
     VALUE_TOO_HIGH = "modelity.ValueTooHigh"
     REQUIRED_MISSING = "modelity.RequiredMissing"
+    VALUE_ERROR = "modelity.ValueError"
+    TYPE_ERROR = "modelity.TypeError"
 
 
 @dataclasses.dataclass
@@ -98,6 +100,14 @@ class ErrorFactory:
     @classmethod
     def required_missing(cls, loc: Loc) -> Error:
         return cls.create(loc, ErrorCode.REQUIRED_MISSING)
+
+    @classmethod
+    def value_error(cls, loc: Loc, message: str) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_ERROR, message=message)
+
+    @classmethod
+    def type_error(cls, loc: Loc, message: str) -> Error:
+        return cls.create(loc, ErrorCode.TYPE_ERROR, message=message)
 
     @classmethod
     def value_out_of_range(cls, loc: Loc, min: Number, max: Number) -> Error:

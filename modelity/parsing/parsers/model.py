@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Mapping, Type
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
@@ -10,7 +10,7 @@ registry = TypeParserRegistry()
 
 
 @registry.type_parser_factory(IModel)
-def make_model_parser(tp: IModel):
+def make_model_parser(tp: Type[IModel]):
 
     def parse_model(value, loc):
         if isinstance(value, tp):
@@ -18,7 +18,9 @@ def make_model_parser(tp: IModel):
         if not isinstance(value, Mapping):
             return Invalid(value, ErrorFactory.mapping_required(loc))
         try:
-            return tp(**value)
+            obj = tp(**value)
+            obj.set_loc(loc)
+            return obj
         except ParsingError as e:
             errors = (Error(loc + e.loc, e.code, e.data) for e in e.errors)
             return Invalid(value, *errors)

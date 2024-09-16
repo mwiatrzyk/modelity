@@ -65,3 +65,11 @@ class ErrorFactoryHelper:
     @staticmethod
     def value_too_high(loc: Loc, max: Number):
         return Error.create(loc, "modelity.ValueTooHigh", max=max)
+
+    @staticmethod
+    def value_error(loc: Loc, message: str):
+        return Error.create(loc, "modelity.ValueError", message=message)
+
+    @staticmethod
+    def type_error(loc: Loc, message: str):
+        return Error.create(loc, "modelity.TypeError", message=message)

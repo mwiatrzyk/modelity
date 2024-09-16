@@ -2,13 +2,13 @@
 
 from numbers import Number
 from types import NoneType
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, field
+from modelity.model import Model, field, model_validator
 from modelity.undefined import Undefined
 
 from tests.helpers import ErrorFactoryHelper
@@ -45,6 +45,13 @@ class Response(Model):
     result: AnyType = field(optional=True)
     error: Error = field(optional=True)
     id: ID
+
+    @model_validator
+    def _validate_response(model: "Response"):
+        if model.result is Undefined and model.error is Undefined:
+            raise ValueError("neither 'error' nor 'result' field set")
+        if model.result is not Undefined and model.error is not Undefined:
+            raise ValueError("cannot set both 'error' and 'result' fields")
 
 
 class TestNotification:
@@ -281,6 +288,24 @@ class TestResponse:
                 [
                     ErrorFactoryHelper.required_missing(Loc("jsonrpc")),
                     ErrorFactoryHelper.required_missing(Loc("id")),
+                    ErrorFactoryHelper.value_error(Loc(), "neither 'error' nor 'result' field set"),
+                ],
+            ),
+            (
+                {"jsonrpc": "2.0", "id": 1},
+                [ErrorFactoryHelper.value_error(Loc(), "neither 'error' nor 'result' field set")],
+            ),
+            (
+                {"jsonrpc": "2.0", "id": 1, "error": {}},
+                [
+                    ErrorFactoryHelper.required_missing(Loc("error", "code")),
+                    ErrorFactoryHelper.required_missing(Loc("error", "message")),
+                ],
+            ),
+            (
+                {"jsonrpc": "2.0", "id": 1, "error": {"code": 1, "message": "a message"}, "result": None},
+                [
+                    ErrorFactoryHelper.value_error(Loc(), "cannot set both 'error' and 'result' fields"),
                 ],
             ),
         ],

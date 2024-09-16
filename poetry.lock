@@ -195,6 +195,17 @@ files = [
 ]
 
 [[package]]
+name = "mockify"
+version = "0.14.0"
+description = "Highly customizable and expressive mocking library for Python."
+optional = false
+python-versions = "<4.0,>=3.8"
+files = [
+    {file = "mockify-0.14.0-py3-none-any.whl", hash = "sha256:e112bd9b58cf64d17448d63ce144f06ba8ccbce9a0ede35b0dc7d0c24f6cddaf"},
+    {file = "mockify-0.14.0.tar.gz", hash = "sha256:fb29101062bac981aebd0e571e37a1fac7e0796be47fe50e3a93fc879f90011d"},
+]
+
+[[package]]
 name = "mypy-extensions"
 version = "1.0.0"
 description = "Type system extensions for programs checked with the mypy type checker."
@@ -323,4 +334,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<4"
-content-hash = "fb005ca776c4e5d87bfd7d78c9833ff8c10b8687e3754106460d39d30c8f1d70"
+content-hash = "36d125da735c4c64140f1364b7439aec724e69c3a5f30e6bd15937ffbefeebc2"
