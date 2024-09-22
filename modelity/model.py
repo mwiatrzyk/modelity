@@ -3,7 +3,7 @@ import enum
 import functools
 import inspect
 import itertools
-from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Sequence, Tuple, Type, get_args, get_origin
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Type, Union, get_args, get_origin
 from typing_extensions import dataclass_transform
 
 from modelity import _utils
@@ -14,7 +14,7 @@ from modelity.loc import Loc
 from modelity.parsing.interface import IParserProvider
 from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
-from modelity.interface import IModel, IModelValidator, IFieldValidator
+from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
 _model_special_attrs = ("_loc",)
 
@@ -23,8 +23,9 @@ _model_special_attrs = ("_loc",)
 class _DecoratorInfo:
 
     class Type(enum.Enum):
-        FIELD_VALIDATOR = 1
-        MODEL_VALIDATOR = 2
+        PREPROCESSOR = 1
+        FIELD_VALIDATOR = 2
+        MODEL_VALIDATOR = 3
 
     type: Type
     params: dict
@@ -145,6 +146,49 @@ def model_validator(func: Callable) -> IModelValidator:
     return proxy
 
 
+def preprocessor(*field_names: str):
+
+    def decorator(func: Callable):
+        proxy = wrap_field_processor(func)
+        _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.PREPROCESSOR, field_names=field_names)
+        return proxy
+
+    return decorator
+
+
+def wrap_field_processor(func: Callable) -> IFieldProcessor:
+
+    @functools.wraps(func)
+    def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
+        kw = {}
+        if "cls" in given_params:
+            kw["cls"] = cls
+        if "loc" in given_params:
+            kw["loc"] = loc
+        if "name" in given_params:
+            kw["name"] = name
+        if "value" in given_params:
+            kw["value"] = value
+        try:
+            result = func(**kw)
+        except ValueError as e:
+            return Invalid(value, ErrorFactory.value_error(loc, str(e)))
+        except TypeError as e:
+            return Invalid(value, ErrorFactory.type_error(loc, str(e)))
+        if isinstance(result, Invalid):
+            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data) for e in result.errors))
+        return result
+
+    sig = inspect.signature(func)
+    given_params = tuple(sig.parameters)
+    supported_params = ("cls", "loc", "name", "value")
+    if not _utils.is_subsequence(given_params, supported_params):
+        raise TypeError(
+            f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
+        )
+    return proxy
+
+
 def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
     """Helper used to declare additional metadata for model field.
 
@@ -236,6 +280,7 @@ class ModelMeta(type):
 
     __fields__: Mapping[str, FieldInfo]
     __config__: ModelConfig
+    __preprocessors__: Mapping[str, Sequence[IFieldProcessor]]
     __field_validators__: Mapping[str, Sequence[IFieldValidator]]
     __model_validators__: Sequence[IModelValidator]
 
@@ -273,13 +318,17 @@ class ModelMeta(type):
             else:
                 field_info = FieldInfo(field_name, type, type_origin, type_args, default=field_info)
             fields[field_name] = field_info
+        preprocessors = {}
         model_validators = []
         field_validators = {}
         for attr_value in itertools.chain(inherit_decorators(), attrs.values()):
             decorator_info = _DecoratorInfo.extract_from_object(attr_value)
             if decorator_info is None:
                 continue
-            if decorator_info.type == _DecoratorInfo.Type.MODEL_VALIDATOR:
+            if decorator_info.type == _DecoratorInfo.Type.PREPROCESSOR:
+                for field_name in decorator_info.params.get("field_names", []) or fields:
+                    preprocessors.setdefault(field_name, []).append(attr_value)
+            elif decorator_info.type == _DecoratorInfo.Type.MODEL_VALIDATOR:
                 model_validators.append(attr_value)
             elif decorator_info.type == _DecoratorInfo.Type.FIELD_VALIDATOR:
                 for field_name in decorator_info.params.get("field_names", []) or fields:
@@ -287,6 +336,7 @@ class ModelMeta(type):
         attrs["__fields__"] = fields
         attrs["__slots__"] = _model_special_attrs + tuple(fields)
         attrs["__config__"] = ModelConfig()
+        attrs["__preprocessors__"] = preprocessors
         attrs["__model_validators__"] = tuple(model_validators)
         attrs["__field_validators__"] = field_validators
         return super().__new__(tp, classname, bases, attrs)
@@ -321,9 +371,16 @@ class Model(metaclass=ModelMeta):
     def __setattr__(self, name: str, value: Any):
         if value is Undefined or name in _model_special_attrs:
             return super().__setattr__(name, value)
-        field = self.__class__.__fields__[name]
-        parser = self.__class__.__config__.parser_provider.provide_parser(field.type)
-        value = parser(value, self._loc + Loc(name))
+        cls = self.__class__
+        loc = self.get_loc() + Loc(name)
+        for preprocessor in self.__class__.__preprocessors__.get(name, []):
+            value = preprocessor(cls, loc, name, value)
+            if isinstance(value, Invalid):
+                break
+        if not isinstance(value, Invalid):
+            field = self.__class__.__fields__[name]
+            parser = self.__class__.__config__.parser_provider.provide_parser(field.type)
+            value = parser(value, self._loc + Loc(name))
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
         super().__setattr__(name, value)

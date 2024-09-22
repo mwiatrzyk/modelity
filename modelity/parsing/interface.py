@@ -1,4 +1,4 @@
-from typing import Any, Generic, Tuple, Type, TypeVar, Protocol, Union
+from typing import Any, Generic, Type, TypeVar, Protocol, Union
 
 from modelity.invalid import Invalid
 from modelity.loc import Loc

@@ -1,7 +1,8 @@
 import abc
-from typing import Any, Protocol, Tuple, Type
+from typing import Any, Protocol, Tuple, Type, Union
 
 from modelity.error import Error
+from modelity.invalid import Invalid
 from modelity.loc import Loc
 
 
@@ -41,6 +42,32 @@ class IModel(abc.ABC):
             This argument is only used when this model appears as a field in
             another, parent model. It must point to the root model, which is the
             one for which :meth:`validate` was called.
+        """
+
+
+class IFieldProcessor(Protocol):
+    """Interface for model fields' pre- and postprocessors."""
+
+    def __call__(self, cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
+        """Execute value processor.
+
+        If processor fails to process ``value``, then :class:`Invalid` object
+        should be returned. Otherwise it should return output value that will be
+        used as input to the next processor.
+
+        :param cls:
+            Model type.
+
+        :param loc:
+            The location of the processed field inside a model.
+
+            It already includes field's name.
+
+        :param name:
+            Field's name.
+
+        :param value:
+            Field's value.
         """
 
 

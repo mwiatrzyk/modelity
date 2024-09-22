@@ -2,11 +2,13 @@ from typing import Optional, Type
 
 import pytest
 
-from mockify.api import Mock, satisfied, Raise, ordered, Return
+from mockify.api import Mock, satisfied, Raise, ordered, Return, Invoke, _
 
+from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
+from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.model import field, field_validator, model_validator, FieldInfo, Model
+from modelity.model import field, field_validator, model_validator, FieldInfo, Model, preprocessor, wrap_field_processor
 from modelity.undefined import Undefined
 
 from tests.helpers import ErrorFactoryHelper
@@ -851,3 +853,336 @@ class TestModelValidator:
                     ErrorFactoryHelper.value_error(Loc("child", 1), "bar"),
                 ]
             )
+
+
+class TestWrapFieldProcessor:
+
+    @pytest.fixture
+    def model_type(self):
+
+        class Dummy(Model):
+            pass
+
+        return Dummy
+
+    def test_wrap_function_without_args(self, model: Model, mock):
+
+        def func():
+            return mock()
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call().will_once(Return(123))
+        result = wrapped(type(model), model, "foo", "spam")
+        assert result == 123
+
+    def test_wrap_function_with_cls_arg_only(self, model: Model, mock):
+
+        def func(cls):
+            return mock(cls)
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call(type(model)).will_once(Return(123))
+        result = wrapped(type(model), model, "foo", "spam")
+        assert result == 123
+
+    def test_wrap_function_with_loc_arg_only(self, model: Model, mock):
+
+        def func(loc):
+            return mock(loc)
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call(Loc("foo")).will_once(Return(123))
+        result = wrapped(type(model), Loc("foo"), "foo", "spam")
+        assert result == 123
+
+    def test_wrap_function_with_name_arg_only(self, model: Model, mock):
+
+        def func(name):
+            return mock(name)
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call("foo").will_once(Return(123))
+        result = wrapped(type(model), model, "foo", "spam")
+        assert result == 123
+
+    def test_wrap_function_with_value_arg_only(self, model: Model, mock):
+
+        def func(value):
+            return mock(value)
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call("spam").will_once(Return(123))
+        result = wrapped(type(model), model, "foo", "spam")
+        assert result == 123
+
+    def test_if_wrong_signature_of_wrapped_function_then_raise_type_error(self, model: Model):
+
+        def func(cls, value, name):
+            pass
+
+        with pytest.raises(TypeError) as excinfo:
+            wrap_field_processor(func)
+        assert (
+            str(excinfo.value)
+            == "field processor 'func' has incorrect signature: (cls, value, name) is not a subsequence of (cls, loc, name, value)"
+        )
+
+    @pytest.mark.parametrize(
+        "given_exc, model_loc, field_name, field_value, expected_error",
+        [
+            (ValueError("an error"), Loc(), "foo", 123, ErrorFactoryHelper.value_error(Loc("foo"), "an error")),
+            (
+                ValueError("an error"),
+                Loc("nested"),
+                "foo",
+                123,
+                ErrorFactoryHelper.value_error(Loc("nested", "foo"), "an error"),
+            ),
+            (TypeError("an error"), Loc(), "foo", 123, ErrorFactoryHelper.type_error(Loc("foo"), "an error")),
+            (
+                TypeError("an error"),
+                Loc("nested"),
+                "foo",
+                123,
+                ErrorFactoryHelper.type_error(Loc("nested", "foo"), "an error"),
+            ),
+        ],
+    )
+    def test_if_wrapped_func_raises_type_or_value_error_then_exception_is_converted_to_invalid_object(
+        self, model: Model, mock, given_exc, model_loc, field_name, field_value, expected_error
+    ):
+
+        def func():
+            return mock()
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call().will_once(Raise(given_exc))
+        result = wrapped(type(model), model_loc + Loc(field_name), field_name, field_value)
+        assert isinstance(result, Invalid)
+        assert result.value == field_value
+        assert result.errors == (expected_error,)
+
+    @pytest.mark.parametrize(
+        "field_name, field_value, model_loc, given_loc, expected_loc",
+        [
+            ("foo", 123, Loc(), Loc(), Loc("foo")),
+            ("foo", 123, Loc(), Loc(1), Loc("foo", 1)),
+            ("foo", 123, Loc("nested"), Loc(1), Loc("nested", "foo", 1)),
+        ],
+    )
+    def test_if_wrapped_func_returns_invalid_object_then_new_invalid_object_with_updated_loc_is_returned(
+        self, model: Model, mock, field_name, field_value, model_loc, given_loc, expected_loc
+    ):
+
+        def func():
+            return mock()
+
+        wrapped = wrap_field_processor(func)
+        mock.expect_call().will_once(
+            Return(Invalid(field_value, ErrorFactoryHelper.value_error(given_loc, "an error")))
+        )
+        model.set_loc(model_loc)
+        result = wrapped(type(model), model.get_loc() + Loc(field_name), field_name, field_value)
+        assert isinstance(result, Invalid)
+        assert result.value == field_value
+        assert result.errors == (ErrorFactoryHelper.value_error(expected_loc, "an error"),)
+
+
+class TestPreprocessor:
+
+    @pytest.fixture
+    def model_type(self, mock):
+
+        class Dummy(Model):
+            foo: int
+            bar: int
+
+            @preprocessor()
+            def _preprocess_all(name, value):
+                return mock(name, value)
+
+        return Dummy
+
+    def test_when_nothing_set_then_preprocessor_is_not_called(self, model_type: Type[Model]):
+        model = model_type()
+        assert model.foo == Undefined
+        assert model.bar == Undefined
+
+    def test_when_foo_set_then_preprocessor_is_only_called_for_foo(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", "spam").will_once(Return("123"))
+        model = model_type(foo="spam")
+        assert model.foo == 123
+        assert model.bar == Undefined
+
+    def test_when_foo_and_bar_set_then_preprocessor_is_only_called_for_both(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", "spam").will_once(Return("123"))
+        mock.expect_call("bar", "more spam").will_once(Return("456"))
+        model = model_type(foo="spam", bar="more spam")
+        assert model.foo == 123
+        assert model.bar == 456
+
+    def test_when_invalid_is_return_then_parsing_error_is_raised(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", "spam").will_once(Return(Invalid("spam", ErrorFactory.value_error(Loc(), "an error"))))
+        with pytest.raises(ParsingError) as excinfo:
+            model_type(foo="spam")
+        assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])
+
+    class TestPreprocessorForOneFieldOnly:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: int
+                bar: int
+                baz: int
+
+                @preprocessor("bar")
+                def _preprocess_bar(name, value):
+                    return mock(name, value)
+
+            return Dummy
+
+        def test_set_one_field_having_no_preprocessor(self, model_type: Type[Model]):
+            model = model_type(foo=123)
+            assert model.foo == 123
+
+        def test_set_one_field_having_preprocessor(self, model_type: Type[Model], mock):
+            mock.expect_call("bar", 2).will_once(Return(22))
+            model = model_type(foo=1, bar=2)
+            assert model.foo == 1
+            assert model.bar == 22
+
+        def test_set_all_fields_expecting_preprocessor_to_be_called(self, model_type: Type[Model], mock):
+            mock.expect_call("bar", 2).will_once(Return(22))
+            model = model_type(foo=1, bar=2, baz=3)
+            assert model.foo == 1
+            assert model.bar == 22
+            assert model.baz == 3
+
+    class TestTwoPreprocessorsForFooField:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: int
+
+                @preprocessor("foo")
+                def _first(name, value):
+                    return mock.first(name, value)
+
+                @preprocessor("foo")
+                def _second(name, value):
+                    return mock.second(name, value)
+
+            return Dummy
+
+        def test_result_of_first_preprocessor_is_used_as_value_for_second_preprocessor(
+            self, model_type: Type[Model], mock
+        ):
+            mock.first.expect_call("foo", 1).will_once(Return(2))
+            mock.second.expect_call("foo", 2).will_once(Return(3))
+            with ordered(mock):
+                model = model_type(foo=1)
+            assert model.foo == 3
+
+        def test_if_first_preprocessor_fails_then_second_is_not_called(self, model_type, mock):
+            mock.first.expect_call("foo", 1).will_once(Raise(ValueError("an error")))
+            with pytest.raises(ParsingError) as excinfo:
+                _ = model_type(foo=1)
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])
+
+    class TestInheritedPreprocessors:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Base(Model):
+
+                @preprocessor()
+                def _preprocess_all(name, value):
+                    return mock.base(name, value)
+
+            class Child(Base):
+                foo: int
+                bar: int
+
+                @preprocessor("foo")
+                def _preprocess_bar(name, value):
+                    return mock.child(name, value)
+
+            return Child
+
+        def test_preprocessors_from_base_class_are_also_executed_from_child_class(self, model_type, mock):
+            mock.base.expect_call("foo", 1).will_once(Return(11))
+            mock.child.expect_call("foo", 11).will_once(Return(111))
+            mock.base.expect_call("bar", 2).will_once(Return(22))
+            with ordered(mock):
+                model = model_type(foo=1, bar=2)
+            assert model.foo == 111
+            assert model.bar == 22
+
+    class TestMixedInPreprocessors:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Foo:
+
+                @preprocessor()
+                def _preprocess_foo(name, value):
+                    return mock.foo(name, value)
+
+            class Bar:
+
+                @preprocessor()
+                def _preprocess_bar(name, value):
+                    return mock.bar(name, value)
+
+            class Dummy(Model, Foo, Bar):
+                foo: int
+
+            return Dummy
+
+        def test_mixed_in_preprocessors_are_also_executed(self, model_type, mock):
+            mock.foo.expect_call("foo", 1).will_once(Return(11))
+            mock.bar.expect_call("foo", 11).will_once(Return(111))
+            with ordered(mock):
+                model = model_type(foo=1)
+            assert model.foo == 111
+
+    class TestNestedModelPreprocessor:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Nested(Model):
+                foo: int
+
+                @preprocessor("foo")
+                def _preprocess_foo(name, value):
+                    return mock(name, value)
+
+            class Parent(Model):
+                nested: Nested
+
+            return Parent
+
+        def test_preprocessor_is_called_when_nested_field_is_initialized(self, model_type, mock):
+            mock.expect_call("foo", 1).will_once(Return(11))
+            model = model_type(**{"nested": {"foo": 1}})
+            assert model.nested.foo == 11
+
+        def test_preprocessor_is_called_when_nested_field_is_set(self, model_type, mock):
+            model = model_type(**{"nested": {}})
+            assert model.nested.foo == Undefined
+            mock.expect_call("foo", 1).will_once(Return(11))
+            model.nested.foo = 1
+            assert model.nested.foo == 11
+
+        def test_when_preprocessor_fails_then_parse_error_is_raised(self, model_type, mock):
+            mock.expect_call("foo", 1).will_once(Raise(ValueError("an error")))
+            with pytest.raises(ParsingError) as excinfo:
+                _ = model_type(nested={"foo": 1})
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("nested", "foo"), "an error")])
