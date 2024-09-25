@@ -8,7 +8,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.model import field, field_validator, model_validator, FieldInfo, Model, preprocessor, wrap_field_processor
+from modelity.model import field, field_validator, model_validator, FieldInfo, Model, postprocessor, preprocessor, wrap_field_processor
 from modelity.undefined import Undefined
 
 from tests.helpers import ErrorFactoryHelper
@@ -1185,4 +1185,211 @@ class TestPreprocessor:
             mock.expect_call("foo", 1).will_once(Raise(ValueError("an error")))
             with pytest.raises(ParsingError) as excinfo:
                 _ = model_type(nested={"foo": 1})
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("nested", "foo"), "an error")])
+
+
+class TestPostprocessor:
+
+    @pytest.fixture
+    def model_type(self, mock):
+
+        class Dummy(Model):
+            foo: int
+            bar: int
+
+            @postprocessor()
+            def _postprocess_all(name, value):
+                return mock(name, value)
+
+        return Dummy
+
+    def test_when_nothing_set_then_postprocessor_is_not_called(self, model_type: Type[Model]):
+        model = model_type()
+        assert model.foo == Undefined
+        assert model.bar == Undefined
+
+    def test_when_foo_set_then_postprocessor_is_only_called_for_foo(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", 1).will_once(Return(11))
+        model = model_type(foo="1")
+        assert model.foo == 11
+        assert model.bar == Undefined
+
+    def test_when_foo_and_bar_set_then_preprocessor_is_called_for_both(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", 1).will_once(Return(11))
+        mock.expect_call("bar", 2).will_once(Return(22))
+        model = model_type(foo="1", bar="2")
+        assert model.foo == 11
+        assert model.bar == 22
+
+    def test_when_invalid_is_return_then_parsing_error_is_raised(self, model_type: Type[Model], mock):
+        mock.expect_call("foo", 1).will_once(Return(Invalid(1, ErrorFactory.value_error(Loc(), "an error"))))
+        with pytest.raises(ParsingError) as excinfo:
+            model_type(foo="1")
+        assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])
+
+    def test_postprocessor_is_not_called_when_value_is_invalid(self, model_type: Type[Model]):
+        with pytest.raises(ParsingError) as excinfo:
+            model_type(bar="spam")
+        assert excinfo.value.errors == tuple([
+            ErrorFactoryHelper.integer_required(Loc("bar"))
+        ])
+
+    class TestPostprocessorForOneFieldOnly:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: int
+                bar: int
+                baz: int
+
+                @postprocessor("bar")
+                def _preprocess_bar(name, value):
+                    return mock(name, value)
+
+            return Dummy
+
+        def test_set_one_field_having_no_postprocessor(self, model_type: Type[Model]):
+            model = model_type(foo=123)
+            assert model.foo == 123
+
+        def test_set_one_field_having_postprocessor(self, model_type: Type[Model], mock):
+            mock.expect_call("bar", 2).will_once(Return(22))
+            model = model_type(foo=1, bar="2")
+            assert model.foo == 1
+            assert model.bar == 22
+
+        def test_set_all_fields_expecting_postprocessor_to_be_called(self, model_type: Type[Model], mock):
+            mock.expect_call("bar", 2).will_once(Return(22))
+            model = model_type(foo=1, bar="2", baz=3)
+            assert model.foo == 1
+            assert model.bar == 22
+            assert model.baz == 3
+
+    class TestTwoPostprocessorsForFooField:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Dummy(Model):
+                foo: int
+
+                @postprocessor("foo")
+                def _first(name, value):
+                    return mock.first(name, value)
+
+                @postprocessor("foo")
+                def _second(name, value):
+                    return mock.second(name, value)
+
+            return Dummy
+
+        def test_result_of_first_postprocessor_is_used_as_value_for_second_postprocessor(
+            self, model_type: Type[Model], mock
+        ):
+            mock.first.expect_call("foo", 1).will_once(Return("2"))
+            mock.second.expect_call("foo", "2").will_once(Return(3))
+            with ordered(mock):
+                model = model_type(foo="1")
+            assert model.foo == 3
+
+        def test_if_first_postprocessor_fails_then_second_is_not_called(self, model_type, mock):
+            mock.first.expect_call("foo", 1).will_once(Raise(ValueError("an error")))
+            with pytest.raises(ParsingError) as excinfo:
+                _ = model_type(foo="1")
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])
+
+    class TestInheritedPostprocessors:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Base(Model):
+
+                @postprocessor()
+                def _base(name, value):
+                    return mock.base(name, value)
+
+            class Child(Base):
+                foo: int
+                bar: int
+
+                @postprocessor("foo")
+                def _child(name, value):
+                    return mock.child(name, value)
+
+            return Child
+
+        def test_postprocessors_from_base_class_are_also_executed_from_child_class(self, model_type, mock):
+            mock.base.expect_call("foo", 1).will_once(Return("11"))
+            mock.child.expect_call("foo", "11").will_once(Return(111))
+            mock.base.expect_call("bar", 2).will_once(Return(22))
+            with ordered(mock):
+                model = model_type(foo="1", bar="2")
+            assert model.foo == 111
+            assert model.bar == 22
+
+    class TestMixedInPostprocessors:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Foo:
+
+                @postprocessor()
+                def _foo(name, value):
+                    return mock.foo(name, value)
+
+            class Bar:
+
+                @postprocessor()
+                def _bar(name, value):
+                    return mock.bar(name, value)
+
+            class Dummy(Model, Foo, Bar):
+                foo: int
+
+            return Dummy
+
+        def test_mixed_in_postprocessors_are_also_executed(self, model_type, mock):
+            mock.foo.expect_call("foo", 1).will_once(Return("11"))
+            mock.bar.expect_call("foo", "11").will_once(Return(111))
+            with ordered(mock):
+                model = model_type(foo="1")
+            assert model.foo == 111
+
+    class TestNestedModelPostprocessor:
+
+        @pytest.fixture
+        def model_type(self, mock):
+
+            class Nested(Model):
+                foo: int
+
+                @postprocessor("foo")
+                def _foo(name, value):
+                    return mock(name, value)
+
+            class Parent(Model):
+                nested: Nested
+
+            return Parent
+
+        def test_postprocessor_is_called_when_nested_field_is_initialized(self, model_type, mock):
+            mock.expect_call("foo", 1).will_once(Return(11))
+            model = model_type(**{"nested": {"foo": "1"}})
+            assert model.nested.foo == 11
+
+        def test_postprocessor_is_called_when_nested_field_is_set(self, model_type, mock):
+            model = model_type(**{"nested": {}})
+            assert model.nested.foo == Undefined
+            mock.expect_call("foo", 1).will_once(Return(11))
+            model.nested.foo = "1"
+            assert model.nested.foo == 11
+
+        def test_when_postprocessor_fails_then_parse_error_is_raised(self, model_type, mock):
+            mock.expect_call("foo", 1).will_once(Raise(ValueError("an error")))
+            with pytest.raises(ParsingError) as excinfo:
+                _ = model_type(nested={"foo": "1"})
             assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("nested", "foo"), "an error")])
