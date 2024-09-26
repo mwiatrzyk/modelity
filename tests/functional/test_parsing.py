@@ -1,5 +1,4 @@
 import enum
-from types import NoneType
 from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
 import pytest
@@ -42,7 +41,7 @@ class TestNoneParser:
 
     @pytest.fixture
     def tp(self):
-        return NoneType
+        return type(None)
 
     @pytest.mark.parametrize(
         "given, expected",
@@ -321,7 +320,7 @@ class TestOptionalParser:
     @pytest.mark.parametrize(
         "tp, given, supported_types",
         [
-            (Optional[str], 123, (str, NoneType)),
+            (Optional[str], 123, (str, type(None))),
         ],
     )
     def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, supported_types):

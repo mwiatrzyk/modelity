@@ -1,7 +1,6 @@
 # Example models for the JSONRPC 2.0 protocol
 
 from numbers import Number
-from types import NoneType
 from typing import Literal, Union
 
 import pytest
@@ -15,7 +14,7 @@ from tests.helpers import ErrorFactoryHelper
 
 JSONRPC = Literal["2.0"]
 
-PrimitiveType = Union[str, Number, bool, NoneType]
+PrimitiveType = Union[str, Number, bool, type(None)]
 
 StructuredType = Union[list, dict]
 
