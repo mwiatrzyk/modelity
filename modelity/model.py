@@ -381,7 +381,7 @@ class Model(metaclass=ModelMeta):
 
     def __repr__(self) -> str:
         items = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__fields__)
-        return f"{self.__class__.__name__}({", ".join(items)})"
+        return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __setattr__(self, name: str, value: Any):
         if value is Undefined or name in _model_special_attrs:
