@@ -11,8 +11,8 @@ from modelity.error import ErrorFactory, Error
 from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.parsing.interface import IParserProvider
-from modelity.parsing.parsers.all import registry
+from modelity.interface import ITypeParserProvider
+from modelity.parsing.type_parsers.all import provider
 from modelity.undefined import Undefined
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
@@ -44,7 +44,40 @@ class _DecoratorInfo:
         return getattr(obj, "__modelity_decorator__", None)
 
 
-def field_validator(*field_names: str) -> IFieldValidator:
+def _wrap_field_processor(func: Callable) -> IFieldProcessor:
+
+    @functools.wraps(func)
+    def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
+        kw = {}
+        if "cls" in given_params:
+            kw["cls"] = cls
+        if "loc" in given_params:
+            kw["loc"] = loc
+        if "name" in given_params:
+            kw["name"] = name
+        if "value" in given_params:
+            kw["value"] = value
+        try:
+            result = func(**kw)
+        except ValueError as e:
+            return Invalid(value, ErrorFactory.value_error(loc, str(e)))
+        except TypeError as e:
+            return Invalid(value, ErrorFactory.type_error(loc, str(e)))
+        if isinstance(result, Invalid):
+            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data) for e in result.errors))
+        return result
+
+    sig = inspect.signature(func)
+    given_params = tuple(sig.parameters)
+    supported_params = ("cls", "loc", "name", "value")
+    if not _utils.is_subsequence(given_params, supported_params):
+        raise TypeError(
+            f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
+        )
+    return proxy
+
+
+def field_validator(*field_names: str):
     """Decorate custom function as a field validator.
 
     Field validators are executed only if field has value assigned, implying
@@ -60,7 +93,7 @@ def field_validator(*field_names: str) -> IFieldValidator:
         If none given, then it will run for all fields in a model it is declared in.
     """
 
-    def decorator(func):
+    def decorator(func) -> IFieldValidator:
 
         @functools.wraps(func)
         def proxy(cls: Type[IModel], model: IModel, name: str, value: Any):
@@ -148,9 +181,20 @@ def model_validator(func: Callable) -> IModelValidator:
 
 
 def preprocessor(*field_names: str):
+    """Decorate a function as a field value preprocessor.
 
-    def decorator(func: Callable):
-        proxy = wrap_field_processor(func)
+    Preprocessors are called when value is set, before type parsing takes
+    place. The role of preprocessors is to perform input data filtering for
+    further steps like type parsing and postprocessors.
+
+    :param `*field_names`:
+        List of field names this preprocessor will be called for.
+
+        If not set, then it will be called for every field.
+    """
+
+    def decorator(func: Callable) -> IFieldProcessor:
+        proxy = _wrap_field_processor(func)
         _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.PREPROCESSOR, field_names=field_names)
         return proxy
 
@@ -158,46 +202,24 @@ def preprocessor(*field_names: str):
 
 
 def postprocessor(*field_names: str):
+    """Decorate a function as a field value postprocessor.
+
+    Postprocessors are called after preprocessors and type parsing, therefore
+    it can be assumed that a value is of valid type when postprocessors are
+    called.
+
+    :param `*field_names`:
+        List of field names this postprocessor will be called for.
+
+        If left empty, then it will be called for every field.
+    """
 
     def decorator(func: Callable) -> IFieldProcessor:
-        proxy = wrap_field_processor(func)
+        proxy = _wrap_field_processor(func)
         _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.POSTPROCESSOR, field_names=field_names)
         return proxy
 
     return decorator
-
-
-def wrap_field_processor(func: Callable) -> IFieldProcessor:
-
-    @functools.wraps(func)
-    def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
-        kw = {}
-        if "cls" in given_params:
-            kw["cls"] = cls
-        if "loc" in given_params:
-            kw["loc"] = loc
-        if "name" in given_params:
-            kw["name"] = name
-        if "value" in given_params:
-            kw["value"] = value
-        try:
-            result = func(**kw)
-        except ValueError as e:
-            return Invalid(value, ErrorFactory.value_error(loc, str(e)))
-        except TypeError as e:
-            return Invalid(value, ErrorFactory.type_error(loc, str(e)))
-        if isinstance(result, Invalid):
-            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data) for e in result.errors))
-        return result
-
-    sig = inspect.signature(func)
-    given_params = tuple(sig.parameters)
-    supported_params = ("cls", "loc", "name", "value")
-    if not _utils.is_subsequence(given_params, supported_params):
-        raise TypeError(
-            f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
-        )
-    return proxy
 
 
 def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
@@ -283,7 +305,19 @@ class FieldInfo:
 
 @dataclasses.dataclass()
 class ModelConfig:
-    parser_provider: IParserProvider = registry
+    """Model configuration object.
+
+    Custom instances or subclasses are allowed to be set via
+    :attr:`Model.__config__` attribute.
+    """
+
+    #: Provider used to find type parser.
+    #:
+    #: Can be customized to allow user-defined type to be used by the library.
+    type_parser_provider: ITypeParserProvider = provider
+
+    #: Placeholder for user-defined data.
+    user_data: dict = dataclasses.field(default_factory=dict)
 
 
 class ModelMeta(type):
@@ -401,7 +435,7 @@ class Model(metaclass=ModelMeta):
                 break
         if not isinstance(value, Invalid):
             field = cls.__fields__[name]
-            parser = cls.__config__.parser_provider.provide_parser(field.type)
+            parser = cls.__config__.type_parser_provider.provide_type_parser(field.type)
             value = parser(value, self._loc + Loc(name))
         if not isinstance(value, Invalid):
             for postprocessor in cls.__postprocessors__.get(name, []):

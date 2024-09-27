@@ -6,7 +6,7 @@ from typing import Any, Union
 from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.parsing.interface import IParser
+from modelity.interface import IParser
 
 
 class Range(IParser):

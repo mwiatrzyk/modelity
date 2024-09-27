@@ -2,12 +2,12 @@ import enum
 
 from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(enum.Enum)
+@provider.type_parser_factory(enum.Enum)
 def make_enum_parser(tp: enum.Enum):
 
     def parse_enum(value, loc):

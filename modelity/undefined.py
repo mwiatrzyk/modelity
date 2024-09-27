@@ -5,7 +5,7 @@ class UndefinedType:
     values set to ``None``.
     """
 
-    __slots__ = tuple()
+    __slots__: tuple = tuple()
 
     _instance = None
 

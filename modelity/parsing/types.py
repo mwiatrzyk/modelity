@@ -4,7 +4,7 @@ from typing import Any, MutableMapping, MutableSequence, MutableSet
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.parsing.interface import IParser
+from modelity.interface import IParser
 
 
 class MutableMappingProxy(collections.abc.MutableMapping):

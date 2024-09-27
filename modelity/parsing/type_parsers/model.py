@@ -4,12 +4,12 @@ from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IModel
 from modelity.invalid import Invalid
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(IModel)
+@provider.type_parser_factory(IModel)
 def make_model_parser(tp: Type[IModel]):
 
     def parse_model(value, loc):

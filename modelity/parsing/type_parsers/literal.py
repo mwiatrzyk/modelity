@@ -1,12 +1,12 @@
 from typing import Literal, get_args
 from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(Literal)
+@provider.type_parser_factory(Literal)
 def make_literal_parser(tp: type):
 
     def parse_literal(value, loc):

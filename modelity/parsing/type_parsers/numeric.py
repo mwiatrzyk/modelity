@@ -2,13 +2,13 @@ from numbers import Number
 from typing import Union
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.interface import IParserProvider
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.interface import ITypeParserProvider
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(int)
+@provider.type_parser_factory(int)
 def make_int_parser():
 
     def parse_int(value, loc):
@@ -20,7 +20,7 @@ def make_int_parser():
     return parse_int
 
 
-@registry.type_parser_factory(float)
+@provider.type_parser_factory(float)
 def make_float_parser():
 
     def parse_float(value, loc):
@@ -32,6 +32,6 @@ def make_float_parser():
     return parse_float
 
 
-@registry.type_parser_factory(Number)
-def make_number_parser(registry: IParserProvider):
-    return registry.provide_parser(Union[int, float])
+@provider.type_parser_factory(Number)
+def make_number_parser(provider: ITypeParserProvider):
+    return provider.provide_type_parser(Union[int, float])  # IMPORTANT: Remember to add number type here

@@ -1,11 +1,11 @@
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(str)
+@provider.type_parser_factory(str)
 def make_string_parser():
 
     def parse_string(value, loc):

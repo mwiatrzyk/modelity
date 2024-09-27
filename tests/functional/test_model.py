@@ -3,13 +3,13 @@ from typing import Optional, Type
 import pytest
 
 from modelity.model import Model
-from modelity.parsing.parsers import all
+from modelity.parsing.type_parsers import all
 
 
 class Base(Model):
 
     class Config:
-        parser_registry = all.registry
+        parser_registry = all.provider
 
 
 class Dummy(Base):

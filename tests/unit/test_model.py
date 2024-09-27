@@ -2,7 +2,7 @@ from typing import Optional, Type
 
 import pytest
 
-from mockify.api import Mock, satisfied, Raise, ordered, Return, Invoke, _
+from mockify.api import Mock, satisfied, Raise, ordered, Return, _
 
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
@@ -17,18 +17,11 @@ from modelity.model import (
     Model,
     postprocessor,
     preprocessor,
-    wrap_field_processor,
+    _wrap_field_processor,
 )
 from modelity.undefined import Undefined
 
 from tests.helpers import ErrorFactoryHelper
-
-
-@pytest.fixture
-def mock():
-    mock = Mock("mock")
-    with satisfied(mock):
-        yield mock
 
 
 @pytest.fixture
@@ -200,11 +193,11 @@ class TestModelType:
         def test_override_default_type_parser_provider(self, mock):
 
             class Dummy(Model):
-                __config__ = ModelConfig(parser_provider=mock)
+                __config__ = ModelConfig(type_parser_provider=mock)
 
                 a: int
 
-            mock.provide_parser.expect_call(int).will_once(Return(mock.parse_int))
+            mock.provide_type_parser.expect_call(int).will_once(Return(mock.parse_int))
             mock.parse_int.expect_call("123", Loc("a")).will_once(Return(123))
             dummy = Dummy(a="123")
             assert dummy.a == 123
@@ -932,7 +925,7 @@ class TestWrapFieldProcessor:
         def func():
             return mock()
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call().will_once(Return(123))
         result = wrapped(type(model), model, "foo", "spam")
         assert result == 123
@@ -942,7 +935,7 @@ class TestWrapFieldProcessor:
         def func(cls):
             return mock(cls)
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call(type(model)).will_once(Return(123))
         result = wrapped(type(model), model, "foo", "spam")
         assert result == 123
@@ -952,7 +945,7 @@ class TestWrapFieldProcessor:
         def func(loc):
             return mock(loc)
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call(Loc("foo")).will_once(Return(123))
         result = wrapped(type(model), Loc("foo"), "foo", "spam")
         assert result == 123
@@ -962,7 +955,7 @@ class TestWrapFieldProcessor:
         def func(name):
             return mock(name)
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call("foo").will_once(Return(123))
         result = wrapped(type(model), model, "foo", "spam")
         assert result == 123
@@ -972,7 +965,7 @@ class TestWrapFieldProcessor:
         def func(value):
             return mock(value)
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call("spam").will_once(Return(123))
         result = wrapped(type(model), model, "foo", "spam")
         assert result == 123
@@ -983,7 +976,7 @@ class TestWrapFieldProcessor:
             pass
 
         with pytest.raises(TypeError) as excinfo:
-            wrap_field_processor(func)
+            _wrap_field_processor(func)
         assert (
             str(excinfo.value)
             == "field processor 'func' has incorrect signature: (cls, value, name) is not a subsequence of (cls, loc, name, value)"
@@ -1017,7 +1010,7 @@ class TestWrapFieldProcessor:
         def func():
             return mock()
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call().will_once(Raise(given_exc))
         result = wrapped(type(model), model_loc + Loc(field_name), field_name, field_value)
         assert isinstance(result, Invalid)
@@ -1039,7 +1032,7 @@ class TestWrapFieldProcessor:
         def func():
             return mock()
 
-        wrapped = wrap_field_processor(func)
+        wrapped = _wrap_field_processor(func)
         mock.expect_call().will_once(
             Return(Invalid(field_value, ErrorFactoryHelper.value_error(given_loc, "an error")))
         )

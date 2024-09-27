@@ -1,12 +1,12 @@
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.registry import TypeParserRegistry
+from modelity.parsing.providers import TypeParserProvider
 
-registry = TypeParserRegistry()
+provider = TypeParserProvider()
 
 
-@registry.type_parser_factory(type(None))
-def make_none_parser(tp: type):
+@provider.type_parser_factory(type(None))
+def make_none_parser():
 
     def parse_none(value, loc):
         if value is None:

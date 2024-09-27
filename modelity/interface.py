@@ -1,9 +1,60 @@
 import abc
-from typing import Any, Protocol, Tuple, Type, Union
+from typing import Any, Protocol, Tuple, Type, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.invalid import Invalid
 from modelity.loc import Loc
+
+T = TypeVar("T")
+
+
+class IParser(Protocol, Generic[T]):
+    """Interface for type parsers."""
+
+    def __call__(self, value: Any, loc: Loc) -> Union[T, Invalid]:
+        """Try to parse given *value* of any type into instance of type *T*.
+
+        On success, object of type *T* is returned. On failure, :class:`Invalid`
+        object is returned.
+
+        :param value:
+            The value to be parsed.
+
+        :param loc:
+            The location of the value inside a model.
+        """
+
+
+class ITypeParserProvider(Protocol):
+    """Interface for collections of type parsers."""
+
+    def provide_type_parser(self, tp: Type[T]) -> IParser[T]:
+        """Provide parser for given type.
+
+        Returns parser for given type or raises
+        :exc:`modelity.exc.UnsupportedType` if parser was not found.
+
+        :param tp:
+            The type to find parser for.
+        """
+
+
+class ITypeParserFactory(Protocol, Generic[T]):
+    """Interface for type parser factory functions."""
+
+    def __call__(self, provider: "ITypeParserProvider", tp: Type[T]) -> IParser[T]:
+        """Create parser for given type.
+
+        :param provider:
+            Reference to the root provider.
+
+            This will be the topmost type parser provider and is made available
+            for other parsers to find parsers for their nested types (if
+            needed).
+
+        :param tp:
+            The type to create parser for.
+        """
 
 
 class IModel(abc.ABC):
