@@ -9,6 +9,7 @@ from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.model import (
+    ModelConfig,
     field,
     field_validator,
     model_validator,
@@ -155,6 +156,58 @@ class TestModelType:
         right = model_type(**right)
         assert (left == right) == is_equal
         assert (left != right) == (not is_equal)
+
+    class TestCustomConfig:
+
+        @pytest.fixture
+        def model_type(self, config):
+
+            class Dummy(Model):
+                __config__ = config
+
+                a: int
+                b: int
+
+            return Dummy
+
+        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        def test_if_custom_config_provided_then_it_overrides_default_one(self, model_type: Type[Model], config):
+            assert model_type.__config__ is config
+
+        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        def test_if_custom_config_provided_for_base_model_then_child_model_also_uses_that_config(
+            self, model_type: Type[Model], config
+        ):
+
+            class Child(model_type):
+                pass
+
+            assert Child.__config__ is config
+
+        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        def test_if_custom_config_provided_for_base_model_then_grandchild_model_also_uses_that_config(
+            self, model_type: Type[Model], config
+        ):
+
+            class Child(model_type):
+                pass
+
+            class Grandchild(Child):
+                pass
+
+            assert Grandchild.__config__ is config
+
+        def test_override_default_type_parser_provider(self, mock):
+
+            class Dummy(Model):
+                __config__ = ModelConfig(parser_provider=mock)
+
+                a: int
+
+            mock.provide_parser.expect_call(int).will_once(Return(mock.parse_int))
+            mock.parse_int.expect_call("123", Loc("a")).will_once(Return(123))
+            dummy = Dummy(a="123")
+            assert dummy.a == 123
 
     class TestInheritance:
 

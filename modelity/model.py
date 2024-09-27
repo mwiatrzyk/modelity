@@ -2,6 +2,7 @@ import enum
 import functools
 import inspect
 import itertools
+import dataclasses
 from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Type, Union, get_args, get_origin
 from typing_extensions import dataclass_transform
 
@@ -14,7 +15,6 @@ from modelity.parsing.interface import IParserProvider
 from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
-from modelity._compat import dataclasses
 
 _model_special_attrs = ("_loc",)
 
@@ -216,7 +216,7 @@ def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
     return FieldInfo(default=default, optional=optional)
 
 
-@dataclasses.dataclass(frozen=True, eq=False, repr=False, slots=True)
+@dataclasses.dataclass(frozen=True, eq=False, repr=False)
 class FieldInfo:
     """Object containing field metadata.
 
@@ -298,6 +298,11 @@ class ModelMeta(type):
 
     def __new__(tp, classname: str, bases: Tuple[Type], attrs: dict):
 
+        def inherit_config() -> Optional[ModelConfig]:
+            for b in bases:
+                if isinstance(b, ModelMeta):
+                    return b.__config__
+
         def inherit_fields():
             for b in bases:
                 yield from getattr(b, "__fields__", {}).items()
@@ -351,7 +356,7 @@ class ModelMeta(type):
                     field_validators.setdefault(field_name, []).append(attr_value)
         attrs["__fields__"] = fields
         attrs["__slots__"] = _model_special_attrs + tuple(fields)
-        attrs["__config__"] = ModelConfig()
+        attrs["__config__"] = attrs.get("__config__", inherit_config() or ModelConfig())
         attrs["__preprocessors__"] = preprocessors
         attrs["__postprocessors__"] = postprocessors
         attrs["__model_validators__"] = tuple(model_validators)
