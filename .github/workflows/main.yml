@@ -25,4 +25,4 @@ jobs:
     - name: Install dependencies
       run: poetry install
     - name: Run all tests
-      run: inv test
+      run: poetry run inv test
