@@ -27,4 +27,4 @@ class Invalid:
         self.errors = (error,) + more_errors
 
     def __repr__(self):
-        return f"{self.__class__.__qualname__}(value={self.value!r}, error_codes={"+".join(self.error_codes)})"
+        return f"{self.__class__.__qualname__}(value={self.value!r}, error_codes={'+'.join(self.error_codes)})"

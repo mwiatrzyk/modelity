@@ -8,7 +8,16 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.model import field, field_validator, model_validator, FieldInfo, Model, postprocessor, preprocessor, wrap_field_processor
+from modelity.model import (
+    field,
+    field_validator,
+    model_validator,
+    FieldInfo,
+    Model,
+    postprocessor,
+    preprocessor,
+    wrap_field_processor,
+)
 from modelity.undefined import Undefined
 
 from tests.helpers import ErrorFactoryHelper
@@ -1230,9 +1239,7 @@ class TestPostprocessor:
     def test_postprocessor_is_not_called_when_value_is_invalid(self, model_type: Type[Model]):
         with pytest.raises(ParsingError) as excinfo:
             model_type(bar="spam")
-        assert excinfo.value.errors == tuple([
-            ErrorFactoryHelper.integer_required(Loc("bar"))
-        ])
+        assert excinfo.value.errors == tuple([ErrorFactoryHelper.integer_required(Loc("bar"))])
 
     class TestPostprocessorForOneFieldOnly:
 

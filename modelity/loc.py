@@ -15,7 +15,7 @@ class Loc(collections.abc.Iterable):
         return iter(self._path)
 
     def __repr__(self) -> str:
-        return f"Loc({", ".join(repr(x) for x in self._path)})"
+        return f"Loc({', '.join(repr(x) for x in self._path)})"
 
     def __str__(self) -> str:
         return ".".join(str(x) for x in self)

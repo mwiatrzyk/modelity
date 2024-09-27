@@ -1,4 +1,3 @@
-import dataclasses
 import enum
 import functools
 import inspect
@@ -15,6 +14,7 @@ from modelity.parsing.interface import IParserProvider
 from modelity.parsing.parsers.all import registry
 from modelity.undefined import Undefined
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
+from modelity._compat import dataclasses
 
 _model_special_attrs = ("_loc",)
 
@@ -281,7 +281,7 @@ class FieldInfo:
         return self.default
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass()
 class ModelConfig:
     parser_provider: IParserProvider = registry
 
@@ -339,7 +339,9 @@ class ModelMeta(type):
             if decorator_info is None:
                 continue
             if decorator_info.type in (_DecoratorInfo.Type.PREPROCESSOR, _DecoratorInfo.Type.POSTPROCESSOR):
-                target_map = preprocessors if decorator_info.type == _DecoratorInfo.Type.PREPROCESSOR else postprocessors
+                target_map = (
+                    preprocessors if decorator_info.type == _DecoratorInfo.Type.PREPROCESSOR else postprocessors
+                )
                 for field_name in decorator_info.params.get("field_names", []) or fields:
                     target_map.setdefault(field_name, []).append(attr_value)
             elif decorator_info.type == _DecoratorInfo.Type.MODEL_VALIDATOR:
