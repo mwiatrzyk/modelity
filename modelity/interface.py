@@ -28,7 +28,7 @@ class IParser(Protocol, Generic[T]):
 class ITypeParserProvider(Protocol):
     """Interface for collections of type parsers."""
 
-    def provide_type_parser(self, tp: Type[T]) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: "ITypeParserProvider"=None) -> IParser[T]:
         """Provide parser for given type.
 
         Returns parser for given type or raises
@@ -36,21 +36,26 @@ class ITypeParserProvider(Protocol):
 
         :param tp:
             The type to find parser for.
+
+        :param root:
+            The root parser provider.
+
+            This will be passed to type parser factories and can be used to
+            access root provider to find parser for nested types. Normally it
+            is not required to pass this argument, as it defaults to *self*.
+            However, it might be necessary to override this when calling
+            :meth:`provide_type_parser` from behind a proxy class.
         """
 
 
 class ITypeParserFactory(Protocol, Generic[T]):
     """Interface for type parser factory functions."""
 
-    def __call__(self, provider: "ITypeParserProvider", tp: Type[T]) -> IParser[T]:
+    def __call__(self, provider: ITypeParserProvider, tp: Type[T]) -> IParser[T]:
         """Create parser for given type.
 
         :param provider:
             Reference to the root provider.
-
-            This will be the topmost type parser provider and is made available
-            for other parsers to find parsers for their nested types (if
-            needed).
 
         :param tp:
             The type to create parser for.
