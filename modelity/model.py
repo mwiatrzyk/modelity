@@ -3,7 +3,7 @@ import functools
 import inspect
 import itertools
 import dataclasses
-from typing import Any, Callable, Mapping, Optional, Sequence, Tuple, Type, Union, get_args, get_origin
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union, cast, get_args, get_origin
 from typing_extensions import dataclass_transform
 
 from modelity import _utils
@@ -14,7 +14,7 @@ from modelity.loc import Loc
 from modelity.interface import ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.type_parsers.all import provider
-from modelity.undefined import Undefined
+from modelity.undefined import Undefined, UndefinedType
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
 _model_special_attrs = ("_loc",)
@@ -49,7 +49,7 @@ def _wrap_field_processor(func: Callable) -> IFieldProcessor:
 
     @functools.wraps(func)
     def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
-        kw = {}
+        kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
         if "loc" in given_params:
@@ -98,7 +98,7 @@ def field_validator(*field_names: str):
 
         @functools.wraps(func)
         def proxy(cls: Type[IModel], model: IModel, name: str, value: Any):
-            kw = {}
+            kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
             if "model" in given_params:
@@ -118,8 +118,7 @@ def field_validator(*field_names: str):
             model_loc = model.get_loc()
             if isinstance(result, Error):
                 return (Error(model_loc + Loc(name) + result.loc, result.code, result.data),)
-            result: Sequence[Error] = result
-            return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in result)
+            return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
         sig = inspect.signature(func)
         supported_params = ("cls", "model", "name", "value")
@@ -146,8 +145,8 @@ def model_validator(func: Callable) -> IModelValidator:
     """
 
     @functools.wraps(func)
-    def proxy(cls, model: IModel, errors: Tuple[Error, ...], root_model: IModel = None):
-        kw = {}
+    def proxy(cls, model: IModel, errors: Tuple[Error, ...], root_model: Optional[IModel] = None):
+        kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
         if "model" in given_params:
@@ -167,8 +166,7 @@ def model_validator(func: Callable) -> IModelValidator:
         model_loc = model.get_loc()
         if isinstance(result, Error):
             return (Error(model_loc + result.loc, result.code, result.data),)
-        result: Sequence[Error] = result
-        return tuple(Error(model_loc + e.loc, e.code, e.data) for e in result)
+        return tuple(Error(model_loc + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
     sig = inspect.signature(func)
     given_params = tuple(sig.parameters)
@@ -249,10 +247,10 @@ class FieldInfo:
     """
 
     #: Field's name.
-    name: str = Undefined
+    name: str = Undefined  # type: ignore
 
     #: Field's full type.
-    type: Type = Undefined
+    type: Type = Undefined  # type: ignore
 
     #: Field's type origin.
     #:
@@ -337,6 +335,7 @@ class ModelMeta(type):
             for b in bases:
                 if isinstance(b, ModelMeta):
                     return b.__config__
+            return None
 
         def inherit_fields():
             for b in bases:
@@ -370,10 +369,10 @@ class ModelMeta(type):
             else:
                 field_info = FieldInfo(field_name, type, type_origin, type_args, default=field_info)
             fields[field_name] = field_info
-        preprocessors = {}
-        postprocessors = {}
-        model_validators = []
-        field_validators = {}
+        preprocessors: Dict[str, List[IFieldProcessor]] = {}
+        postprocessors: Dict[str, List[IFieldProcessor]] = {}
+        model_validators: List[IModelValidator] = []
+        field_validators: Dict[str, List[IFieldValidator]] = {}
         for attr_value in itertools.chain(inherit_decorators(), attrs.values()):
             decorator_info = _DecoratorInfo.extract_from_object(attr_value)
             if decorator_info is None:
@@ -429,9 +428,10 @@ class Model(metaclass=ModelMeta):
         if value is Undefined or name in _model_special_attrs:
             return super().__setattr__(name, value)
         cls = self.__class__
+        ccls = cast(Type[IModel], cls)
         loc = self.get_loc() + Loc(name)
         for preprocessor in cls.__preprocessors__.get(name, []):
-            value = preprocessor(cls, loc, name, value)
+            value = preprocessor(ccls, loc, name, value)
             if isinstance(value, Invalid):
                 break
         if not isinstance(value, Invalid):
@@ -440,7 +440,7 @@ class Model(metaclass=ModelMeta):
             value = parser(value, self._loc + Loc(name))
         if not isinstance(value, Invalid):
             for postprocessor in cls.__postprocessors__.get(name, []):
-                value = postprocessor(cls, loc, name, value)
+                value = postprocessor(ccls, loc, name, value)
                 if isinstance(value, Invalid):
                     break
         if isinstance(value, Invalid):
@@ -464,9 +464,11 @@ class Model(metaclass=ModelMeta):
     def get_loc(self) -> Loc:
         return self._loc
 
-    def validate(self, root_model: IModel = None):
+    def validate(self, root_model: Optional[IModel] = None):
         cls = self.__class__
-        root_model = self if root_model is None else root_model
+        ccls = cast(Type[IModel], cls)
+        cself = cast(IModel, self)
+        root_model = self if root_model is None else root_model  # type: ignore
         errors = []
         self_loc = self.get_loc()
         for name, field_info in cls.__fields__.items():
@@ -480,9 +482,9 @@ class Model(metaclass=ModelMeta):
                     value.validate(root_model)
                 except ValidationError as e:
                     errors.extend(e.errors)
-            for validator in cls.__field_validators__.get(name, []):
-                errors.extend(validator(cls, self, name, value))
-        for validator in cls.__model_validators__:
-            errors.extend(validator(cls, self, tuple(errors), root_model=root_model))
+            for field_validator in cls.__field_validators__.get(name, []):
+                errors.extend(field_validator(ccls, cself, name, value))
+        for model_validator in cls.__model_validators__:
+            errors.extend(model_validator(ccls, cself, tuple(errors), root_model=root_model))
         if errors:
             raise ValidationError(self, tuple(errors))

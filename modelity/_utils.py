@@ -1,6 +1,6 @@
 from ast import Tuple
 import functools
-from typing import Callable, Sequence, TypeVar, Union
+from typing import Callable, Iterable, Sequence, TypeVar, Union
 
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
@@ -8,13 +8,13 @@ from modelity.loc import Loc
 T = TypeVar("T")
 
 
-def is_subsequence(candidate: Sequence, seq: Sequence) -> bool:
+def is_subsequence(candidate: Iterable, seq: Iterable) -> bool:
     """Check if ``candidate`` is a subsequence of sequence ``seq``."""
     it = iter(seq)
     return all(element in it for element in candidate)
 
 
-def format_signature(sig: Sequence[str]) -> str:
+def format_signature(sig: Iterable[str]) -> str:
     """Format function's signature to string."""
     return f"({', '.join(sig)})"
 

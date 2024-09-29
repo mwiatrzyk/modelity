@@ -1,17 +1,24 @@
 import abc
-from typing import Any, Protocol, Tuple, Type, Union, TypeVar, Generic
+from typing import Any, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
+T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 
 
-class IParser(Protocol, Generic[T]):
+class ISupportsLess(Protocol):
+
+    def __lt__(self, other: object) -> bool: ...
+
+
+class IParser(Protocol, Generic[T_co]):
     """Interface for type parsers."""
 
-    def __call__(self, value: Any, loc: Loc) -> Union[T, Invalid]:
+    @abc.abstractmethod
+    def __call__(self, value: Any, loc: Loc) -> Union[T_co, Invalid]:
         """Try to parse given *value* of any type into instance of type *T*.
 
         On success, object of type *T* is returned. On failure, :class:`Invalid`
@@ -28,7 +35,7 @@ class IParser(Protocol, Generic[T]):
 class ITypeParserProvider(Protocol):
     """Interface for collections of type parsers."""
 
-    def provide_type_parser(self, tp: Type[T], root: "ITypeParserProvider"=None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional["ITypeParserProvider"]=None) -> IParser[T]:
         """Provide parser for given type.
 
         Returns parser for given type or raises
@@ -82,7 +89,7 @@ class IModel(abc.ABC):
         """
 
     @abc.abstractmethod
-    def validate(self, root_model: "IModel" = None):
+    def validate(self, root_model: Optional["IModel"] = None):
         """Validate this model.
 
         In modelity, validation is separated from parsing. While parsing is
@@ -134,7 +141,7 @@ class IModelValidator(Protocol):
     """
 
     def __call__(
-        self, cls: Type[IModel], model: IModel, errors: Tuple[Error, ...], root_model: IModel = None
+        self, cls: Type[IModel], model: IModel, errors: Tuple[Error, ...], root_model: Optional[IModel] = None
     ) -> Tuple[Error, ...]:
         """Execute model validator.
 

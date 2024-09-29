@@ -2,6 +2,12 @@ import invoke
 
 
 @invoke.task
+def lint(ctx: invoke.Context):
+    """Lint the code using various linting tools."""
+    ctx.run("mypy modelity")
+
+
+@invoke.task
 def test(ctx: invoke.Context):
     """Run all tests."""
     ctx.run("pytest")

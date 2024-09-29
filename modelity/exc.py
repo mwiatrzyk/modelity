@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Type
+from typing import Any, Optional, Tuple, Type
 
 from modelity.error import Error
 
@@ -6,7 +6,7 @@ from modelity.error import Error
 class ModelityError(Exception):
     """Base class for Modelity-specific exceptions."""
 
-    __message_template__: str = None
+    __message_template__: Optional[str] = None
 
     def __str__(self) -> str:
         if self.__message_template__ is None:

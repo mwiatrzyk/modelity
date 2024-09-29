@@ -1,6 +1,6 @@
 import functools
 import inspect
-from typing import Callable, Dict, Type, get_origin
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, get_origin
 
 from modelity import _utils
 from modelity.exc import UnsupportedType
@@ -15,7 +15,7 @@ class TypeParserProvider(ITypeParserProvider):
     """
 
     def __init__(self):
-        self._type_parser_factories: Dict[Type, ITypeParserFactory] = {}
+        self._type_parser_factories = {}
 
     def attach(self, other: "TypeParserProvider"):
         """Attach other type parser provider object to this one.
@@ -29,7 +29,7 @@ class TypeParserProvider(ITypeParserProvider):
         """
         self._type_parser_factories.update(other._type_parser_factories)
 
-    def register_type_parser_factory(self, tp: Type, func: Callable) -> ITypeParserFactory:
+    def register_type_parser_factory(self, tp: Any, func: Callable) -> ITypeParserFactory[T]:
         """Attach type parser factory function.
 
         Returns ``func`` wrapped with :class:`ITypeParserFactory` interface.
@@ -45,8 +45,8 @@ class TypeParserProvider(ITypeParserProvider):
         """
 
         @functools.wraps(func)
-        def proxy(provider: ITypeParserProvider, tp: Type):
-            kw = {}
+        def proxy(provider: ITypeParserProvider, tp: Type[T]) -> IParser[T]:
+            kw: Dict[str, Any] = {}
             if "provider" in declared_params:
                 kw["provider"] = provider
             if "tp" in declared_params:
@@ -61,7 +61,7 @@ class TypeParserProvider(ITypeParserProvider):
         self._type_parser_factories[tp] = proxy
         return proxy
 
-    def type_parser_factory(self, tp: Type):
+    def type_parser_factory(self, tp: Any):
         """Decorator version of the :meth:`register_type_parser_factory` function.
 
         :param tp:
@@ -73,7 +73,7 @@ class TypeParserProvider(ITypeParserProvider):
 
         return decorator
 
-    def provide_type_parser(self, tp: Type[T], root: ITypeParserProvider=None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider]=None) -> IParser[T]:
         root = self if root is None else root
         make_parser = self._type_parser_factories.get(tp)
         if make_parser is not None:
@@ -97,9 +97,10 @@ class CachingTypeParserProviderProxy(ITypeParserProvider):
 
     def __init__(self, target: ITypeParserProvider):
         self._target = target
-        self._cache = {}
+        self._cache: Dict[Type, IParser] = {}
 
-    def provide_type_parser(self, tp: Type[T]) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider]=None) -> IParser[T]:
+        root = self if root is None else root  # TODO: Add testcase for this
         if tp not in self._cache:
             self._cache[tp] = self._target.provide_type_parser(tp, root=self)
         return self._cache[tp]

@@ -56,13 +56,13 @@ class MutableSequenceProxy(collections.abc.MutableSequence):
     def __repr__(self):
         return repr(self._target)
 
-    def __delitem__(self, index: int):
+    def __delitem__(self, index) -> None:
         del self._target[index]
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index):
         return self._target[index]
 
-    def __setitem__(self, index: int, value: Any):
+    def __setitem__(self, index, value) -> None:
         value = self._item_parser(value, self._loc)
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)

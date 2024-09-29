@@ -85,7 +85,7 @@ class ErrorFactory:
         ``supported_values``
             Tuple containing supported enum values.
         """
-        return cls.create(loc, ErrorCode.INVALID_ENUM, supported_values=tuple(x for x in tp))
+        return cls.create(loc, ErrorCode.INVALID_ENUM, supported_values=tuple(tp))  # type: ignore
 
     @classmethod
     def create_invalid_literal(cls, loc: Loc, supported_values: tuple) -> Error:
@@ -110,13 +110,13 @@ class ErrorFactory:
         return cls.create(loc, ErrorCode.TYPE_ERROR, message=message)
 
     @classmethod
-    def value_out_of_range(cls, loc: Loc, min: Number, max: Number) -> Error:
+    def value_out_of_range(cls, loc: Loc, min: Any, max: Any) -> Error:
         return cls.create(loc, ErrorCode.VALUE_OUT_OF_RANGE, min=min, max=max)
 
     @classmethod
-    def value_too_low(cls, loc: Loc, min: Number) -> Error:
+    def value_too_low(cls, loc: Loc, min: Any) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min=min)
 
     @classmethod
-    def value_too_high(cls, loc: Loc, max: Number) -> Error:
+    def value_too_high(cls, loc: Loc, max: Any) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max=max)

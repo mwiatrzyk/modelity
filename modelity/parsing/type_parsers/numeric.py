@@ -34,4 +34,5 @@ def make_float_parser():
 
 @provider.type_parser_factory(Number)
 def make_number_parser(provider: ITypeParserProvider):
-    return provider.provide_type_parser(Union[int, float])  # IMPORTANT: Remember to add number type here
+    # IMPORTANT: Remember to add more numeric types here
+    return provider.provide_type_parser(Union[int, float])  # type: ignore
