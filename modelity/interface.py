@@ -69,8 +69,19 @@ class ITypeParserFactory(Protocol, Generic[T]):
         """
 
 
-class IModel(abc.ABC):
+class IModelMeta(type):
+    """Base class for model metaclass.
+
+    This is here only to be used to annotate model class properties for the
+    purpose of being used in type annotations across the library.
+    """
+
+
+class IModel(metaclass=IModelMeta):
     """Interface for models."""
+
+    # TODO: Originally this class inherited from ABC. Maybe it would be worth
+    # adding validation against abstract methods implementation?
 
     @abc.abstractmethod
     def set_loc(self, loc: Loc):

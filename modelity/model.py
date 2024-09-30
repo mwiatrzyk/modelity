@@ -27,7 +27,7 @@ from modelity.error import ErrorFactory, Error
 from modelity.exc import ParsingError, ValidationError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.type_parsers.all import provider
 from modelity.undefined import Undefined, UndefinedType
@@ -370,7 +370,7 @@ class ModelConfig:
     user_data: dict = dataclasses.field(default_factory=dict)
 
 
-class ModelMeta(type):
+class ModelMeta(IModelMeta):
     """Metaclass for :class:`Model` class."""
 
     __fields__: Mapping[str, FieldInfo]
@@ -451,9 +451,8 @@ class ModelMeta(type):
         return super().__new__(tp, classname, bases, attrs)
 
 
-@IModel.register
 @dataclass_transform(kw_only_default=True)
-class Model(metaclass=ModelMeta):
+class Model(IModel, metaclass=ModelMeta):
     """Base class for models.
 
     To create custom model, you simply need to create subclass of this type and
@@ -481,10 +480,9 @@ class Model(metaclass=ModelMeta):
         if value is Undefined or name in _model_special_attrs:
             return super().__setattr__(name, value)
         cls = self.__class__
-        ccls = cast(Type[IModel], cls)
         loc = self.get_loc() + Loc(name)
         for preprocessor in cls.__preprocessors__.get(name, []):
-            value = preprocessor(ccls, loc, name, value)
+            value = preprocessor(cls, loc, name, value)
             if isinstance(value, Invalid):
                 break
         if not isinstance(value, Invalid):
@@ -493,7 +491,7 @@ class Model(metaclass=ModelMeta):
             value = parser(value, self._loc + Loc(name))
         if not isinstance(value, Invalid):
             for postprocessor in cls.__postprocessors__.get(name, []):
-                value = postprocessor(ccls, loc, name, value)
+                value = postprocessor(cls, loc, name, value)
                 if isinstance(value, Invalid):
                     break
         if isinstance(value, Invalid):
@@ -519,8 +517,6 @@ class Model(metaclass=ModelMeta):
 
     def validate(self, root_model: Optional[IModel] = None):
         cls = self.__class__
-        ccls = cast(Type[IModel], cls)
-        cself = cast(IModel, self)
         root_model = self if root_model is None else root_model  # type: ignore
         errors = []
         self_loc = self.get_loc()
@@ -536,8 +532,8 @@ class Model(metaclass=ModelMeta):
                 except ValidationError as e:
                     errors.extend(e.errors)
             for field_validator in cls.__field_validators__.get(name, []):
-                errors.extend(field_validator(ccls, cself, name, value))
+                errors.extend(field_validator(cls, self, name, value))
         for model_validator in cls.__model_validators__:
-            errors.extend(model_validator(ccls, cself, tuple(errors), root_model=root_model))
+            errors.extend(model_validator(cls, self, tuple(errors), root_model=root_model))
         if errors:
             raise ValidationError(self, tuple(errors))
