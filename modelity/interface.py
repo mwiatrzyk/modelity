@@ -35,7 +35,7 @@ class IParser(Protocol, Generic[T_co]):
 class ITypeParserProvider(Protocol):
     """Interface for collections of type parsers."""
 
-    def provide_type_parser(self, tp: Type[T], root: Optional["ITypeParserProvider"]=None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional["ITypeParserProvider"] = None) -> IParser[T]:
         """Provide parser for given type.
 
         Returns parser for given type or raises

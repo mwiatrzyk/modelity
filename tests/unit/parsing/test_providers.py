@@ -59,7 +59,10 @@ class TestTypeParserProvider:
 
         with pytest.raises(TypeError) as excinfo:
             uut.register_type_parser_factory(int, func)
-        assert str(excinfo.value) == "incorrect type parser factory signature: (tp, provider) is not a subsequence of (provider, tp)"
+        assert (
+            str(excinfo.value)
+            == "incorrect type parser factory signature: (tp, provider) is not a subsequence of (provider, tp)"
+        )
 
     def test_register_type_parser_factory_for_simple_type(self, uut: TypeParserProvider, mock):
 

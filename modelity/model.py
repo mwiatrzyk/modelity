@@ -3,8 +3,24 @@ import functools
 import inspect
 import itertools
 import dataclasses
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union, cast, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 from typing_extensions import dataclass_transform
+import typing_extensions
 
 from modelity import _utils
 from modelity.error import ErrorFactory, Error
@@ -221,7 +237,7 @@ def postprocessor(*field_names: str):
     return decorator
 
 
-def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
+def field(default: Any = Undefined, optional: bool = False) -> "FieldProps":
     """Helper used to declare additional metadata for model field.
 
     :param default:
@@ -234,37 +250,27 @@ def field(default: Any = Undefined, optional: bool = False) -> "FieldInfo":
         or not set at all, as opposed to :class:`typing.Optional`, which is
         defacto an union of type ``T`` and ``NoneType``.
     """
-    return FieldInfo(default=default, optional=optional)
+    return FieldProps(default=default, optional=optional)
 
 
-@dataclasses.dataclass(frozen=True, eq=False, repr=False)
-class FieldInfo:
-    """Object containing field metadata.
+@dataclass_transform(kw_only_default=True)
+class FieldProps:
+    """Dataclass with user-editable field properties.
 
-    Objects of this type are automatically created from type annotations, but
-    can also be created explicitly to override field defaults (see :meth:`field`
-    for details).
+    Instances of this class can be used to annotate field declaration in a
+    model to provide details like default value or more.
+
+    Example:
+
+    .. testcode::
+
+        class Dummy(Model):
+            foo: int = Field(default=123)
     """
-
-    #: Field's name.
-    name: str = Undefined  # type: ignore
-
-    #: Field's full type.
-    type: Type = Undefined  # type: ignore
-
-    #: Field's type origin.
-    #:
-    #: For example, if :attr:`type` is ``List[str]``, then this will be set to ``list``.
-    type_origin: Optional[Type] = None
-
-    #: Field's type args.
-    #:
-    #: For example, if :attr:`type` is ``Dict[str, int]``, then this will be set
-    #: to ``(str, int)`` tuple.
-    type_args: tuple = tuple()
+    __slots__ = ("default", "optional")
 
     #: Field's default value.
-    default: Any = Undefined
+    default: Any
 
     #: Flag telling if this field is optional.
     #:
@@ -273,7 +279,38 @@ class FieldInfo:
     #: explicitly set. If you need to indicate that the field is optional, but
     #: to also disallow ``None`` as the valid value, then this is the option
     #: you'll need.
-    optional: bool = False
+    optional: bool
+
+    def __init__(self, default: Any=Undefined, optional: bool=False):
+        self.default = default
+        self.optional = optional
+
+    def compute_default(self) -> Any:
+        """Compute default value for this field."""
+        return self.default
+
+
+class FieldInfo(FieldProps):
+    """Object containing field metadata.
+
+    Objects of this type are automatically created from type annotations, but
+    can also be created explicitly to override field defaults (see :meth:`field`
+    for details).
+    """
+    __slots__ = ("name", "type", "_type_origin", "_type_args")
+
+    #: Field's name.
+    name: str
+
+    #: Field's full type.
+    type: Type
+
+    def __init__(self, name: str, type: Type, **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.type = type
+        self._type_origin = get_origin(type)
+        self._type_args = get_args(type)
 
     def __repr__(self) -> str:
         return f"<{self.__module__}.{self.__class__.__qualname__}(name={self.name!r}, type={self.type!r}, default={self.default!r})>"
@@ -297,9 +334,23 @@ class FieldInfo:
         """
         return not self.is_optional()
 
-    def compute_default(self) -> Any:
-        """Compute default value for this field."""
-        return self.default
+    @property
+    def type_origin(self) -> Optional[Type]:
+        """Field's type origin.
+
+        For example, if field's type is ``List[str]``, then this will be set to
+        ``list``.
+        """
+        return self._type_origin
+
+    @property
+    def type_args(self) -> Tuple:
+        """Field's type args.
+
+        For example, if field's type is ``Dict[str, int]``, then this will be
+        set to ``(str, int)``.
+        """
+        return self._type_args
 
 
 @dataclasses.dataclass()
@@ -357,17 +408,19 @@ class ModelMeta(type):
         for field_name, type in itertools.chain(
             inherit_mixed_in_annotations(), attrs.get("__annotations__", {}).items()
         ):
-            type_origin = get_origin(type)
-            type_args = get_args(type)
             field_info = attrs.pop(field_name, None)
             if field_info is None:
-                field_info = FieldInfo(field_name, type, type_origin, type_args)
-            elif isinstance(field_info, FieldInfo):
+                field_info = FieldInfo(field_name, type)
+            elif isinstance(field_info, FieldProps):
                 field_info = FieldInfo(
-                    field_name, type, type_origin, type_args, default=field_info.default, optional=field_info.optional
+                    field_name, type,
+                    default=field_info.default,
+                    optional=field_info.optional,
                 )
             else:
-                field_info = FieldInfo(field_name, type, type_origin, type_args, default=field_info)
+                field_info = FieldInfo(
+                    field_name, type, default=field_info
+                )
             fields[field_name] = field_info
         preprocessors: Dict[str, List[IFieldProcessor]] = {}
         postprocessors: Dict[str, List[IFieldProcessor]] = {}

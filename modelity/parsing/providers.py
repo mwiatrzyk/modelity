@@ -57,7 +57,9 @@ class TypeParserProvider(ITypeParserProvider):
         declared_params = sig.parameters
         allowed_params = ("provider", "tp")
         if not _utils.is_subsequence(declared_params, allowed_params):
-            raise TypeError(f"incorrect type parser factory signature: {_utils.format_signature(declared_params)} is not a subsequence of {_utils.format_signature(allowed_params)}")
+            raise TypeError(
+                f"incorrect type parser factory signature: {_utils.format_signature(declared_params)} is not a subsequence of {_utils.format_signature(allowed_params)}"
+            )
         self._type_parser_factories[tp] = proxy
         return proxy
 
@@ -73,7 +75,7 @@ class TypeParserProvider(ITypeParserProvider):
 
         return decorator
 
-    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider]=None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider] = None) -> IParser[T]:
         root = self if root is None else root
         make_parser = self._type_parser_factories.get(tp)
         if make_parser is not None:
@@ -99,7 +101,7 @@ class CachingTypeParserProviderProxy(ITypeParserProvider):
         self._target = target
         self._cache: Dict[Type, IParser] = {}
 
-    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider]=None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider] = None) -> IParser[T]:
         root = self if root is None else root  # TODO: Add testcase for this
         if tp not in self._cache:
             self._cache[tp] = self._target.provide_type_parser(tp, root=self)
