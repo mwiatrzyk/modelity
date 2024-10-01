@@ -27,7 +27,7 @@ from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IModelConfig, IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
-from modelity.parsing.type_parsers.all import provider
+from modelity.parsing.facade import get_builtin_type_parser_provider
 from modelity.unset import Unset, UnsetType
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
@@ -263,7 +263,7 @@ class ModelConfig(IModelConfig):
     #: Provider used to find type parser.
     #:
     #: Can be customized to allow user-defined type to be used by the library.
-    type_parser_provider: ITypeParserProvider = CachingTypeParserProviderProxy(provider)
+    type_parser_provider: ITypeParserProvider = CachingTypeParserProviderProxy(get_builtin_type_parser_provider())
 
     #: Placeholder for user-defined data.
     user_data: dict = dataclasses.field(default_factory=dict)

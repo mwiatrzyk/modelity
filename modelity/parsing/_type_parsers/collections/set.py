@@ -4,7 +4,7 @@ from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
 from modelity.interface import ITypeParserProvider
 from modelity.parsing.providers import TypeParserProvider
-from modelity.parsing.types import MutableSetProxy
+from modelity.parsing._proxies import MutableSetProxy
 
 provider = TypeParserProvider()
 

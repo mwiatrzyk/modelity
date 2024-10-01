@@ -9,7 +9,7 @@ from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.model import Model
-from modelity.parsing.type_parsers import all
+from modelity.parsing._type_parsers import all
 from modelity.interface import IParser, ITypeParserProvider
 from modelity.validators import Max, Min, Range
 from tests.helpers import ErrorFactoryHelper

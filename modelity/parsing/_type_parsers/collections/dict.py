@@ -6,7 +6,7 @@ from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import ITypeParserProvider
 from modelity.parsing.providers import TypeParserProvider
-from modelity.parsing.types import MutableMappingProxy
+from modelity.parsing._proxies import MutableMappingProxy
 
 provider = TypeParserProvider()
 
