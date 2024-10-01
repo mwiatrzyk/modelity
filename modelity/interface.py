@@ -1,7 +1,8 @@
 import abc
-from typing import Any, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
+from typing import Any, Mapping, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
 from modelity.error import Error
+from modelity.field import BoundField
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
@@ -69,12 +70,32 @@ class ITypeParserFactory(Protocol, Generic[T]):
         """
 
 
+class IModelConfig(Protocol):
+    """Interface for model configuration data."""
+
+    #: Type parser provider to use.
+    #:
+    #: Type parser provider is used to find parser for field type.
+    type_parser_provider: ITypeParserProvider
+
+    #: Placeholder for user-defined data.
+    user_data: dict
+
+
 class IModelMeta(type):
     """Base class for model metaclass.
 
     This is here only to be used to annotate model class properties for the
     purpose of being used in type annotations across the library.
     """
+
+    #: Model configuration.
+    #:
+    #: This can be used to override or extend built-in defaults.
+    __config__: IModelConfig
+
+    #: Map with fields declared for this model type.
+    __fields__: Mapping[str, BoundField]
 
 
 class IModel(metaclass=IModelMeta):

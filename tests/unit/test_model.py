@@ -13,7 +13,7 @@ from modelity.model import (
     field,
     field_validator,
     model_validator,
-    FieldInfo,
+    BoundField,
     Model,
     postprocessor,
     preprocessor,
@@ -50,10 +50,10 @@ class TestModelType:
     @pytest.fixture
     def expected_fields(self):
         return [
-            ("a", FieldInfo(name="a", type=int)),
-            ("b", FieldInfo(name="b", type=Optional[str])),
-            ("c", FieldInfo(name="c", type=float, default=2.71)),
-            ("d", FieldInfo(name="d", type=str, default="spam")),
+            ("a", BoundField(name="a", type=int)),
+            ("b", BoundField(name="b", type=Optional[str])),
+            ("c", BoundField(name="c", type=float, default=2.71)),
+            ("d", BoundField(name="d", type=str, default="spam")),
         ]
 
     @pytest.fixture
@@ -219,9 +219,9 @@ class TestModelType:
         @pytest.fixture
         def expected_fields(self):
             return [
-                ("a", FieldInfo(name="a", type=int)),
-                ("b", FieldInfo(name="b", type=int)),
-                ("c", FieldInfo(name="c", type=int)),
+                ("a", BoundField(name="a", type=int)),
+                ("b", BoundField(name="b", type=int)),
+                ("c", BoundField(name="c", type=int)),
             ]
 
         def test_fields_declared_in_base_model_are_inherited_by_child_model(
@@ -248,9 +248,9 @@ class TestModelType:
         @pytest.fixture
         def expected_fields(self):
             return [
-                ("a", FieldInfo(name="a", type=int)),
-                ("b", FieldInfo(name="b", type=int)),
-                ("c", FieldInfo(name="c", type=int)),
+                ("a", BoundField(name="a", type=int)),
+                ("b", BoundField(name="b", type=int)),
+                ("c", BoundField(name="c", type=int)),
             ]
 
         def test_fields_declared_in_base_model_are_inherited_by_child_model(

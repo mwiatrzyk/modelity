@@ -16,24 +16,23 @@ from typing import (
     Type,
     Union,
     cast,
-    get_args,
-    get_origin,
 )
 from typing_extensions import dataclass_transform
-import typing_extensions
 
 from modelity import _utils
 from modelity.error import ErrorFactory, Error
 from modelity.exc import ParsingError, ValidationError
+from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IModelMeta, ITypeParserProvider
+from modelity.interface import IModelConfig, IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.type_parsers.all import provider
 from modelity.undefined import Undefined, UndefinedType
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
 _model_special_attrs = ("_loc",)
+_reserved_field_names = tuple(IModelMeta.__annotations__)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -237,7 +236,7 @@ def postprocessor(*field_names: str):
     return decorator
 
 
-def field(default: Any = Undefined, optional: bool = False) -> "FieldProps":
+def field(default: Any = Undefined, optional: bool = False) -> "Field":
     """Helper used to declare additional metadata for model field.
 
     :param default:
@@ -250,111 +249,11 @@ def field(default: Any = Undefined, optional: bool = False) -> "FieldProps":
         or not set at all, as opposed to :class:`typing.Optional`, which is
         defacto an union of type ``T`` and ``NoneType``.
     """
-    return FieldProps(default=default, optional=optional)
-
-
-@dataclass_transform(kw_only_default=True)
-class FieldProps:
-    """Dataclass with user-editable field properties.
-
-    Instances of this class can be used to annotate field declaration in a
-    model to provide details like default value or more.
-
-    Example:
-
-    .. testcode::
-
-        class Dummy(Model):
-            foo: int = Field(default=123)
-    """
-    __slots__ = ("default", "optional")
-
-    #: Field's default value.
-    default: Any
-
-    #: Flag telling if this field is optional.
-    #:
-    #: Normally, you should use :class:`typing.Optional` to indicate that the
-    #: field is optional. However, field declared like that allow ``None`` to be
-    #: explicitly set. If you need to indicate that the field is optional, but
-    #: to also disallow ``None`` as the valid value, then this is the option
-    #: you'll need.
-    optional: bool
-
-    def __init__(self, default: Any=Undefined, optional: bool=False):
-        self.default = default
-        self.optional = optional
-
-    def compute_default(self) -> Any:
-        """Compute default value for this field."""
-        return self.default
-
-
-class FieldInfo(FieldProps):
-    """Object containing field metadata.
-
-    Objects of this type are automatically created from type annotations, but
-    can also be created explicitly to override field defaults (see :meth:`field`
-    for details).
-    """
-    __slots__ = ("name", "type", "_type_origin", "_type_args")
-
-    #: Field's name.
-    name: str
-
-    #: Field's full type.
-    type: Type
-
-    def __init__(self, name: str, type: Type, **kwargs):
-        super().__init__(**kwargs)
-        self.name = name
-        self.type = type
-        self._type_origin = get_origin(type)
-        self._type_args = get_args(type)
-
-    def __repr__(self) -> str:
-        return f"<{self.__module__}.{self.__class__.__qualname__}(name={self.name!r}, type={self.type!r}, default={self.default!r})>"
-
-    def __eq__(self, value: object) -> bool:
-        if type(value) is not FieldInfo:
-            return False
-        return self.name == value.name and self.type == value.type and self.default == value.default
-
-    def __ne__(self, value: object) -> bool:
-        return not self.__eq__(value)
-
-    def is_optional(self):
-        """Check if this field is optional."""
-        return self.optional or self.default is not Undefined or type(None) in self.type_args
-
-    def is_required(self):
-        """Check if this field is required.
-
-        This is simply a negation of :meth:`is_optional` method.
-        """
-        return not self.is_optional()
-
-    @property
-    def type_origin(self) -> Optional[Type]:
-        """Field's type origin.
-
-        For example, if field's type is ``List[str]``, then this will be set to
-        ``list``.
-        """
-        return self._type_origin
-
-    @property
-    def type_args(self) -> Tuple:
-        """Field's type args.
-
-        For example, if field's type is ``Dict[str, int]``, then this will be
-        set to ``(str, int)``.
-        """
-        return self._type_args
+    return Field(default=default, optional=optional)
 
 
 @dataclasses.dataclass()
-class ModelConfig:
+class ModelConfig(IModelConfig):
     """Model configuration object.
 
     Custom instances or subclasses are allowed to be set via
@@ -373,12 +272,10 @@ class ModelConfig:
 class ModelMeta(IModelMeta):
     """Metaclass for :class:`Model` class."""
 
-    __fields__: Mapping[str, FieldInfo]
-    __config__: ModelConfig
-    __preprocessors__: Mapping[str, Sequence[IFieldProcessor]]
-    __postprocessors__: Mapping[str, Sequence[IFieldProcessor]]
-    __field_validators__: Mapping[str, Sequence[IFieldValidator]]
-    __model_validators__: Sequence[IModelValidator]
+    _preprocessors: Mapping[str, Sequence[IFieldProcessor]]
+    _postprocessors: Mapping[str, Sequence[IFieldProcessor]]
+    _field_validators: Mapping[str, Sequence[IFieldValidator]]
+    _model_validators: Sequence[IModelValidator]
 
     def __new__(tp, classname: str, bases: Tuple[Type], attrs: dict):
 
@@ -408,19 +305,20 @@ class ModelMeta(IModelMeta):
         for field_name, type in itertools.chain(
             inherit_mixed_in_annotations(), attrs.get("__annotations__", {}).items()
         ):
+            if field_name in _reserved_field_names:
+                continue
             field_info = attrs.pop(field_name, None)
             if field_info is None:
-                field_info = FieldInfo(field_name, type)
-            elif isinstance(field_info, FieldProps):
-                field_info = FieldInfo(
-                    field_name, type,
+                field_info = BoundField(field_name, type)
+            elif isinstance(field_info, Field):
+                field_info = BoundField(
+                    field_name,
+                    type,
                     default=field_info.default,
                     optional=field_info.optional,
                 )
             else:
-                field_info = FieldInfo(
-                    field_name, type, default=field_info
-                )
+                field_info = BoundField(field_name, type, default=field_info)
             fields[field_name] = field_info
         preprocessors: Dict[str, List[IFieldProcessor]] = {}
         postprocessors: Dict[str, List[IFieldProcessor]] = {}
@@ -444,10 +342,10 @@ class ModelMeta(IModelMeta):
         attrs["__fields__"] = fields
         attrs["__slots__"] = _model_special_attrs + tuple(fields)
         attrs["__config__"] = attrs.get("__config__", inherit_config() or ModelConfig())
-        attrs["__preprocessors__"] = preprocessors
-        attrs["__postprocessors__"] = postprocessors
-        attrs["__model_validators__"] = tuple(model_validators)
-        attrs["__field_validators__"] = field_validators
+        attrs["_preprocessors"] = preprocessors
+        attrs["_postprocessors"] = postprocessors
+        attrs["_model_validators"] = tuple(model_validators)
+        attrs["_field_validators"] = field_validators
         return super().__new__(tp, classname, bases, attrs)
 
 
@@ -481,7 +379,7 @@ class Model(IModel, metaclass=ModelMeta):
             return super().__setattr__(name, value)
         cls = self.__class__
         loc = self.get_loc() + Loc(name)
-        for preprocessor in cls.__preprocessors__.get(name, []):
+        for preprocessor in cls._preprocessors.get(name, []):
             value = preprocessor(cls, loc, name, value)
             if isinstance(value, Invalid):
                 break
@@ -490,7 +388,7 @@ class Model(IModel, metaclass=ModelMeta):
             parser = cls.__config__.type_parser_provider.provide_type_parser(field.type)
             value = parser(value, self._loc + Loc(name))
         if not isinstance(value, Invalid):
-            for postprocessor in cls.__postprocessors__.get(name, []):
+            for postprocessor in cls._postprocessors.get(name, []):
                 value = postprocessor(cls, loc, name, value)
                 if isinstance(value, Invalid):
                     break
@@ -531,9 +429,9 @@ class Model(IModel, metaclass=ModelMeta):
                     value.validate(root_model)
                 except ValidationError as e:
                     errors.extend(e.errors)
-            for field_validator in cls.__field_validators__.get(name, []):
+            for field_validator in cls._field_validators.get(name, []):
                 errors.extend(field_validator(cls, self, name, value))
-        for model_validator in cls.__model_validators__:
+        for model_validator in cls._model_validators:
             errors.extend(model_validator(cls, self, tuple(errors), root_model=root_model))
         if errors:
             raise ValidationError(self, tuple(errors))
