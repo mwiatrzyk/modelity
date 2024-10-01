@@ -14,6 +14,8 @@ class ErrorCode:
     BOOLEAN_REQUIRED = "modelity.BooleanRequired"
     ITERABLE_REQUIRED = "modelity.IterableRequired"
     MAPPING_REQUIRED = "modelity.MappingRequired"
+    DATETIME_REQUIRED = "modelity.DatetimeRequired"
+    UNKNOWN_DATETIME_FORMAT = "modelity.UnknownDatetimeFormat"
     UNSUPPORTED_TYPE = "modelity.UnsupportedType"
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
@@ -96,6 +98,14 @@ class ErrorFactory:
     @classmethod
     def mapping_required(cls, loc: Loc) -> Error:
         return cls.create(loc, ErrorCode.MAPPING_REQUIRED)
+
+    @classmethod
+    def datetime_required(cls, loc: Loc) -> Error:
+        return cls.create(loc, ErrorCode.DATETIME_REQUIRED)
+
+    @classmethod
+    def unknown_datetime_format(cls, loc: Loc, supported_formats: Tuple[str]) -> Error:
+        return cls.create(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, supported_formats=supported_formats)
 
     @classmethod
     def required_missing(cls, loc: Loc) -> Error:

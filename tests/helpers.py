@@ -43,6 +43,14 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.MappingRequired")
 
     @staticmethod
+    def datetime_required(loc: Loc) -> Error:
+        return Error.create(loc, "modelity.DatetimeRequired")
+
+    @staticmethod
+    def unknown_datetime_format(loc: Loc, supported_formats: tuple) -> Error:
+        return Error.create(loc, "modelity.UnknownDatetimeFormat", supported_formats=supported_formats)
+
+    @staticmethod
     def invalid_enum(loc: Loc, supported_values: tuple):
         return Error.create(loc, "modelity.InvalidEnum", supported_values=supported_values)
 

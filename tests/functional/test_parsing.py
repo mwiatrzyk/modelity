@@ -1,3 +1,4 @@
+import datetime
 import enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
@@ -178,6 +179,81 @@ class TestBoolParser:
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.boolean_required(loc)])
+
+
+class TestDateTimeParser:
+
+    @pytest.fixture
+    def tp(self):
+        return datetime.datetime
+
+    @pytest.mark.parametrize(
+        "given, expected",
+        [
+            (datetime.datetime(1999, 1, 1, 10, 11, 12), datetime.datetime(1999, 1, 1, 10, 11, 12)),
+            ("1999-01-02T11:22:33", datetime.datetime(1999, 1, 2, 11, 22, 33)),
+            ("1999-01-02 11:22:33", datetime.datetime(1999, 1, 2, 11, 22, 33)),
+            ("1999-01-02T11:22:33Z", datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone.utc)),
+            ("1999-01-02 11:22:33+00:00", datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone.utc)),
+            ("19990102112233+00:00", datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone.utc)),
+            ("19990102112233+0000", datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone.utc)),
+            ("19990102112233", datetime.datetime(1999, 1, 2, 11, 22, 33)),
+            (
+                "1999-01-02T11:22:33+01:00",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(hours=1))),
+            ),
+            (
+                "1999-01-02T11:22:33+01:30",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(minutes=90))),
+            ),
+            (
+                "1999-01-02T11:22:33-01:00",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(hours=-1))),
+            ),
+            (
+                "1999-01-02T11:22:33-01:30",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(minutes=-90))),
+            ),
+            (
+                "19990102112233-0130",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(minutes=-90))),
+            ),
+            (
+                "19990102112233+0130",
+                datetime.datetime(1999, 1, 2, 11, 22, 33, tzinfo=datetime.timezone(datetime.timedelta(minutes=90))),
+            ),
+        ],
+    )
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize("given", [123, None, [], {}])
+    def test_parsing_fails_if_input_has_wrong_type(self, parser: IParser, loc, given):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == tuple([ErrorFactoryHelper.datetime_required(loc)])
+
+    @pytest.mark.parametrize("given", ["not a datetime"])
+    def test_parsing_fails_if_input_has_incorrect_datetime_format(self, parser: IParser, loc, given):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == tuple(
+            [
+                ErrorFactoryHelper.unknown_datetime_format(
+                    loc,
+                    supported_formats=(
+                        "Y-m-dTH:M:S",
+                        "Y-m-d H:M:S",
+                        "YmdHMS",
+                        "Y-m-dTH:M:Sz",
+                        "Y-m-d H:M:Sz",
+                        "YmdHMSz",
+                    ),
+                )
+            ]
+        )
 
 
 class TestEnumParser:
