@@ -2,7 +2,7 @@ from typing import Any, Optional, Tuple, Type, get_args, get_origin
 
 from typing_extensions import dataclass_transform
 
-from modelity.undefined import Undefined
+from modelity.unset import Unset
 
 
 @dataclass_transform(kw_only_default=True)
@@ -34,7 +34,7 @@ class Field:
     #: you'll need.
     optional: bool
 
-    def __init__(self, default: Any = Undefined, optional: bool = False):
+    def __init__(self, default: Any = Unset, optional: bool = False):
         self.default = default
         self.optional = optional
 
@@ -79,7 +79,7 @@ class BoundField(Field):
 
     def is_optional(self):
         """Check if this field is optional."""
-        return self.optional or self.default is not Undefined or type(None) in self.type_args
+        return self.optional or self.default is not Unset or type(None) in self.type_args
 
     def is_required(self):
         """Check if this field is required.

@@ -8,7 +8,7 @@ import pytest
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import Model, field, model_validator
-from modelity.undefined import Undefined
+from modelity.unset import Unset
 
 from tests.helpers import ErrorFactoryHelper
 
@@ -47,9 +47,9 @@ class Response(Model):
 
     @model_validator
     def _validate_response(model: "Response"):
-        if model.result is Undefined and model.error is Undefined:
+        if model.result is Unset and model.error is Unset:
             raise ValueError("neither 'error' nor 'result' field set")
-        if model.result is not Undefined and model.error is not Undefined:
+        if model.result is not Unset and model.error is not Unset:
             raise ValueError("cannot set both 'error' and 'result' fields")
 
 
@@ -64,7 +64,7 @@ class TestNotification:
         @pytest.mark.parametrize(
             "data, expected_value",
             [
-                ({}, Undefined),
+                ({}, Unset),
                 ({"jsonrpc": "2.0"}, "2.0"),
             ],
         )
@@ -85,7 +85,7 @@ class TestNotification:
         @pytest.mark.parametrize(
             "data, expected_value",
             [
-                ({}, Undefined),
+                ({}, Unset),
                 ({"method": "foo"}, "foo"),
             ],
         )
@@ -95,7 +95,7 @@ class TestNotification:
         @pytest.mark.parametrize(
             "data, expected_value",
             [
-                ({}, Undefined),
+                ({}, Unset),
                 ({"params": []}, []),
                 ({"params": [1, 2, 3]}, [1, 2, 3]),
                 ({"params": {}}, {}),
@@ -161,7 +161,7 @@ class TestRequest:
         @pytest.mark.parametrize(
             "data, expected_value",
             [
-                ({}, Undefined),
+                ({}, Unset),
                 ({"id": 1}, 1),
                 ({"id": "2"}, "2"),
                 ({"id": "foo"}, "foo"),

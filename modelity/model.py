@@ -28,7 +28,7 @@ from modelity.loc import Loc
 from modelity.interface import IModelConfig, IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.type_parsers.all import provider
-from modelity.undefined import Undefined, UndefinedType
+from modelity.unset import Unset, UnsetType
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
 _model_special_attrs = ("_loc",)
@@ -236,7 +236,7 @@ def postprocessor(*field_names: str):
     return decorator
 
 
-def field(default: Any = Undefined, optional: bool = False) -> "Field":
+def field(default: Any = Unset, optional: bool = False) -> "Field":
     """Helper used to declare additional metadata for model field.
 
     :param default:
@@ -375,7 +375,7 @@ class Model(IModel, metaclass=ModelMeta):
         return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __setattr__(self, name: str, value: Any):
-        if value is Undefined or name in _model_special_attrs:
+        if value is Unset or name in _model_special_attrs:
             return super().__setattr__(name, value)
         cls = self.__class__
         loc = self.get_loc() + Loc(name)
@@ -420,7 +420,7 @@ class Model(IModel, metaclass=ModelMeta):
         self_loc = self.get_loc()
         for name, field_info in cls.__fields__.items():
             value = getattr(self, name)
-            if value is Undefined:
+            if value is Unset:
                 if field_info.is_required():
                     errors.append(ErrorFactory.required_missing(self_loc + Loc(name)))
                 continue

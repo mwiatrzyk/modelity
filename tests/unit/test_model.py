@@ -19,7 +19,7 @@ from modelity.model import (
     preprocessor,
     _wrap_field_processor,
 )
-from modelity.undefined import Undefined
+from modelity.unset import Unset
 
 from tests.helpers import ErrorFactoryHelper
 
@@ -69,13 +69,13 @@ class TestModelType:
     @pytest.mark.parametrize(
         "initial_params, expected_values",
         [
-            ({}, [("a", Undefined), ("b", Undefined), ("c", 2.71), ("d", "spam")]),
-            ({"c": 3.14}, [("a", Undefined), ("b", Undefined), ("c", 3.14), ("d", "spam")]),
+            ({}, [("a", Unset), ("b", Unset), ("c", 2.71), ("d", "spam")]),
+            ({"c": 3.14}, [("a", Unset), ("b", Unset), ("c", 3.14), ("d", "spam")]),
             (
                 {"d": "more spam"},
-                [("a", Undefined), ("b", Undefined), ("c", 2.71), ("d", "more spam")],
+                [("a", Unset), ("b", Unset), ("c", 2.71), ("d", "more spam")],
             ),
-            ({"a": "123"}, [("a", 123), ("b", Undefined), ("c", 2.71), ("d", "spam")]),
+            ({"a": "123"}, [("a", 123), ("b", Unset), ("c", 2.71), ("d", "spam")]),
             ({"a": "123", "b": None}, [("a", 123), ("b", None), ("c", 2.71), ("d", "spam")]),
         ],
     )
@@ -1060,14 +1060,14 @@ class TestPreprocessor:
 
     def test_when_nothing_set_then_preprocessor_is_not_called(self, model_type: Type[Model]):
         model = model_type()
-        assert model.foo == Undefined
-        assert model.bar == Undefined
+        assert model.foo == Unset
+        assert model.bar == Unset
 
     def test_when_foo_set_then_preprocessor_is_only_called_for_foo(self, model_type: Type[Model], mock):
         mock.expect_call("foo", "spam").will_once(Return("123"))
         model = model_type(foo="spam")
         assert model.foo == 123
-        assert model.bar == Undefined
+        assert model.bar == Unset
 
     def test_when_foo_and_bar_set_then_preprocessor_is_only_called_for_both(self, model_type: Type[Model], mock):
         mock.expect_call("foo", "spam").will_once(Return("123"))
@@ -1231,7 +1231,7 @@ class TestPreprocessor:
 
         def test_preprocessor_is_called_when_nested_field_is_set(self, model_type, mock):
             model = model_type(**{"nested": {}})
-            assert model.nested.foo == Undefined
+            assert model.nested.foo == Unset
             mock.expect_call("foo", 1).will_once(Return(11))
             model.nested.foo = 1
             assert model.nested.foo == 11
@@ -1260,14 +1260,14 @@ class TestPostprocessor:
 
     def test_when_nothing_set_then_postprocessor_is_not_called(self, model_type: Type[Model]):
         model = model_type()
-        assert model.foo == Undefined
-        assert model.bar == Undefined
+        assert model.foo == Unset
+        assert model.bar == Unset
 
     def test_when_foo_set_then_postprocessor_is_only_called_for_foo(self, model_type: Type[Model], mock):
         mock.expect_call("foo", 1).will_once(Return(11))
         model = model_type(foo="1")
         assert model.foo == 11
-        assert model.bar == Undefined
+        assert model.bar == Unset
 
     def test_when_foo_and_bar_set_then_preprocessor_is_called_for_both(self, model_type: Type[Model], mock):
         mock.expect_call("foo", 1).will_once(Return(11))
@@ -1436,7 +1436,7 @@ class TestPostprocessor:
 
         def test_postprocessor_is_called_when_nested_field_is_set(self, model_type, mock):
             model = model_type(**{"nested": {}})
-            assert model.nested.foo == Undefined
+            assert model.nested.foo == Unset
             mock.expect_call("foo", 1).will_once(Return(11))
             model.nested.foo = "1"
             assert model.nested.foo == 11
