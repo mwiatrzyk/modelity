@@ -1,6 +1,6 @@
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, get_origin
+from typing import Any, Callable, Dict, Optional, Type, get_origin
 
 from modelity import _utils
 from modelity.exc import UnsupportedType
