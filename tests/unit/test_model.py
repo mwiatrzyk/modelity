@@ -150,6 +150,80 @@ class TestModelType:
         assert (left == right) == is_equal
         assert (left != right) == (not is_equal)
 
+    def test_iterating_over_model_yields_fields_that_are_currently_set_in_field_declaration_order(self, model_type: Type[Model]):
+        model = model_type()
+        assert list(model) == ["c", "d"]  # Defaults
+        model.a = 1
+        assert list(model) == ["a", "c", "d"]
+
+    def test_when_field_is_set_to_unset_then_it_becomes_unset(self, model: Model):
+        assert set(model) == {"c", "d"}
+        model.c = Unset
+        assert set(model) == {"d"}
+
+    def test_when_field_is_deleted_then_it_becomes_unset(self, model: Model):
+        assert set(model) == {"c", "d"}
+        del model.c
+        assert set(model) == {"d"}
+        assert model.c == Unset
+
+    def test_in_operator_can_be_used_to_check_if_the_field_is_set(self, model: Model):
+        assert "c" in model
+        assert "d" in model
+
+    @pytest.mark.parametrize("params, expected_errors", [
+        ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("foo"))]),
+    ])
+    def test_create_valid_fails_on_parsing_error_if_wrong_value_is_given_for_field(self, params, expected_errors):
+
+        class Dummy(Model):
+            foo: int
+
+        with pytest.raises(ParsingError) as excinfo:
+            Dummy.create_valid(**params)
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize("params, expected_errors", [
+        ({}, [ErrorFactoryHelper.required_missing(Loc("foo"))]),
+    ])
+    def test_create_valid_fails_on_validation_error_if_validation_errors_are_found(self, params, expected_errors):
+
+        class Dummy(Model):
+            foo: int
+
+        with pytest.raises(ValidationError) as excinfo:
+            Dummy.create_valid(**params)
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    class TestDict:
+
+        @pytest.fixture
+        def model_type(self):
+
+            class Dummy(Model):
+                a: int
+                b: int
+                c: str
+
+            return Dummy
+
+        def test_when_no_fields_set_then_empty_dict_returned(self, model: Model):
+            assert model.dict() == {}
+
+        @pytest.mark.parametrize("initial_params, expected_output", [
+            ({"a": "1"}, {"a": 1}),
+            ({"a": "1", "b": "2", "c": "spam"}, {"a": 1, "b": 2, "c": "spam"}),
+        ])
+        def test_convert_model_to_dict_successfully(self, model: Model, expected_output):
+            assert model.dict() == expected_output
+
+        def test_when_fields_set_after_model_created_then_converting_to_dict_includes_those_fields_in_the_output(self, model: Model):
+            assert model.dict() == {}
+            model.a = 123
+            assert model.dict() == {"a": 123}
+            model.b = 456
+            assert model.dict() == {"a": 123, "b": 456}
+
     class TestCustomConfig:
 
         @pytest.fixture

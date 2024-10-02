@@ -8,6 +8,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
     List,
     Mapping,
     Optional,
@@ -16,6 +17,7 @@ from typing import (
     Type,
     Union,
     cast,
+    TypeVar
 )
 from typing_extensions import dataclass_transform
 
@@ -29,9 +31,9 @@ from modelity.interface import IModelConfig, IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.facade import get_builtin_type_parser_provider
 from modelity.unset import Unset, UnsetType
-from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
+from modelity.interface import T, IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
-_model_special_attrs = ("_loc",)
+_model_special_attrs = ("_loc", "_fields_set")
 _reserved_field_names = tuple(IModelMeta.__annotations__)
 
 
@@ -349,6 +351,9 @@ class ModelMeta(IModelMeta):
         return super().__new__(tp, classname, bases, attrs)
 
 
+MT = TypeVar("MT", bound=IModel)
+
+
 @dataclass_transform(kw_only_default=True)
 class Model(IModel, metaclass=ModelMeta):
     """Base class for models.
@@ -359,6 +364,7 @@ class Model(IModel, metaclass=ModelMeta):
 
     def __init__(self, **kwargs):
         self._loc = Loc()
+        self._fields_set = set()
         errors = []
         fields = self.__class__.__fields__
         for name, field_info in fields.items():
@@ -370,12 +376,23 @@ class Model(IModel, metaclass=ModelMeta):
         if errors:
             raise ParsingError(tuple(errors))
 
+    def __iter__(self) -> Iterator[str]:
+        for field_name in self.__class__.__fields__.keys():
+            if field_name in self._fields_set:
+                yield field_name
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._fields_set
+
     def __repr__(self) -> str:
         items = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__fields__)
         return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __setattr__(self, name: str, value: Any):
-        if value is Unset or name in _model_special_attrs:
+        if name in _model_special_attrs:
+            return super().__setattr__(name, value)
+        self._fields_set.discard(name)
+        if value is Unset:
             return super().__setattr__(name, value)
         cls = self.__class__
         loc = self.get_loc() + Loc(name)
@@ -394,7 +411,11 @@ class Model(IModel, metaclass=ModelMeta):
                     break
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
+        self._fields_set.add(name)
         super().__setattr__(name, value)
+
+    def __delattr__(self, name: str) -> None:
+        return self.__setattr__(name, Unset)
 
     def __eq__(self, value: object) -> bool:
         if type(value) is not self.__class__:
@@ -435,3 +456,16 @@ class Model(IModel, metaclass=ModelMeta):
             errors.extend(model_validator(cls, self, tuple(errors), root_model=root_model))
         if errors:
             raise ValidationError(self, tuple(errors))
+
+    def dict(self) -> dict:
+        """Convert this model into a dict."""
+        out = {}
+        for field_name in self:
+            out[field_name] = getattr(self, field_name)
+        return out
+
+    @classmethod
+    def create_valid(cls: Type[MT], **kwargs) -> MT:
+        obj = cls(**kwargs)
+        obj.validate()
+        return obj
