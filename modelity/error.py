@@ -13,6 +13,7 @@ class ErrorCode:
     FLOAT_REQUIRED = "modelity.FloatRequired"
     BOOLEAN_REQUIRED = "modelity.BooleanRequired"
     ITERABLE_REQUIRED = "modelity.IterableRequired"
+    HASHABLE_REQUIRED = "modelity.HashableRequired"
     MAPPING_REQUIRED = "modelity.MappingRequired"
     DATETIME_REQUIRED = "modelity.DatetimeRequired"
     UNKNOWN_DATETIME_FORMAT = "modelity.UnknownDatetimeFormat"

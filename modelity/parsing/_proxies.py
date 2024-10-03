@@ -1,10 +1,10 @@
 import collections.abc
-from typing import Any, MutableMapping, MutableSequence, MutableSet
+from typing import Any, MutableMapping, MutableSequence, MutableSet, Optional
 
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IParser
+from modelity.interface import IDumpFilter, IParser
 
 
 class MutableMappingProxy(collections.abc.MutableMapping):

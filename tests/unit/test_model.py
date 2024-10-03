@@ -1,11 +1,12 @@
-from typing import Optional, Type
+from typing import Dict, List, Optional, Set, Type
 
 import pytest
 
-from mockify.api import Mock, satisfied, Raise, ordered, Return, _
+from mockify.api import Invoke, Raise, ordered, Return, _
 
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
+from modelity.interface import IDumpFilter
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.model import (
@@ -123,6 +124,20 @@ class TestModelType:
             setattr(model, name, value)
         assert excinfo.value.errors == tuple(expected_errors)
 
+    def test_setting_attribute_fails_if_it_is_not_a_field(self, model: Model):
+        with pytest.raises(AttributeError) as excinfo:
+            model.spam = 123
+        assert str(excinfo.value) == "model 'Dummy' has no field named 'spam'"
+
+    def test_use_a_non_reserved_private_variable_as_field_name(self):
+
+        class Dummy(Model):
+            _foo: int
+
+        uut = Dummy(_foo="123")
+        assert list(uut) == ["_foo"]
+        assert uut._foo == 123
+
     def test_validating_model_fails_if_required_fields_are_missing(self, model: Model):
         with pytest.raises(ValidationError) as excinfo:
             model.validate()
@@ -195,34 +210,217 @@ class TestModelType:
             Dummy.create_valid(**params)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    class TestDict:
+    class TestModelTypeDeclaration:
 
-        @pytest.fixture
-        def model_type(self):
+        def test_model_type_cannot_be_declared_if_reserved_name_is_used_as_field_name(self):
+            with pytest.raises(TypeError) as excinfo:
+                class Dummy(Model):
+                    validate: int
+            assert str(excinfo.value) == "the name 'validate' is reserved by Modelity and cannot be used as field name"
+
+    class TestDump:
+
+        class Nested(Model):
+            a: int
+
+        @pytest.mark.parametrize("tp, given, expected", [
+            (int, {"foo": "1"}, {"foo": 1}),
+            (int, {}, {"foo": Unset}),
+            (float, {"foo": "1.41"}, {"foo": 1.41}),
+            (str, {"foo": "dummy"}, {"foo": "dummy"}),
+            (bool, {"foo": "on"}, {"foo": True}),
+        ])
+        def test_dump_scalar_field(self, tp, given, expected):
 
             class Dummy(Model):
-                a: int
-                b: int
-                c: str
+                foo: tp
 
-            return Dummy
+            uut = Dummy(**given)
+            assert uut.dump() == expected
 
-        def test_when_no_fields_set_then_empty_dict_returned(self, model: Model):
-            assert model.dict() == {}
-
-        @pytest.mark.parametrize("initial_params, expected_output", [
-            ({"a": "1"}, {"a": 1}),
-            ({"a": "1", "b": "2", "c": "spam"}, {"a": 1, "b": 2, "c": "spam"}),
+        @pytest.mark.parametrize("key_type, value_type, given, expected", [
+            (str, int, {}, {"foo": Unset}),
+            (str, int, {"foo": {"one": "1"}}, {"foo": {"one": 1}}),
+            (int, Nested, {}, {"foo": Unset}),
+            (int, Nested, {"foo": {}}, {"foo": {}}),
+            (int, Nested, {"foo": {1: {"a": "1"}}}, {"foo": {1: {"a": 1}}}),
         ])
-        def test_convert_model_to_dict_successfully(self, model: Model, expected_output):
-            assert model.dict() == expected_output
+        def test_dump_mapping_field(self, key_type, value_type, given, expected):
 
-        def test_when_fields_set_after_model_created_then_converting_to_dict_includes_those_fields_in_the_output(self, model: Model):
-            assert model.dict() == {}
-            model.a = 123
-            assert model.dict() == {"a": 123}
-            model.b = 456
-            assert model.dict() == {"a": 123, "b": 456}
+            class Dummy(Model):
+                foo: Dict[key_type, value_type]
+
+            uut = Dummy(**given)
+            assert uut.dump() == expected
+
+        @pytest.mark.parametrize("value_type, given, expected", [
+            (int, {}, {"foo": Unset}),
+            (int, {"foo": []}, {"foo": []}),
+            (int, {"foo": ["1", "2"]}, {"foo": [1, 2]}),
+            (Dict[str, int], {}, {"foo": Unset}),
+            (Dict[str, int], {"foo": []}, {"foo": []}),
+            (Dict[str, int], {"foo": [{"one": "1"}, {"two": "2"}]}, {"foo": [{"one": 1}, {"two": 2}]}),
+            (Nested, {}, {"foo": Unset}),
+            (Nested, {"foo": []}, {"foo": []}),
+            (Nested, {"foo": [{"a": "1"}]}, {"foo": [{"a": 1}]}),
+        ])
+        def test_dump_sequence_field(self, value_type, given, expected):
+
+            class Dummy(Model):
+                foo: List[value_type]
+
+            uut = Dummy(**given)
+            assert uut.dump() == expected
+
+        @pytest.mark.parametrize("value_type, given, expected", [
+            (int, {}, {"foo": Unset}),
+            (int, {"foo": []}, {"foo": set()}),
+            (int, {"foo": set()}, {"foo": set()}),
+            (int, {"foo": ["1", "1", "2", "3"]}, {"foo": {1, 2, 3}}),
+        ])
+        def test_dump_set_field(self, value_type, given, expected):
+
+            class Dummy(Model):
+                foo: Set[value_type]
+
+            uut = Dummy(**given)
+            assert uut.dump() == expected
+
+        @pytest.mark.parametrize("given, expected", [
+            ({}, {"foo": Unset}),
+            ({"foo": {}}, {"foo": {"a": Unset}}),
+            ({"foo": {"a": "1"}}, {"foo": {"a": 1}}),
+        ])
+        def test_dump_model_field(self, given, expected):
+
+            class Dummy(Model):
+                foo: self.Nested
+
+            uut = Dummy(**given)
+            assert uut.dump() == expected
+
+        class TestDumpModelWithCustomFilter:
+
+            def test_skip_undefined_fields(self, mock):
+
+                class Dummy(Model):
+                    a: int
+
+                uut = Dummy()
+                mock.expect_call(Loc("a"), Unset).will_once(Return((Unset, True)))
+                assert uut.dump(mock) == {}
+
+            def test_return_another_value(self, mock):
+
+                class Dummy(Model):
+                    a: int
+
+                uut = Dummy(a=1)
+                mock.expect_call(Loc("a"), 1).will_once(Return((11, False)))
+                assert uut.dump(mock) == {"a": 11}
+
+        class TestDumpMappingWithCustomFilter:
+
+            def test_skip_fields(self, mock):
+
+                class Dummy(Model):
+                    foo: Dict[str, int]
+
+                uut = Dummy(foo={"one": "1", "two": 2})
+                mock.expect_call(Loc("foo"), {"one": 1, "two": 2}).will_once(Invoke(lambda l, v: (v, False)))
+                mock.expect_call(Loc("foo", "one"), 1).will_once(Return((1, True)))
+                mock.expect_call(Loc("foo", "two"), 2).will_once(Return((2, False)))
+                assert uut.dump(mock) == {"foo": {"two": 2}}
+
+            def test_return_another_value(self, mock):
+
+                class Dummy(Model):
+                    a: int
+
+                uut = Dummy(a=1)
+                mock.expect_call(Loc("a"), 1).will_once(Return((11, False)))
+                assert uut.dump(mock) == {"a": 11}
+
+    class TestDumpWithFunc:
+
+        @pytest.fixture
+        def func(self):
+            return lambda l, v: (v, False)  # False - don't skip
+
+        @pytest.mark.parametrize("tp, given, expected", [
+            (int, "1", 1),
+            (float, "1.41", 1.41),
+            (str, "dummy", "dummy"),
+            (bool, "true", True),
+        ])
+        def test_visit_scalar_field(self, mock, tp, given, expected, func):
+
+            class Dummy(Model):
+                foo: tp
+
+            uut = Dummy(foo=given)
+            mock.expect_call(Loc("foo"), expected).will_once(Invoke(func))
+            with ordered(mock):
+                assert uut.dump(mock)["foo"] == expected
+
+        def test_visit_mapping_field(self, mock, func):
+
+            class Dummy(Model):
+                foo: Dict[str, int]
+
+            foo = {"a": 1, "b": 2}
+            uut = Dummy(foo=foo)
+            mock.expect_call(Loc("foo"), foo).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "a"), 1).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "b"), 2).will_once(Invoke(func))
+            with ordered(mock):
+                assert uut.dump(mock) == {"foo": foo}
+
+        def test_visit_mapping_field_with_values_being_another_mapping(self, mock, func):
+
+            class Dummy(Model):
+                foo: Dict[str, Dict[str, int]]
+
+            foo = {"a": {"b": 1}, "c": {"d": 2, "e": 3}}
+            uut = Dummy(foo=foo)
+            mock.expect_call(Loc("foo"), foo).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "a"), {"b": 1}).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "a", "b"), 1).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "c"), {"d": 2, "e": 3}).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "c", "d"), 2).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "c", "e"), 3).will_once(Invoke(func))
+            with ordered(mock):
+                assert uut.dump(mock) == {"foo": foo}
+
+        def test_visit_nested_model(self, mock, func):
+
+            class Foo(Model):
+                a: int
+
+            class Bar(Model):
+                foo: Foo
+
+            foo = {"a": 1}
+            uut = Bar(foo=foo)
+            mock.expect_call(Loc("foo"), Foo(a=1)).will_once(Invoke(func))
+            mock.expect_call(Loc("foo", "a"), 1).will_once(Invoke(func))
+            with ordered(mock):
+                assert uut.dump(mock) == {"foo": foo}
+
+        @pytest.mark.parametrize("tp, given, expected", [
+            (int, ["1", "2"], [1, 2]),
+        ])
+        def test_visit_sequence_field(self, mock, tp, given, expected, func):
+
+            class Dummy(Model):
+                foo: List[tp]
+
+            uut = Dummy(foo=given)
+            mock.expect_call(Loc("foo"), expected).will_once(Invoke(func))
+            for i, val in enumerate(expected):
+                mock.expect_call(Loc("foo", i), val).will_once(Invoke(func))
+            with ordered(mock):
+                assert uut.dump(mock) == {"foo": expected}
 
     class TestCustomConfig:
 

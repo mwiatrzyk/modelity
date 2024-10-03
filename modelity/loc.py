@@ -14,11 +14,19 @@ class Loc(collections.abc.Iterable):
     def __iter__(self) -> collections.abc.Iterator:
         return iter(self._path)
 
+    def __getitem__(self, index: int) -> Any:
+        return self._path[index]
+
     def __repr__(self) -> str:
         return f"Loc({', '.join(repr(x) for x in self._path)})"
 
     def __str__(self) -> str:
         return ".".join(str(x) for x in self)
+
+    def __lt__(self, value: object) -> bool:
+        if not isinstance(value, Loc):
+            return False
+        return self._path < value._path
 
     def __eq__(self, value: object) -> bool:
         return isinstance(value, Loc) and self._path == value._path

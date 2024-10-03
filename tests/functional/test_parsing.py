@@ -807,6 +807,7 @@ class TestSetParser:
         [
             (set, [], set()),
             (set, [1], {1}),
+            (set, {1, 2, 3}, {1, 2, 3}),
             (set, [1, 1, "foo", "bar"], {1, "foo", "bar"}),
             (Set[int], [], set()),
             (Set[int], ["1", "2", "2", "3"], {1, 2, 3}),
@@ -821,6 +822,8 @@ class TestSetParser:
             (set, None, [ErrorFactoryHelper.iterable_required(Loc())]),
             (Set[int], None, [ErrorFactoryHelper.iterable_required(Loc())]),
             (Set[int], [1, "spam"], [ErrorFactoryHelper.integer_required(Loc())]),
+            (Set[tuple], [1], [ErrorFactoryHelper.iterable_required(Loc())]),
+            (Set[list], [[1]], [ErrorFactoryHelper.hashable_required(Loc())]),
         ],
     )
     def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):

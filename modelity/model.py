@@ -13,6 +13,7 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -27,14 +28,13 @@ from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IModelConfig, IModelMeta, ITypeParserProvider
+from modelity.interface import IDumpFilter, IModelConfig, IModelMeta, ITypeParserProvider
 from modelity.parsing.providers import CachingTypeParserProviderProxy
 from modelity.parsing.facade import get_builtin_type_parser_provider
-from modelity.unset import Unset, UnsetType
-from modelity.interface import T, IModel, IModelValidator, IFieldValidator, IFieldProcessor
+from modelity.unset import Unset
+from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
-_model_special_attrs = ("_loc", "_fields_set")
-_reserved_field_names = tuple(IModelMeta.__annotations__)
+_reserved_names: Set[str] = set()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -93,6 +93,48 @@ def _wrap_field_processor(func: Callable) -> IFieldProcessor:
             f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
         )
     return proxy
+
+
+def _dump_model(value: IModel, loc: Loc, func: IDumpFilter) -> Tuple[dict, bool]:
+    result = {}
+    for field_name in value.__class__.__fields__:
+        dump_value, skip = _dump_any(getattr(value, field_name), loc + Loc(field_name), func)
+        if not skip:
+            result[field_name] = dump_value
+    return result, False
+
+
+def _dump_any(value: Any, loc: Loc, func: IDumpFilter) -> Tuple[Any, bool]:
+    value, skip = func(loc, value)
+    if skip:
+        return value, skip
+    if type(value) in (str, bytes, bytearray):  # Exception, to avoid infinite recursion (these are sequences)
+        return value, False
+    if isinstance(value, IModel):
+        return _dump_model(value, loc, func)
+    if isinstance(value, Mapping):
+        return _dump_mapping(value, loc, func)
+    if isinstance(value, Sequence):
+        return _dump_sequence(value, loc, func)
+    return value, False
+
+
+def _dump_mapping(value: Mapping, loc: Loc, func: IDumpFilter) -> Tuple[dict, bool]:
+    result = {}
+    for key, value in value.items():
+        dump_value, skip = _dump_any(value, loc + Loc(key), func)
+        if not skip:
+            result[key] = dump_value
+    return result, False
+
+
+def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, bool]:
+    result = []
+    for i, value in enumerate(value):
+        dump_value, skip = _dump_any(value, loc + Loc(i), func)
+        if not skip:
+            result.append(dump_value)
+    return result, False
 
 
 def field_validator(*field_names: str):
@@ -307,8 +349,10 @@ class ModelMeta(IModelMeta):
         for field_name, type in itertools.chain(
             inherit_mixed_in_annotations(), attrs.get("__annotations__", {}).items()
         ):
-            if field_name in _reserved_field_names:
+            if field_name in IModelMeta.__annotations__:
                 continue
+            if field_name in _reserved_names:
+                raise TypeError(f"the name {field_name!r} is reserved by Modelity and cannot be used as field name")
             field_info = attrs.pop(field_name, None)
             if field_info is None:
                 field_info = BoundField(field_name, type)
@@ -342,7 +386,7 @@ class ModelMeta(IModelMeta):
                 for field_name in decorator_info.params.get("field_names", []) or fields:
                     field_validators.setdefault(field_name, []).append(attr_value)
         attrs["__fields__"] = fields
-        attrs["__slots__"] = _model_special_attrs + tuple(fields)
+        attrs["__slots__"] = attrs.get("__slots__", tuple()) + tuple(fields)
         attrs["__config__"] = attrs.get("__config__", inherit_config() or ModelConfig())
         attrs["_preprocessors"] = preprocessors
         attrs["_postprocessors"] = postprocessors
@@ -351,16 +395,20 @@ class ModelMeta(IModelMeta):
         return super().__new__(tp, classname, bases, attrs)
 
 
+_reserved_names.update(dir(ModelMeta))
+
+
 MT = TypeVar("MT", bound=IModel)
 
 
 @dataclass_transform(kw_only_default=True)
-class Model(IModel, metaclass=ModelMeta):
+class Model(IModel, metaclass=ModelMeta):  # FIXME: self.__dict__ is still accessible despite slot being used. Works fine when IModel is removed from here.
     """Base class for models.
 
     To create custom model, you simply need to create subclass of this type and
     declare fields via annotations.
     """
+    __slots__ = ("_loc", "_fields_set")
 
     def __init__(self, **kwargs):
         self._loc = Loc()
@@ -389,12 +437,14 @@ class Model(IModel, metaclass=ModelMeta):
         return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __setattr__(self, name: str, value: Any):
-        if name in _model_special_attrs:
+        cls = self.__class__
+        if name not in cls.__fields__ and name.startswith("_"):
             return super().__setattr__(name, value)
+        if name not in cls.__fields__:
+            raise AttributeError(f"model {cls.__name__!r} has no field named {name!r}")
         self._fields_set.discard(name)
         if value is Unset:
             return super().__setattr__(name, value)
-        cls = self.__class__
         loc = self.get_loc() + Loc(name)
         for preprocessor in cls._preprocessors.get(name, []):
             value = preprocessor(cls, loc, name, value)
@@ -457,15 +507,17 @@ class Model(IModel, metaclass=ModelMeta):
         if errors:
             raise ValidationError(self, tuple(errors))
 
-    def dict(self) -> dict:
-        """Convert this model into a dict."""
-        out = {}
-        for field_name in self:
-            out[field_name] = getattr(self, field_name)
-        return out
+    def dump(self, func: Optional[IDumpFilter] = None) -> dict:
+        loc = self.get_loc()
+        func = (lambda l, v: (v, False)) if func is None else func
+        dump_value = _dump_model(self, loc, cast(IDumpFilter, func))
+        return dump_value[0]
 
     @classmethod
     def create_valid(cls: Type[MT], **kwargs) -> MT:
         obj = cls(**kwargs)
         obj.validate()
         return obj
+
+
+_reserved_names.update(dir(Model))

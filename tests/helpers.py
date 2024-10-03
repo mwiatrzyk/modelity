@@ -39,6 +39,10 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.IterableRequired")
 
     @staticmethod
+    def hashable_required(loc: Loc) -> Error:
+        return Error.create(loc, "modelity.HashableRequired")
+
+    @staticmethod
     def mapping_required(loc: Loc) -> Error:
         return Error.create(loc, "modelity.MappingRequired")
 

@@ -11,8 +11,15 @@ T = TypeVar("T")
 
 
 class ISupportsLess(Protocol):
+    """Interface for objects that contain less operator."""
 
     def __lt__(self, other: object) -> bool: ...
+
+
+class IDumpFilter(Protocol):
+    """Interface for :meth:`IModel.dump` method filter callable."""
+
+    def __call__(self, loc: Loc, value: Any) -> Tuple[Any, bool]: ...
 
 
 class IParser(Protocol, Generic[T_co]):
@@ -82,7 +89,7 @@ class IModelConfig(Protocol):
     user_data: dict
 
 
-class IModelMeta(type):
+class IModelMeta(abc.ABCMeta):
     """Base class for model metaclass.
 
     This is here only to be used to annotate model class properties for the
@@ -100,9 +107,6 @@ class IModelMeta(type):
 
 class IModel(metaclass=IModelMeta):
     """Interface for models."""
-
-    # TODO: Originally this class inherited from ABC. Maybe it would be worth
-    # adding validation against abstract methods implementation?
 
     @abc.abstractmethod
     def set_loc(self, loc: Loc):
@@ -137,6 +141,21 @@ class IModel(metaclass=IModelMeta):
             This argument is only used when this model appears as a field in
             another, parent model. It must point to the root model, which is the
             one for which :meth:`validate` was called.
+        """
+
+    @abc.abstractmethod
+    def dump(self, func: Optional[IDumpFilter] = None) -> dict:
+        """Convert this model to dict.
+
+        This method will recursively dump nested models, mappings and sequences.
+
+        :param func:
+            Optional filter function.
+
+            Can be used to exclude fields from the resulting dict, remove
+            certain values and convert to different value whenever needed.
+
+            See :class:`IDumpFilter` protocol to check how to use this.
         """
 
 
