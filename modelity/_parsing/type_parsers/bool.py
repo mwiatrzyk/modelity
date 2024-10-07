@@ -1,6 +1,6 @@
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
-from modelity.parsing.providers import TypeParserProvider
+from modelity._parsing.providers import TypeParserProvider
 
 _TRUE_VALUES = (True, 1, "on", "true")
 _FALSE_VALUES = (False, 0, "off", "false")

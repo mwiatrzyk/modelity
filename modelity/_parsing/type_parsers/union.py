@@ -3,7 +3,7 @@ import typing
 from modelity.error import Error
 from modelity.invalid import Invalid
 from modelity.interface import ITypeParserProvider
-from modelity.parsing.providers import TypeParserProvider
+from modelity._parsing.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 

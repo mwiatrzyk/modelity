@@ -7,7 +7,7 @@ from mockify.api import Return
 from modelity.exc import UnsupportedType
 from modelity.interface import ITypeParserProvider
 from modelity.loc import Loc
-from modelity.parsing.providers import CachingTypeParserProviderProxy, TypeParserProvider
+from modelity._parsing.providers import CachingTypeParserProviderProxy, TypeParserProvider
 
 
 class TestTypeParserProvider:

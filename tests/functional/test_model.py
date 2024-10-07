@@ -3,7 +3,7 @@ from typing import Optional, Type
 import pytest
 
 from modelity.model import Model
-from modelity.parsing._type_parsers import all
+from modelity._parsing.type_parsers import all
 
 
 class Base(Model):

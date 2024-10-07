@@ -29,8 +29,8 @@ from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IDumpFilter, IModelConfig, IModelMeta, ITypeParserProvider
-from modelity.parsing.providers import CachingTypeParserProviderProxy
-from modelity.parsing.facade import get_builtin_type_parser_provider
+from modelity._parsing.providers import CachingTypeParserProviderProxy
+from modelity._parsing.facade import get_builtin_type_parser_provider
 from modelity.unset import Unset
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 

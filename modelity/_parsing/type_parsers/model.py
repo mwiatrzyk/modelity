@@ -4,7 +4,7 @@ from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IModel
 from modelity.invalid import Invalid
-from modelity.parsing.providers import TypeParserProvider
+from modelity._parsing.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 

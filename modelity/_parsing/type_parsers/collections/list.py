@@ -5,8 +5,8 @@ from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import ITypeParserProvider
-from modelity.parsing.providers import TypeParserProvider
-from modelity.parsing._proxies import MutableSequenceProxy
+from modelity._parsing.providers import TypeParserProvider
+from modelity._parsing.proxies import MutableSequenceProxy
 
 provider = TypeParserProvider()
 
