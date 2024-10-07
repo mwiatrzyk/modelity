@@ -11,7 +11,7 @@ from modelity.loc import Loc
 from modelity.model import Model
 from modelity.parsing._type_parsers import all
 from modelity.interface import IParser, ITypeParserProvider
-from modelity.validators import Max, Min, Range
+from modelity.constraints import Max, Min, Range
 from tests.helpers import ErrorFactoryHelper
 
 
