@@ -21,7 +21,9 @@ def make_datetime_parser():
                 return datetime.datetime.strptime(value, format_)
             except ValueError:
                 pass
-        return Invalid(value, ErrorFactory.unknown_datetime_format(loc, supported_formats=supported_formats_human_readable))
+        return Invalid(
+            value, ErrorFactory.unknown_datetime_format(loc, supported_formats=supported_formats_human_readable)
+        )
 
     supported_formats = (
         "%Y-%m-%dT%H:%M:%S",

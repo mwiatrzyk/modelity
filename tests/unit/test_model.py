@@ -165,7 +165,9 @@ class TestModelType:
         assert (left == right) == is_equal
         assert (left != right) == (not is_equal)
 
-    def test_iterating_over_model_yields_fields_that_are_currently_set_in_field_declaration_order(self, model_type: Type[Model]):
+    def test_iterating_over_model_yields_fields_that_are_currently_set_in_field_declaration_order(
+        self, model_type: Type[Model]
+    ):
         model = model_type()
         assert list(model) == ["c", "d"]  # Defaults
         model.a = 1
@@ -186,9 +188,12 @@ class TestModelType:
         assert "c" in model
         assert "d" in model
 
-    @pytest.mark.parametrize("params, expected_errors", [
-        ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("foo"))]),
-    ])
+    @pytest.mark.parametrize(
+        "params, expected_errors",
+        [
+            ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("foo"))]),
+        ],
+    )
     def test_create_valid_fails_on_parsing_error_if_wrong_value_is_given_for_field(self, params, expected_errors):
 
         class Dummy(Model):
@@ -198,9 +203,12 @@ class TestModelType:
             Dummy.create_valid(**params)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("params, expected_errors", [
-        ({}, [ErrorFactoryHelper.required_missing(Loc("foo"))]),
-    ])
+    @pytest.mark.parametrize(
+        "params, expected_errors",
+        [
+            ({}, [ErrorFactoryHelper.required_missing(Loc("foo"))]),
+        ],
+    )
     def test_create_valid_fails_on_validation_error_if_validation_errors_are_found(self, params, expected_errors):
 
         class Dummy(Model):
@@ -214,8 +222,10 @@ class TestModelType:
 
         def test_model_type_cannot_be_declared_if_reserved_name_is_used_as_field_name(self):
             with pytest.raises(TypeError) as excinfo:
+
                 class Dummy(Model):
                     validate: int
+
             assert str(excinfo.value) == "the name 'validate' is reserved by Modelity and cannot be used as field name"
 
     class TestDump:
@@ -223,13 +233,16 @@ class TestModelType:
         class Nested(Model):
             a: int
 
-        @pytest.mark.parametrize("tp, given, expected", [
-            (int, {"foo": "1"}, {"foo": 1}),
-            (int, {}, {"foo": Unset}),
-            (float, {"foo": "1.41"}, {"foo": 1.41}),
-            (str, {"foo": "dummy"}, {"foo": "dummy"}),
-            (bool, {"foo": "on"}, {"foo": True}),
-        ])
+        @pytest.mark.parametrize(
+            "tp, given, expected",
+            [
+                (int, {"foo": "1"}, {"foo": 1}),
+                (int, {}, {"foo": Unset}),
+                (float, {"foo": "1.41"}, {"foo": 1.41}),
+                (str, {"foo": "dummy"}, {"foo": "dummy"}),
+                (bool, {"foo": "on"}, {"foo": True}),
+            ],
+        )
         def test_dump_scalar_field(self, tp, given, expected):
 
             class Dummy(Model):
@@ -238,13 +251,16 @@ class TestModelType:
             uut = Dummy(**given)
             assert uut.dump() == expected
 
-        @pytest.mark.parametrize("key_type, value_type, given, expected", [
-            (str, int, {}, {"foo": Unset}),
-            (str, int, {"foo": {"one": "1"}}, {"foo": {"one": 1}}),
-            (int, Nested, {}, {"foo": Unset}),
-            (int, Nested, {"foo": {}}, {"foo": {}}),
-            (int, Nested, {"foo": {1: {"a": "1"}}}, {"foo": {1: {"a": 1}}}),
-        ])
+        @pytest.mark.parametrize(
+            "key_type, value_type, given, expected",
+            [
+                (str, int, {}, {"foo": Unset}),
+                (str, int, {"foo": {"one": "1"}}, {"foo": {"one": 1}}),
+                (int, Nested, {}, {"foo": Unset}),
+                (int, Nested, {"foo": {}}, {"foo": {}}),
+                (int, Nested, {"foo": {1: {"a": "1"}}}, {"foo": {1: {"a": 1}}}),
+            ],
+        )
         def test_dump_mapping_field(self, key_type, value_type, given, expected):
 
             class Dummy(Model):
@@ -253,17 +269,20 @@ class TestModelType:
             uut = Dummy(**given)
             assert uut.dump() == expected
 
-        @pytest.mark.parametrize("value_type, given, expected", [
-            (int, {}, {"foo": Unset}),
-            (int, {"foo": []}, {"foo": []}),
-            (int, {"foo": ["1", "2"]}, {"foo": [1, 2]}),
-            (Dict[str, int], {}, {"foo": Unset}),
-            (Dict[str, int], {"foo": []}, {"foo": []}),
-            (Dict[str, int], {"foo": [{"one": "1"}, {"two": "2"}]}, {"foo": [{"one": 1}, {"two": 2}]}),
-            (Nested, {}, {"foo": Unset}),
-            (Nested, {"foo": []}, {"foo": []}),
-            (Nested, {"foo": [{"a": "1"}]}, {"foo": [{"a": 1}]}),
-        ])
+        @pytest.mark.parametrize(
+            "value_type, given, expected",
+            [
+                (int, {}, {"foo": Unset}),
+                (int, {"foo": []}, {"foo": []}),
+                (int, {"foo": ["1", "2"]}, {"foo": [1, 2]}),
+                (Dict[str, int], {}, {"foo": Unset}),
+                (Dict[str, int], {"foo": []}, {"foo": []}),
+                (Dict[str, int], {"foo": [{"one": "1"}, {"two": "2"}]}, {"foo": [{"one": 1}, {"two": 2}]}),
+                (Nested, {}, {"foo": Unset}),
+                (Nested, {"foo": []}, {"foo": []}),
+                (Nested, {"foo": [{"a": "1"}]}, {"foo": [{"a": 1}]}),
+            ],
+        )
         def test_dump_sequence_field(self, value_type, given, expected):
 
             class Dummy(Model):
@@ -272,12 +291,15 @@ class TestModelType:
             uut = Dummy(**given)
             assert uut.dump() == expected
 
-        @pytest.mark.parametrize("value_type, given, expected", [
-            (int, {}, {"foo": Unset}),
-            (int, {"foo": []}, {"foo": set()}),
-            (int, {"foo": set()}, {"foo": set()}),
-            (int, {"foo": ["1", "1", "2", "3"]}, {"foo": {1, 2, 3}}),
-        ])
+        @pytest.mark.parametrize(
+            "value_type, given, expected",
+            [
+                (int, {}, {"foo": Unset}),
+                (int, {"foo": []}, {"foo": set()}),
+                (int, {"foo": set()}, {"foo": set()}),
+                (int, {"foo": ["1", "1", "2", "3"]}, {"foo": {1, 2, 3}}),
+            ],
+        )
         def test_dump_set_field(self, value_type, given, expected):
 
             class Dummy(Model):
@@ -286,11 +308,14 @@ class TestModelType:
             uut = Dummy(**given)
             assert uut.dump() == expected
 
-        @pytest.mark.parametrize("given, expected", [
-            ({}, {"foo": Unset}),
-            ({"foo": {}}, {"foo": {"a": Unset}}),
-            ({"foo": {"a": "1"}}, {"foo": {"a": 1}}),
-        ])
+        @pytest.mark.parametrize(
+            "given, expected",
+            [
+                ({}, {"foo": Unset}),
+                ({"foo": {}}, {"foo": {"a": Unset}}),
+                ({"foo": {"a": "1"}}, {"foo": {"a": 1}}),
+            ],
+        )
         def test_dump_model_field(self, given, expected):
 
             class Dummy(Model):
@@ -347,12 +372,15 @@ class TestModelType:
         def func(self):
             return lambda l, v: (v, False)  # False - don't skip
 
-        @pytest.mark.parametrize("tp, given, expected", [
-            (int, "1", 1),
-            (float, "1.41", 1.41),
-            (str, "dummy", "dummy"),
-            (bool, "true", True),
-        ])
+        @pytest.mark.parametrize(
+            "tp, given, expected",
+            [
+                (int, "1", 1),
+                (float, "1.41", 1.41),
+                (str, "dummy", "dummy"),
+                (bool, "true", True),
+            ],
+        )
         def test_visit_scalar_field(self, mock, tp, given, expected, func):
 
             class Dummy(Model):
@@ -407,9 +435,12 @@ class TestModelType:
             with ordered(mock):
                 assert uut.dump(mock) == {"foo": foo}
 
-        @pytest.mark.parametrize("tp, given, expected", [
-            (int, ["1", "2"], [1, 2]),
-        ])
+        @pytest.mark.parametrize(
+            "tp, given, expected",
+            [
+                (int, ["1", "2"], [1, 2]),
+            ],
+        )
         def test_visit_sequence_field(self, mock, tp, given, expected, func):
 
             class Dummy(Model):

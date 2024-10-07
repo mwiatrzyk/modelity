@@ -101,7 +101,7 @@ class IModelMeta(abc.ABCMeta):
     #: This can be used to override or extend built-in defaults.
     __config__: IModelConfig
 
-    #: Map with fields declared for this model type.
+    #: Read-only property allowing to access model's fields.
     __fields__: Mapping[str, BoundField]
 
 

@@ -59,6 +59,22 @@ class TestNotification:
     def notif(self, data: dict):
         return Notification(**data)
 
+    @pytest.mark.parametrize(
+        "given_data, expected_dump",
+        [
+            ({"jsonrpc": "2.0", "method": "dummy"}, {"jsonrpc": "2.0", "method": "dummy", "params": Unset}),
+            (
+                {"jsonrpc": "2.0", "method": "dummy", "params": [1, 2, 3]},
+                {"jsonrpc": "2.0", "method": "dummy", "params": [1, 2, 3]},
+            ),
+        ],
+    )
+    def test_load_and_dump(self, given_data: dict, expected_dump: dict):
+        notif = Notification.load(given_data)
+        notif.validate()
+        assert notif.dump() == expected_dump
+        assert Notification.load(notif.dump()) == notif
+
     class TestFields:
 
         @pytest.mark.parametrize(
@@ -155,6 +171,25 @@ class TestRequest:
     @pytest.fixture
     def req(self, data: dict):
         return Request(**data)
+
+    @pytest.mark.parametrize(
+        "given_data, expected_dump",
+        [
+            (
+                {"jsonrpc": "2.0", "method": "dummy", "id": 1},
+                {"jsonrpc": "2.0", "method": "dummy", "id": 1, "params": Unset},
+            ),
+            (
+                {"jsonrpc": "2.0", "method": "dummy", "id": 1, "params": [1, 2, 3]},
+                {"jsonrpc": "2.0", "method": "dummy", "id": 1, "params": [1, 2, 3]},
+            ),
+        ],
+    )
+    def test_load_and_dump(self, given_data: dict, expected_dump: dict):
+        request = Request.load(given_data)
+        request.validate()
+        assert request.dump() == expected_dump
+        assert Request.load(request.dump()) == request
 
     class TestFields:
 

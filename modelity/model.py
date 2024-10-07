@@ -18,7 +18,7 @@ from typing import (
     Type,
     Union,
     cast,
-    TypeVar
+    TypeVar,
 )
 from typing_extensions import dataclass_transform
 
@@ -297,7 +297,7 @@ def field(default: Any = Unset, optional: bool = False) -> "Field":
 
 
 @dataclasses.dataclass()
-class ModelConfig(IModelConfig):
+class ModelConfig:
     """Model configuration object.
 
     Custom instances or subclasses are allowed to be set via
@@ -307,7 +307,9 @@ class ModelConfig(IModelConfig):
     #: Provider used to find type parser.
     #:
     #: Can be customized to allow user-defined type to be used by the library.
-    type_parser_provider: ITypeParserProvider = CachingTypeParserProviderProxy(get_builtin_type_parser_provider())
+    type_parser_provider: ITypeParserProvider = dataclasses.field(
+        default_factory=lambda: CachingTypeParserProviderProxy(get_builtin_type_parser_provider())
+    )
 
     #: Placeholder for user-defined data.
     user_data: dict = dataclasses.field(default_factory=dict)
@@ -322,12 +324,6 @@ class ModelMeta(IModelMeta):
     _model_validators: Sequence[IModelValidator]
 
     def __new__(tp, classname: str, bases: Tuple[Type], attrs: dict):
-
-        def inherit_config() -> Optional[ModelConfig]:
-            for b in bases:
-                if isinstance(b, ModelMeta):
-                    return b.__config__
-            return None
 
         def inherit_fields():
             for b in bases:
@@ -387,7 +383,6 @@ class ModelMeta(IModelMeta):
                     field_validators.setdefault(field_name, []).append(attr_value)
         attrs["__fields__"] = fields
         attrs["__slots__"] = attrs.get("__slots__", tuple()) + tuple(fields)
-        attrs["__config__"] = attrs.get("__config__", inherit_config() or ModelConfig())
         attrs["_preprocessors"] = preprocessors
         attrs["_postprocessors"] = postprocessors
         attrs["_model_validators"] = tuple(model_validators)
@@ -402,13 +397,17 @@ MT = TypeVar("MT", bound=IModel)
 
 
 @dataclass_transform(kw_only_default=True)
-class Model(IModel, metaclass=ModelMeta):  # FIXME: self.__dict__ is still accessible despite slot being used. Works fine when IModel is removed from here.
+class Model(
+    IModel, metaclass=ModelMeta
+):  # FIXME: self.__dict__ is still accessible despite slot being used. Works fine when IModel is removed from here.
     """Base class for models.
 
     To create custom model, you simply need to create subclass of this type and
     declare fields via annotations.
     """
+
     __slots__ = ("_loc", "_fields_set")
+    __config__ = ModelConfig()
 
     def __init__(self, **kwargs):
         self._loc = Loc()
@@ -512,6 +511,22 @@ class Model(IModel, metaclass=ModelMeta):  # FIXME: self.__dict__ is still acces
         func = (lambda l, v: (v, False)) if func is None else func
         dump_value = _dump_model(self, loc, cast(IDumpFilter, func))
         return dump_value[0]
+
+    @classmethod
+    def load(cls: Type[MT], data: dict) -> MT:
+        """Parse given dict into a new instance of this model.
+
+        This method basically simply calls the constructor with provided data
+        and is added to the interface to provide symmetric API with
+        :meth:`dump` method.
+
+        May raise :exc:`modelity.exc.ParsingError` if *data* could not be
+        parsed into model object.
+
+        :param data:
+            Dict to be parsed into instance of model.
+        """
+        return cls(**data)
 
     @classmethod
     def create_valid(cls: Type[MT], **kwargs) -> MT:
