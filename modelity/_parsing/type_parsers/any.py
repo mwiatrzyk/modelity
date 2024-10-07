@@ -1,5 +1,5 @@
 from typing import Any
-from modelity._parsing.providers import TypeParserProvider
+from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 

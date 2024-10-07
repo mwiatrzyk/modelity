@@ -1,4 +1,4 @@
-from modelity._parsing.providers import TypeParserProvider
+from modelity.providers import TypeParserProvider
 
 from . import annotated, any, bool, datetime, enum, literal, model, none, numeric, string, union
 from .collections import all as _collections

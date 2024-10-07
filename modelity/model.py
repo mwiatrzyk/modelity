@@ -29,8 +29,8 @@ from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IDumpFilter, IModelConfig, IModelMeta, ITypeParserProvider
-from modelity._parsing.providers import CachingTypeParserProviderProxy
-from modelity._parsing.facade import get_builtin_type_parser_provider
+from modelity.providers import CachingTypeParserProviderProxy, TypeParserProvider
+from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
 from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
 
@@ -296,6 +296,16 @@ def field(default: Any = Unset, optional: bool = False) -> "Field":
     return Field(default=default, optional=optional)
 
 
+def get_builtin_type_parser_provider() -> ITypeParserProvider:
+    """Get instance of :class:`ITypeParserProvider` class containing all built-in
+    type parsers.
+
+    This can be used to add custom types simply by creating custom type parser
+    provider and attaching this one to add built-in types.
+    """
+    return _root_provider
+
+
 @dataclasses.dataclass()
 class ModelConfig:
     """Model configuration object.
@@ -517,7 +527,7 @@ class Model(
         """Parse given dict into a new instance of this model.
 
         This method basically simply calls the constructor with provided data
-        and is added to the interface to provide symmetric API with
+        and is added to the interface just to provide API symmetry with the
         :meth:`dump` method.
 
         May raise :exc:`modelity.exc.ParsingError` if *data* could not be
@@ -530,6 +540,17 @@ class Model(
 
     @classmethod
     def create_valid(cls: Type[MT], **kwargs) -> MT:
+        """Create model and validate it shortly after.
+
+        This method was added for convenience to reduce boilerplate code in
+        situations where data is required to be valid.
+
+        May raise either :exc:`modelity.exc.ParsingError` or
+        :exc:`modelity.exc.ValidationError`.
+
+        :param `**kwargs`:
+            Keyword args to initialize model with.
+        """
         obj = cls(**kwargs)
         obj.validate()
         return obj

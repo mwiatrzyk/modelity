@@ -1,4 +1,4 @@
-from modelity._parsing.providers import TypeParserProvider
+from modelity.providers import TypeParserProvider
 
 from . import dict, list, set, tuple
 

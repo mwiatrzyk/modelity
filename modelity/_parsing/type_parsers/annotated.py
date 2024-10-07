@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Tuple, get_args
 from modelity.invalid import Invalid
 from modelity.interface import IParser, ITypeParserProvider
-from modelity._parsing.providers import TypeParserProvider
+from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 

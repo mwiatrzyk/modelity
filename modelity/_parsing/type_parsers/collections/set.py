@@ -4,7 +4,7 @@ from typing import Iterable, get_args
 from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
 from modelity.interface import ITypeParserProvider
-from modelity._parsing.providers import TypeParserProvider
+from modelity.providers import TypeParserProvider
 from modelity._parsing.proxies import MutableSetProxy
 
 provider = TypeParserProvider()
