@@ -1,13 +1,13 @@
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, Type, get_origin
+from typing import Any, Callable, Dict, Iterator, Optional, Type, get_origin
 
 from modelity import _utils
 from modelity.exc import UnsupportedType
 from modelity.interface import T, IParser, ITypeParserFactory, ITypeParserProvider
 
 
-class TypeParserProvider(ITypeParserProvider):
+class TypeParserProvider:
     """Class for creating type parser providers.
 
     It is used internally by the library for managing built-in type parsers,
@@ -17,17 +17,30 @@ class TypeParserProvider(ITypeParserProvider):
     def __init__(self):
         self._type_parser_factories = {}
 
-    def attach(self, other: "TypeParserProvider"):
+    def attach(self, other: ITypeParserProvider):
         """Attach other type parser provider object to this one.
 
-        As a result, all type parsers registered using ``other`` will be used
-        by this provider. Please be aware that any types that exist in both
-        providers will be overwritten with parsers taken from ``other``.
+        As a result, all type parsers registered for *other* will be used
+        by this provider. Please be aware that any types that existed in both
+        providers will be replaced with ones taken from *other* after this
+        method is called.
 
         :param other:
             Reference to provider to attach parsers from.
         """
-        self._type_parser_factories.update(other._type_parser_factories)
+        for tp in other.iter_types():
+            parser_factory = other.get_type_parser_factory(tp)
+            if parser_factory is not None:
+                self._type_parser_factories[tp] = parser_factory
+
+    def iter_types(self) -> Iterator[Type]:
+        return iter(self._type_parser_factories)
+
+    def has_type(self, tp: Type) -> bool:
+        return tp in self._type_parser_factories
+
+    def get_type_parser_factory(self, tp: Type[T]) -> Optional[ITypeParserFactory[T]]:
+        return self._type_parser_factories.get(tp)
 
     def register_type_parser_factory(self, tp: Any, func: Callable) -> ITypeParserFactory[T]:
         """Attach type parser factory function.
@@ -94,12 +107,25 @@ class TypeParserProvider(ITypeParserProvider):
         raise UnsupportedType(tp)
 
 
-class CachingTypeParserProviderProxy(ITypeParserProvider):
-    """Proxy type parser provider with cache support."""
+class CachingTypeParserProviderProxy:
+    """Proxy type parser provider with cache support.
+
+    :param target:
+        The target provider.
+    """
 
     def __init__(self, target: ITypeParserProvider):
         self._target = target
         self._cache: Dict[Type, IParser] = {}
+
+    def iter_types(self) -> Iterator[Type]:
+        return self._target.iter_types()
+
+    def has_type(self, tp: Type) -> bool:
+        return self._target.has_type(tp)
+
+    def get_type_parser_factory(self, tp: Type[T]) -> Optional[ITypeParserFactory[T]]:
+        return self._target.get_type_parser_factory(tp)
 
     def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider] = None) -> IParser[T]:
         root = self if root is None else root  # TODO: Add testcase for this

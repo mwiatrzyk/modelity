@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Mapping, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
+from typing import Any, Iterator, Mapping, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.field import BoundField
@@ -42,6 +42,24 @@ class IParser(Protocol, Generic[T_co]):
 
 class ITypeParserProvider(Protocol):
     """Interface for collections of type parsers."""
+
+    def iter_types(self) -> Iterator[Type]:
+        """Return iterator yielding types registered for this provider."""
+
+    def has_type(self, tp: Type) -> bool:
+        """Check if this provider has parser factory declared for given type.
+
+        :param tp:
+            The type to be checked.
+        """
+
+    def get_type_parser_factory(self, tp: Type[T]) -> Optional["ITypeParserFactory[T]"]:
+        """Get type parser factory for given type or ``None`` if no factory was
+        registered for type *tp*.
+
+        :param tp:
+            The type to retrieve parser factory for.
+        """
 
     def provide_type_parser(self, tp: Type[T], root: Optional["ITypeParserProvider"] = None) -> IParser[T]:
         """Provide parser for given type.
