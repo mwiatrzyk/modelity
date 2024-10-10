@@ -747,7 +747,7 @@ class TestFieldValidator:
 
         assert (
             str(excinfo.value)
-            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, model, name, value)"
+            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, name, value)"
         )
 
     def test_declare_validator_without_args(self, mock):
@@ -774,13 +774,13 @@ class TestFieldValidator:
         mock.expect_call(Dummy)
         dummy.validate()
 
-    def test_declare_validator_with_model_only(self, mock):
+    def test_declare_validator_with_self_only(self, mock):
         class Dummy(Model):
             foo: int
 
             @field_validator()
-            def _validate_foo(model):
-                return mock(model)
+            def _validate_foo(self):
+                return mock(self)
 
         dummy = Dummy(foo=123)
         mock.expect_call(dummy)
@@ -1029,7 +1029,7 @@ class TestModelValidator:
 
         assert (
             str(excinfo.value)
-            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, model, errors, root_model)"
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, errors, root_model)"
         )
 
     def test_declare_with_cls_only(self, mock):
@@ -1043,12 +1043,12 @@ class TestModelValidator:
         mock.expect_call(Dummy)
         dummy.validate()
 
-    def test_declare_with_model_only(self, mock):
+    def test_declare_with_self_only(self, mock):
 
         class Dummy(Model):
             @model_validator
-            def _validator(model):
-                return mock(model)
+            def _validator(self):
+                return mock(self)
 
         dummy = Dummy()
         mock.expect_call(dummy)
@@ -1168,8 +1168,8 @@ class TestModelValidator:
                 bar: Optional[int]
 
                 @model_validator
-                def _validate_child(model: "Child", root_model: "Parent"):
-                    return mock.child(model, root_model)
+                def _validate_child(self, root_model: "Parent"):
+                    return mock.child(self, root_model)
 
             class Parent(Model):
                 foo: Optional[int]

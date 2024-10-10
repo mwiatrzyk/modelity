@@ -166,12 +166,12 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type[IModel], model: IModel, name: str, value: Any):
+        def proxy(cls: Type[IModel], self: IModel, name: str, value: Any):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
-            if "model" in given_params:
-                kw["model"] = model
+            if "self" in given_params:
+                kw["self"] = self
             if "name" in given_params:
                 kw["name"] = name
             if "value" in given_params:
@@ -184,13 +184,13 @@ def field_validator(*field_names: str):
                 result = ErrorFactory.type_error(Loc(), str(e))
             if result is None:
                 return tuple()
-            model_loc = model.get_loc()
+            model_loc = self.get_loc()
             if isinstance(result, Error):
                 return (Error(model_loc + Loc(name) + result.loc, result.code, result.data),)
             return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
         sig = inspect.signature(func)
-        supported_params = ("cls", "model", "name", "value")
+        supported_params = ("cls", "self", "name", "value")
         given_params = tuple(sig.parameters)
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
@@ -214,12 +214,12 @@ def model_validator(func):
     """
 
     @functools.wraps(func)
-    def proxy(cls, model: IModel, errors: Tuple[Error, ...], root_model: Optional[IModel] = None):
+    def proxy(cls: Type[IModel], self: IModel, errors: Tuple[Error, ...], root_model: Optional[IModel] = None):
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
-        if "model" in given_params:
-            kw["model"] = model
+        if "self" in given_params:
+            kw["self"] = self
         if "errors" in given_params:
             kw["errors"] = errors
         if "root_model" in given_params:
@@ -232,14 +232,14 @@ def model_validator(func):
             result = ErrorFactory.type_error(Loc(), str(e))
         if result is None:
             return tuple()
-        model_loc = model.get_loc()
+        model_loc = self.get_loc()
         if isinstance(result, Error):
             return (Error(model_loc + result.loc, result.code, result.data),)
         return tuple(Error(model_loc + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
     sig = inspect.signature(func)
     given_params = tuple(sig.parameters)
-    supported_params = ("cls", "model", "errors", "root_model")
+    supported_params = ("cls", "self", "errors", "root_model")
     if not _utils.is_subsequence(given_params, supported_params):
         raise TypeError(
             f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"

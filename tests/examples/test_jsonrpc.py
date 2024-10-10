@@ -46,10 +46,10 @@ class Response(Model):
     id: ID
 
     @model_validator
-    def _validate_response(model: "Response"):
-        if model.result is Unset and model.error is Unset:
+    def _validate_response(self):
+        if self.result is Unset and self.error is Unset:
             raise ValueError("neither 'error' nor 'result' field set")
-        if model.result is not Unset and model.error is not Unset:
+        if self.result is not Unset and self.error is not Unset:
             raise ValueError("cannot set both 'error' and 'result' fields")
 
 
