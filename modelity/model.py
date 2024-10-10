@@ -12,7 +12,6 @@ from typing import (
     List,
     Mapping,
     Optional,
-    Protocol,
     Sequence,
     Set,
     Tuple,
@@ -36,31 +35,41 @@ from modelity.unset import Unset
 from modelity.interface import IModel
 
 _reserved_names: Set[str] = set()
+_order_id = itertools.count()
 
 
-@dataclasses.dataclass(frozen=True)
 class _DecoratorInfo:
+    ordering_id: int
+
+    def __init__(self):
+        self.ordering_id = next(_order_id)
+
+
+class _ProcessorDecoratorInfo(_DecoratorInfo):
 
     class Type(enum.Enum):
-        PREPROCESSOR = 1
-        POSTPROCESSOR = 2
-        FIELD_VALIDATOR = 3
-        MODEL_VALIDATOR = 4
+        PRE = 1
+        POST = 2
 
     type: Type
-    params: dict
+    field_names: Tuple[str, ...]
 
-    @classmethod
-    def create(cls, type: Type, **params: Any) -> "_DecoratorInfo":
-        return cls(type, params)
+    def __init__(self, type: Type, field_names: Tuple[str, ...]):
+        super().__init__()
+        self.type = type
+        self.field_names = field_names
 
-    @classmethod
-    def assign_to_object(cls, obj: object, type: Type, **params: Any):
-        setattr(obj, "__modelity_decorator__", cls.create(type, **params))
 
-    @staticmethod
-    def extract_from_object(obj: object) -> Optional["_DecoratorInfo"]:
-        return getattr(obj, "__modelity_decorator__", None)
+class _FieldValidatorDecoratorInfo(_DecoratorInfo):
+    field_names: Tuple[str, ...]
+
+    def __init__(self, field_names: Tuple[str, ...]):
+        super().__init__()
+        self.field_names = field_names
+
+
+class _ModelValidatorDecoratorInfo(_DecoratorInfo):
+    pass
 
 
 def _wrap_field_processor(func: Callable):
@@ -187,13 +196,13 @@ def field_validator(*field_names: str):
             raise TypeError(
                 f"incorrect field validator's signature; {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
             )
-        _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.FIELD_VALIDATOR, field_names=field_names)
+        proxy.__modelity_decorator_info__ = _FieldValidatorDecoratorInfo(field_names)
         return proxy
 
     return decorator
 
 
-def model_validator(func: Callable):
+def model_validator(func):
     """Decorate custom function as model validator.
 
     Unlike field validators, model validators run for entire models, as a final
@@ -235,7 +244,7 @@ def model_validator(func: Callable):
         raise TypeError(
             f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
         )
-    _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.MODEL_VALIDATOR)
+    proxy.__modelity_decorator_info__ = _ModelValidatorDecoratorInfo()
     return proxy
 
 
@@ -254,7 +263,7 @@ def preprocessor(*field_names: str):
 
     def decorator(func: Callable):
         proxy = _wrap_field_processor(func)
-        _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.PREPROCESSOR, field_names=field_names)
+        proxy.__modelity_decorator_info__ = _ProcessorDecoratorInfo(_ProcessorDecoratorInfo.Type.PRE, field_names)
         return proxy
 
     return decorator
@@ -275,7 +284,7 @@ def postprocessor(*field_names: str):
 
     def decorator(func: Callable):
         proxy = _wrap_field_processor(func)
-        _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.POSTPROCESSOR, field_names=field_names)
+        proxy.__modelity_decorator_info__ = _ProcessorDecoratorInfo(_ProcessorDecoratorInfo.Type.POST, field_names)
         return proxy
 
     return decorator
@@ -328,6 +337,7 @@ class ModelConfig:
 
 class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
+
     __config__: IModelConfig
     __fields__: Mapping[str, BoundField]
     _preprocessors: Mapping[str, Sequence[Callable]]
@@ -349,9 +359,15 @@ class ModelMeta(type):
             for b in bases:
                 for attr_name in dir(b):
                     attr_value = getattr(b, attr_name)
-                    decorator_info = _DecoratorInfo.extract_from_object(attr_value)
-                    if decorator_info is not None:
+                    if callable(attr_value) and hasattr(attr_value, "__modelity_decorator_info__"):
                         yield attr_value
+
+        def iter_decorators() -> Iterator[Tuple[Callable, _DecoratorInfo]]:
+            for obj in itertools.chain(inherit_decorators(), attrs.values()):
+                if callable(obj):
+                    decorator_info = getattr(obj, "__modelity_decorator_info__", None)
+                    if decorator_info is not None:
+                        yield obj, decorator_info
 
         fields = dict(inherit_fields())
         for field_name, type in itertools.chain(
@@ -378,21 +394,18 @@ class ModelMeta(type):
         postprocessors: Dict[str, List[Callable]] = {}
         model_validators: List[Callable] = []
         field_validators: Dict[str, List[Callable]] = {}
-        for attr_value in itertools.chain(inherit_decorators(), attrs.values()):
-            decorator_info = _DecoratorInfo.extract_from_object(attr_value)
-            if decorator_info is None:
-                continue
-            if decorator_info.type in (_DecoratorInfo.Type.PREPROCESSOR, _DecoratorInfo.Type.POSTPROCESSOR):
+        for func, decorator_info in sorted(iter_decorators(), key=lambda x: x[1].ordering_id):
+            if isinstance(decorator_info, _ProcessorDecoratorInfo):
                 target_map = (
-                    preprocessors if decorator_info.type == _DecoratorInfo.Type.PREPROCESSOR else postprocessors
+                    preprocessors if decorator_info.type == _ProcessorDecoratorInfo.Type.PRE else postprocessors
                 )
-                for field_name in decorator_info.params.get("field_names", []) or fields:
-                    target_map.setdefault(field_name, []).append(attr_value)
-            elif decorator_info.type == _DecoratorInfo.Type.MODEL_VALIDATOR:
-                model_validators.append(attr_value)
-            elif decorator_info.type == _DecoratorInfo.Type.FIELD_VALIDATOR:
-                for field_name in decorator_info.params.get("field_names", []) or fields:
-                    field_validators.setdefault(field_name, []).append(attr_value)
+                for field_name in decorator_info.field_names or fields:
+                    target_map.setdefault(field_name, []).append(func)
+            elif isinstance(decorator_info, _FieldValidatorDecoratorInfo):
+                for field_name in decorator_info.field_names or fields:
+                    field_validators.setdefault(field_name, []).append(func)
+            elif isinstance(decorator_info, _ModelValidatorDecoratorInfo):
+                model_validators.append(func)
         attrs["__fields__"] = fields
         attrs["__slots__"] = attrs.get("__slots__", tuple()) + tuple(fields)
         attrs["_preprocessors"] = preprocessors
