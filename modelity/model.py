@@ -12,6 +12,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Protocol,
     Sequence,
     Set,
     Tuple,
@@ -29,10 +30,10 @@ from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IDumpFilter, IModelConfig, IModelMeta, ITypeParserProvider
-from modelity.providers import CachingTypeParserProviderProxy, TypeParserProvider
+from modelity.providers import CachingTypeParserProviderProxy
 from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
-from modelity.interface import IModel, IModelValidator, IFieldValidator, IFieldProcessor
+from modelity.interface import IModel
 
 _reserved_names: Set[str] = set()
 
@@ -62,7 +63,7 @@ class _DecoratorInfo:
         return getattr(obj, "__modelity_decorator__", None)
 
 
-def _wrap_field_processor(func: Callable) -> IFieldProcessor:
+def _wrap_field_processor(func: Callable):
 
     @functools.wraps(func)
     def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
@@ -95,7 +96,7 @@ def _wrap_field_processor(func: Callable) -> IFieldProcessor:
     return proxy
 
 
-def _dump_model(value: IModel, loc: Loc, func: IDumpFilter) -> Tuple[dict, bool]:
+def _dump_model(value: "Model", loc: Loc, func: IDumpFilter) -> Tuple[dict, bool]:
     result = {}
     for field_name in value.__class__.__fields__:
         dump_value, skip = _dump_any(getattr(value, field_name), loc + Loc(field_name), func)
@@ -110,7 +111,7 @@ def _dump_any(value: Any, loc: Loc, func: IDumpFilter) -> Tuple[Any, bool]:
         return value, skip
     if type(value) in (str, bytes, bytearray):  # Exception, to avoid infinite recursion (these are sequences)
         return value, False
-    if isinstance(value, IModel):
+    if isinstance(value, Model):
         return _dump_model(value, loc, func)
     if isinstance(value, Mapping):
         return _dump_mapping(value, loc, func)
@@ -153,7 +154,7 @@ def field_validator(*field_names: str):
         If none given, then it will run for all fields in a model it is declared in.
     """
 
-    def decorator(func) -> IFieldValidator:
+    def decorator(func):
 
         @functools.wraps(func)
         def proxy(cls: Type[IModel], model: IModel, name: str, value: Any):
@@ -192,7 +193,7 @@ def field_validator(*field_names: str):
     return decorator
 
 
-def model_validator(func: Callable) -> IModelValidator:
+def model_validator(func: Callable):
     """Decorate custom function as model validator.
 
     Unlike field validators, model validators run for entire models, as a final
@@ -251,7 +252,7 @@ def preprocessor(*field_names: str):
         If not set, then it will be called for every field.
     """
 
-    def decorator(func: Callable) -> IFieldProcessor:
+    def decorator(func: Callable):
         proxy = _wrap_field_processor(func)
         _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.PREPROCESSOR, field_names=field_names)
         return proxy
@@ -272,7 +273,7 @@ def postprocessor(*field_names: str):
         If left empty, then it will be called for every field.
     """
 
-    def decorator(func: Callable) -> IFieldProcessor:
+    def decorator(func: Callable):
         proxy = _wrap_field_processor(func)
         _DecoratorInfo.assign_to_object(proxy, _DecoratorInfo.Type.POSTPROCESSOR, field_names=field_names)
         return proxy
@@ -325,13 +326,14 @@ class ModelConfig:
     user_data: dict = dataclasses.field(default_factory=dict)
 
 
-class ModelMeta(IModelMeta):
+class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
-
-    _preprocessors: Mapping[str, Sequence[IFieldProcessor]]
-    _postprocessors: Mapping[str, Sequence[IFieldProcessor]]
-    _field_validators: Mapping[str, Sequence[IFieldValidator]]
-    _model_validators: Sequence[IModelValidator]
+    __config__: IModelConfig
+    __fields__: Mapping[str, BoundField]
+    _preprocessors: Mapping[str, Sequence[Callable]]
+    _postprocessors: Mapping[str, Sequence[Callable]]
+    _field_validators: Mapping[str, Sequence[Callable]]
+    _model_validators: Sequence[Callable]
 
     def __new__(tp, classname: str, bases: Tuple[Type], attrs: dict):
 
@@ -372,10 +374,10 @@ class ModelMeta(IModelMeta):
             else:
                 field_info = BoundField(field_name, type, default=field_info)
             fields[field_name] = field_info
-        preprocessors: Dict[str, List[IFieldProcessor]] = {}
-        postprocessors: Dict[str, List[IFieldProcessor]] = {}
-        model_validators: List[IModelValidator] = []
-        field_validators: Dict[str, List[IFieldValidator]] = {}
+        preprocessors: Dict[str, List[Callable]] = {}
+        postprocessors: Dict[str, List[Callable]] = {}
+        model_validators: List[Callable] = []
+        field_validators: Dict[str, List[Callable]] = {}
         for attr_value in itertools.chain(inherit_decorators(), attrs.values()):
             decorator_info = _DecoratorInfo.extract_from_object(attr_value)
             if decorator_info is None:
@@ -403,13 +405,12 @@ class ModelMeta(IModelMeta):
 _reserved_names.update(dir(ModelMeta))
 
 
-MT = TypeVar("MT", bound=IModel)
+MT = TypeVar("MT", bound="Model")
 
 
+@IModel.register
 @dataclass_transform(kw_only_default=True)
-class Model(
-    IModel, metaclass=ModelMeta
-):  # FIXME: self.__dict__ is still accessible despite slot being used. Works fine when IModel is removed from here.
+class Model(metaclass=ModelMeta):
     """Base class for models.
 
     To create custom model, you simply need to create subclass of this type and
