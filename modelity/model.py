@@ -508,25 +508,10 @@ class Model(metaclass=ModelMeta):
         return self._loc
 
     def validate(self, root_model: Optional[IModel] = None):
-        cls = self.__class__
-        root_model = self if root_model is None else root_model  # type: ignore
-        errors = []
-        self_loc = self.get_loc()
-        for name, field_info in cls.__fields__.items():
-            value = getattr(self, name)
-            if value is Unset:
-                if field_info.is_required():
-                    errors.append(ErrorFactory.required_missing(self_loc + Loc(name)))
-                continue
-            if isinstance(value, IModel):
-                try:
-                    value.validate(root_model)
-                except ValidationError as e:
-                    errors.extend(e.errors)
-            for field_validator in cls._field_validators.get(name, []):
-                errors.extend(field_validator(cls, self, name, value))
-        for model_validator in cls._model_validators:
-            errors.extend(model_validator(cls, self, tuple(errors), root_model=root_model))
+        loc = self.get_loc()
+        errors: List[Error] = []
+        new_self = cast(IModel, self)
+        _validate_model(new_self, loc, errors, new_self)
         if errors:
             raise ValidationError(self, tuple(errors))
 
@@ -568,6 +553,33 @@ class Model(metaclass=ModelMeta):
         obj = cls(**kwargs)
         obj.validate()
         return obj
+
+
+def _validate_model(model: IModel, loc: Loc, errors: List[Error], root_model: Optional[IModel]):
+    cls = model.__class__
+    for name, field_info in cls.__fields__.items():
+        field_loc = loc + Loc(name)
+        value = getattr(model, name)
+        if value is Unset:
+            if field_info.is_required():
+                errors.append(ErrorFactory.required_missing(loc + Loc(name)))
+            continue
+        _validate_any(value, field_loc, errors, root_model)
+        for field_validator in cls._field_validators.get(name, []):
+            errors.extend(field_validator(cls, model, name, value))
+    for model_validator in cls._model_validators:
+        errors.extend(model_validator(cls, model, tuple(errors), root_model=root_model))
+
+
+def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional[IModel]):
+    if isinstance(obj, IModel):
+        _validate_model(obj, loc, errors, root_model)
+    elif isinstance(obj, Mapping):
+        for k, v in obj.items():
+            _validate_any(v, loc + Loc(k), errors, root_model)
+    elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
+        for i, v in enumerate(obj):
+            _validate_any(v, loc + Loc(i), errors, root_model)
 
 
 _reserved_names.update(dir(Model))

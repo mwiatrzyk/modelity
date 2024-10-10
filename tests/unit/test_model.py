@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Type
+from typing import _SpecialForm, Dict, List, Optional, Set, Type
 
 import pytest
 
@@ -317,9 +317,10 @@ class TestModelType:
             ],
         )
         def test_dump_model_field(self, given, expected):
+            Nested = self.Nested
 
             class Dummy(Model):
-                foo: self.Nested
+                foo: Nested
 
             uut = Dummy(**given)
             assert uut.dump() == expected
@@ -560,6 +561,65 @@ class TestModelType:
             self, model_type: Type[Model], expected_field_names
         ):
             assert list(model_type.__fields__.keys()) == expected_field_names
+
+    class TestValidation:
+
+        def test_validate_simple_model(self):
+
+            class Dummy(Model):
+                a: int
+
+            dummy = Dummy()
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([
+                ErrorFactoryHelper.required_missing(Loc("a"))
+            ])
+
+        def test_validate_nested_model(self):
+
+            class Nested(Model):
+                a: int
+
+            class Dummy(Model):
+                nested: Nested
+
+            dummy = Dummy(nested=Nested())
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([
+                ErrorFactoryHelper.required_missing(Loc("nested", "a"))
+            ])
+
+        def test_validate_nested_model_wrapped_in_mapping(self):
+
+            class Nested(Model):
+                a: int
+
+            class Dummy(Model):
+                nested: Dict[str, Nested]
+
+            dummy = Dummy(nested={"foo": Nested()})
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([
+                ErrorFactoryHelper.required_missing(Loc("nested", "foo", "a"))
+            ])
+
+        def test_validate_nested_model_wrapped_in_sequence(self):
+
+            class Nested(Model):
+                a: int
+
+            class Dummy(Model):
+                nested: List[Nested]
+
+            dummy = Dummy(nested=[Nested()])
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([
+                ErrorFactoryHelper.required_missing(Loc("nested", 0, "a"))
+            ])
 
 
 class TestNestedModel:
