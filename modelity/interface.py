@@ -1,8 +1,6 @@
 import abc
-from typing import Any, Iterator, Mapping, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
+from typing import Any, Iterator, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
-from modelity.error import Error
-from modelity.field import BoundField
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
@@ -95,83 +93,9 @@ class ITypeParserFactory(Protocol, Generic[T]):
         """
 
 
-class IModelConfig(Protocol):
-    """Interface for model configuration data."""
+class IModel(abc.ABC):
+    """Virtual base class for models.
 
-    #: Type parser provider to use.
-    #:
-    #: Type parser provider is used to find parser for field type.
-    type_parser_provider: ITypeParserProvider
-
-    #: Placeholder for user-defined data.
-    user_data: dict
-
-
-class IModelMeta(abc.ABCMeta):
-    """Base class for model metaclass.
-
-    This is here only to be used to annotate model class properties for the
-    purpose of being used in type annotations across the library.
+    This is not used directly, but it is needed to register type parser for
+    models.
     """
-
-    #: Model configuration.
-    #:
-    #: This can be used to override or extend built-in defaults.
-    __config__: IModelConfig
-
-    #: Read-only property allowing to access model's fields.
-    __fields__: Mapping[str, BoundField]
-
-
-class IModel(metaclass=IModelMeta):
-    """Interface for models."""
-
-    @abc.abstractmethod
-    def set_loc(self, loc: Loc):
-        """Set location of this model.
-
-        This affects the location prefix of potential parsing and/or validation
-        errors reported for this model.
-        """
-
-    @abc.abstractmethod
-    def get_loc(self) -> Loc:
-        """Get location of this model.
-
-        If :meth:`set_loc` was not used before, then this returns empty location
-        object.
-        """
-
-    @abc.abstractmethod
-    def validate(self, root_model: Optional["IModel"] = None):
-        """Validate this model.
-
-        In modelity, validation is separated from parsing. While parsing is
-        performed automatically when model instances are created or modified,
-        validation must be invoked explicitly by calling this method.
-
-        This method will raise :exc:`modelity.exc.ValidationError` if model is
-        invalid, or return without raising exceptions otherwise.
-
-        :param root_model:
-            The root model.
-
-            This argument is only used when this model appears as a field in
-            another, parent model. It must point to the root model, which is the
-            one for which :meth:`validate` was called.
-        """
-
-    @abc.abstractmethod
-    def dump(self, func: Optional[IDumpFilter] = None) -> dict:
-        """Convert this model to dict.
-
-        This method will recursively dump nested models, mappings and sequences.
-
-        :param func:
-            Optional filter function.
-
-            Can be used to exclude fields from the resulting dict, remove
-            certain values and convert to different value whenever needed.
-
-            See :class:`IDumpFilter` protocol to check how to use this.
-        """

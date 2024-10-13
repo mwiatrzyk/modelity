@@ -28,7 +28,7 @@ from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IDumpFilter, IModelConfig, IModelMeta, ITypeParserProvider
+from modelity.interface import IDumpFilter, ITypeParserProvider
 from modelity.providers import CachingTypeParserProviderProxy
 from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
@@ -75,7 +75,7 @@ class _ModelValidatorDecoratorInfo(_DecoratorInfo):
 def _wrap_field_processor(func: Callable):
 
     @functools.wraps(func)
-    def proxy(cls: Type[IModel], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
+    def proxy(cls: Type["Model"], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
@@ -166,7 +166,7 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type[IModel], self: IModel, name: str, value: Any):
+        def proxy(cls: Type["Model"], self: "Model", name: str, value: Any):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
@@ -202,7 +202,7 @@ def field_validator(*field_names: str):
     return decorator
 
 
-def model_validator(func):
+def model_validator(func):  # TODO: Add pre/post options
     """Decorate custom function as model validator.
 
     Unlike field validators, model validators run for entire models, as a final
@@ -214,7 +214,7 @@ def model_validator(func):
     """
 
     @functools.wraps(func)
-    def proxy(cls: Type[IModel], self: IModel, errors: Tuple[Error, ...], root_model: Optional[IModel] = None):
+    def proxy(cls: Type["Model"], self: "Model", errors: Tuple[Error, ...], root_model: Optional["Model"] = None):
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
@@ -338,7 +338,7 @@ class ModelConfig:
 class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
 
-    __config__: IModelConfig
+    __config__: ModelConfig
     __fields__: Mapping[str, BoundField]
     _preprocessors: Mapping[str, Sequence[Callable]]
     _postprocessors: Mapping[str, Sequence[Callable]]
@@ -373,8 +373,6 @@ class ModelMeta(type):
         for field_name, type in itertools.chain(
             inherit_mixed_in_annotations(), attrs.get("__annotations__", {}).items()
         ):
-            if field_name in IModelMeta.__annotations__:
-                continue
             if field_name in _reserved_names:
                 raise TypeError(f"the name {field_name!r} is reserved by Modelity and cannot be used as field name")
             field_info = attrs.pop(field_name, None)
@@ -507,11 +505,10 @@ class Model(metaclass=ModelMeta):
     def get_loc(self) -> Loc:
         return self._loc
 
-    def validate(self, root_model: Optional[IModel] = None):
+    def validate(self):
         loc = self.get_loc()
         errors: List[Error] = []
-        new_self = cast(IModel, self)
-        _validate_model(new_self, loc, errors, new_self)
+        _validate_model(self, loc, errors, self)
         if errors:
             raise ValidationError(self, tuple(errors))
 
@@ -555,7 +552,7 @@ class Model(metaclass=ModelMeta):
         return obj
 
 
-def _validate_model(model: IModel, loc: Loc, errors: List[Error], root_model: Optional[IModel]):
+def _validate_model(model: Model, loc: Loc, errors: List[Error], root_model: Optional[Model]):
     cls = model.__class__
     for name, field_info in cls.__fields__.items():
         field_loc = loc + Loc(name)
@@ -571,9 +568,9 @@ def _validate_model(model: IModel, loc: Loc, errors: List[Error], root_model: Op
         errors.extend(model_validator(cls, model, tuple(errors), root_model=root_model))
 
 
-def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional[IModel]):
+def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional[Model]):
     if isinstance(obj, IModel):
-        _validate_model(obj, loc, errors, root_model)
+        _validate_model(cast(Model, obj), loc, errors, root_model)
     elif isinstance(obj, Mapping):
         for k, v in obj.items():
             _validate_any(v, loc + Loc(k), errors, root_model)
