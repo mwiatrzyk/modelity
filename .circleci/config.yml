@@ -1,0 +1,144 @@
+version: 2.1
+
+commands:
+  # configure-git:
+  #   steps:
+  #     - run: git config --global user.name "CircleCI"
+  #     - run: git config --global user.email "circleci@noreply.circleci.com"
+
+  install-deps:
+    parameters:
+      python_version:
+        type: string
+    steps:
+      - run: pyenv local <<parameters.python_version>>
+      - restore_cache:
+          name: restore dependency cache
+          keys:
+            - poetry-py<<parameters.python_version>>-{{ checksum "poetry.lock" }}
+      - run: poetry env use <<parameters.python_version>>
+      - run: poetry install -q
+      - save_cache:
+          name: save dependency cache
+          key: poetry-py<<parameters.python_version>>-{{ checksum "poetry.lock" }}
+          paths:
+            - ~/.cache/pypoetry/
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:<<parameters.python_version>>
+    parameters:
+      python_version:
+        type: string
+    steps:
+      - checkout
+      - install-deps:
+          python_version: <<parameters.python_version>>
+      - run: poetry run inv lint
+      - run: poetry run inv test
+
+workflows:
+  all-tests:
+    jobs:
+      - test:
+          matrix:
+            parameters:
+              python_version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+
+#   push-to-git:
+#     steps:
+#       - run: git push --set-upstream origin $CIRCLE_BRANCH
+#       - run: git push --tags
+
+# jobs:
+#   test:
+#     docker:
+#       - image: cimg/python:<<parameters.ver_major>>.<<parameters.ver_minor>>
+#     parameters:
+#       ver_minor:
+#         type: integer
+#       ver_major:
+#         type: integer
+#     steps:
+#       - checkout
+#       - install-deps:
+#           ver_major: <<parameters.ver_major>>
+#           ver_minor: <<parameters.ver_minor>>
+#       - run: poetry run inv check
+
+#   test-all:
+#     docker:
+#       - image: cimg/python:3.12
+#     steps:
+#       - run: echo "All tests have passed."
+
+#   bump:
+#     docker:
+#       - image: cimg/python:3.12
+#     steps:
+#       - checkout
+#       - configure-git
+#       - install-deps:
+#           ver_major: 3
+#           ver_minor: 12
+#       - run: poetry run bumpify bump
+#       - push-to-git
+
+#   deploy:
+#     docker:
+#       - image: cimg/python:3.12
+#     steps:
+#       - checkout
+#       - configure-git
+#       - install-deps:
+#           ver_major: 3
+#           ver_minor: 12
+#       - run: poetry run pytest
+#       - run: poetry build
+#       - run: poetry config pypi-token.pypi $PYPI_TOKEN
+#       - run: poetry publish
+
+# workflows:
+#   test:
+#     jobs:
+#       - test:
+#           name: "test-py38"
+#           ver_major: 3
+#           ver_minor: 8
+#       - test:
+#           name: "test-py39"
+#           ver_major: 3
+#           ver_minor: 9
+#       - test:
+#           name: "test-py310"
+#           ver_major: 3
+#           ver_minor: 10
+#       - test:
+#           name: "test-py311"
+#           ver_major: 3
+#           ver_minor: 11
+#       - test:
+#           name: "test-py312"
+#           ver_major: 3
+#           ver_minor: 12
+#       - test-all:
+#           requires:
+#             - test-py38
+#             - test-py39
+#             - test-py310
+#             - test-py311
+#             - test-py312
+#       - bump:
+#           requires:
+#             - "test-all"
+#           filters:
+#             branches:
+#               only: master
+#       - deploy:
+#           filters:
+#             branches:
+#               ignore: /.*/
+#             tags:
+#               only: /^v.*$/
