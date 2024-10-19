@@ -7,7 +7,7 @@ bump_commit_message_template = "bump: {prev_version_str} -> {version_str}"
 version_tag_name_template = "v{version_str}"
 
 [[semver.bump_rules]]
-branch = "main"
+branch = "feat/circleci"  # XXX: Change to main before merge
 when_breaking = "minor"
 when_feat = "minor"
 when_fix = "patch"
