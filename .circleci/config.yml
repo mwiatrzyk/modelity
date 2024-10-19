@@ -38,6 +38,17 @@ jobs:
       - run: poetry run inv lint
       - run: poetry run inv test
 
+  bump:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - install-deps:
+          python_version: "3.12"
+      - run: poetry run inv bump
+      - run: git push --set-upstream origin $CIRCLE_BRANCH
+      - run: git push --tags
+
 workflows:
   all-tests:
     jobs:
@@ -45,7 +56,12 @@ workflows:
           matrix:
             parameters:
               python_version: ["3.9", "3.10", "3.11", "3.12"]
-
+      - bump:
+          requires:
+            - test
+          filters:
+            branches:
+              only: feat/circleci  # XXX: Change to main before merge
 
 #   push-to-git:
 #     steps:
