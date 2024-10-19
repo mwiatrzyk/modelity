@@ -1,10 +1,10 @@
 version: 2.1
 
 commands:
-  # configure-git:
-  #   steps:
-  #     - run: git config --global user.name "CircleCI"
-  #     - run: git config --global user.email "circleci@noreply.circleci.com"
+  configure-git:
+    steps:
+      - run: git config --global user.name "CircleCI"
+      - run: git config --global user.email "circleci@noreply.circleci.com"
 
   install-deps:
     parameters:
@@ -43,6 +43,7 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
+      - configure-git
       - install-deps:
           python_version: "3.12"
       - run: poetry run inv bump
