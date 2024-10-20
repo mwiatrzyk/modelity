@@ -799,7 +799,7 @@ class TestFieldValidator:
 
         assert (
             str(excinfo.value)
-            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, name, value)"
+            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, root_model, name, value)"
         )
 
     def test_declare_validator_without_args(self, mock):
@@ -864,6 +864,21 @@ class TestFieldValidator:
         dummy = Dummy(foo=123)
         mock.expect_call(123)
         dummy.validate()
+
+    def test_declare_validator_with_root_model_only(self, mock):
+        class Nested(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo(root_model):
+                return mock(root_model)
+
+        class Root(Model):
+            nested: Nested
+
+        root = Root(nested={"foo": 123})
+        mock.expect_call(root)
+        root.validate()
 
     class TestValidateSelectedField:
 

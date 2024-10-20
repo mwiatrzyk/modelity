@@ -147,6 +147,35 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
     return result, False
 
 
+def _validate_model(model: "Model", loc: Loc, errors: List[Error], root_model: Optional["Model"]):
+    cls = model.__class__
+    for name, field_info in cls.__fields__.items():
+        field_loc = loc + Loc(name)
+        value = getattr(model, name)
+        if value is Unset:
+            if field_info.is_required():
+                errors.append(ErrorFactory.required_missing(loc + Loc(name)))
+            continue
+        _validate_any(value, field_loc, errors, root_model)
+        for field_validator in cls._field_validators.get(name, []):
+            errors.extend(field_validator(cls, model, root_model, name, value))
+    for model_validator in cls._model_validators:
+        errors.extend(model_validator(cls, model, tuple(errors), root_model=root_model))
+
+
+def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional["Model"]):
+    if isinstance(obj, IModel):
+        _validate_model(cast(Model, obj), loc, errors, root_model)
+    elif isinstance(obj, Mapping):
+        for k, v in obj.items():
+            _validate_any(v, loc + Loc(k), errors, root_model)
+    elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
+        for i, v in enumerate(obj):
+            _validate_any(v, loc + Loc(i), errors, root_model)
+
+
+
+
 def field_validator(*field_names: str):
     """Decorate custom function as a field validator.
 
@@ -166,12 +195,14 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type["Model"], self: "Model", name: str, value: Any):
+        def proxy(cls: Type["Model"], self: "Model", root_model: Optional["Model"], name: str, value: Any):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
             if "self" in given_params:
                 kw["self"] = self
+            if "root_model" in given_params:
+                kw["root_model"] = root_model
             if "name" in given_params:
                 kw["name"] = name
             if "value" in given_params:
@@ -190,7 +221,7 @@ def field_validator(*field_names: str):
             return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
         sig = inspect.signature(func)
-        supported_params = ("cls", "self", "name", "value")
+        supported_params = ("cls", "self", "root_model", "name", "value")
         given_params = tuple(sig.parameters)
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
@@ -550,33 +581,6 @@ class Model(metaclass=ModelMeta):
         obj = cls(**kwargs)
         obj.validate()
         return obj
-
-
-def _validate_model(model: Model, loc: Loc, errors: List[Error], root_model: Optional[Model]):
-    cls = model.__class__
-    for name, field_info in cls.__fields__.items():
-        field_loc = loc + Loc(name)
-        value = getattr(model, name)
-        if value is Unset:
-            if field_info.is_required():
-                errors.append(ErrorFactory.required_missing(loc + Loc(name)))
-            continue
-        _validate_any(value, field_loc, errors, root_model)
-        for field_validator in cls._field_validators.get(name, []):
-            errors.extend(field_validator(cls, model, name, value))
-    for model_validator in cls._model_validators:
-        errors.extend(model_validator(cls, model, tuple(errors), root_model=root_model))
-
-
-def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional[Model]):
-    if isinstance(obj, IModel):
-        _validate_model(cast(Model, obj), loc, errors, root_model)
-    elif isinstance(obj, Mapping):
-        for k, v in obj.items():
-            _validate_any(v, loc + Loc(k), errors, root_model)
-    elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
-        for i, v in enumerate(obj):
-            _validate_any(v, loc + Loc(i), errors, root_model)
 
 
 _reserved_names.update(dir(Model))
