@@ -838,6 +838,21 @@ class TestFieldValidator:
         mock.expect_call(dummy)
         dummy.validate()
 
+    def test_declare_validator_with_root_only(self, mock):
+        class Nested(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_foo(root):
+                return mock(root)
+
+        class Root(Model):
+            nested: Nested
+
+        root = Root(nested={"foo": 123})
+        mock.expect_call(root)
+        root.validate()
+
     def test_declare_validator_with_name_only(self, mock):
         class Dummy(Model):
             foo: int
@@ -864,21 +879,6 @@ class TestFieldValidator:
         dummy = Dummy(foo=123)
         mock.expect_call(123)
         dummy.validate()
-
-    def test_declare_validator_with_root_only(self, mock):
-        class Nested(Model):
-            foo: int
-
-            @field_validator()
-            def _validate_foo(root):
-                return mock(root)
-
-        class Root(Model):
-            nested: Nested
-
-        root = Root(nested={"foo": 123})
-        mock.expect_call(root)
-        root.validate()
 
     class TestValidateSelectedField:
 
