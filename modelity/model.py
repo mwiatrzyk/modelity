@@ -39,6 +39,8 @@ _order_id = itertools.count()
 
 
 class _DecoratorInfo:
+    __slots__ = ("ordering_id",)
+
     ordering_id: int
 
     def __init__(self):
@@ -46,6 +48,7 @@ class _DecoratorInfo:
 
 
 class _ProcessorDecoratorInfo(_DecoratorInfo):
+    __slots__ = ("type", "field_names")
 
     class Type(enum.Enum):
         PRE = 1
@@ -61,6 +64,8 @@ class _ProcessorDecoratorInfo(_DecoratorInfo):
 
 
 class _FieldValidatorDecoratorInfo(_DecoratorInfo):
+    __slots__ = ("field_names",)
+
     field_names: Tuple[str, ...]
 
     def __init__(self, field_names: Tuple[str, ...]):
@@ -69,7 +74,13 @@ class _FieldValidatorDecoratorInfo(_DecoratorInfo):
 
 
 class _ModelValidatorDecoratorInfo(_DecoratorInfo):
-    pass
+    __slots__ = ("pre",)
+
+    pre: bool
+
+    def __init__(self, pre: bool):
+        super().__init__()
+        self.pre = pre
 
 
 def _wrap_field_processor(func: Callable):
@@ -149,6 +160,8 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
 
 def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
     cls = obj.__class__
+    for model_validator in cls._model_prevalidators:
+        errors.extend(model_validator(cls, obj, root, errors))
     for name, field_info in cls.__fields__.items():
         field_loc = loc + Loc(name)
         value = getattr(obj, name)
@@ -159,7 +172,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
         _validate_any(value, field_loc, errors, root)
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, name, value))
-    for model_validator in cls._model_validators:
+    for model_validator in cls._model_postvalidators:
         errors.extend(model_validator(cls, obj, root, errors))
 
 
@@ -231,7 +244,7 @@ def field_validator(*field_names: str):
     return decorator
 
 
-def model_validator(func):  # TODO: Add pre/post options
+def model_validator(pre: bool = False):  # TODO: Add pre/post options
     """Decorate custom function as model validator.
 
     Unlike field validators, model validators run for entire models, as a final
@@ -242,39 +255,43 @@ def model_validator(func):  # TODO: Add pre/post options
     description.
     """
 
-    @functools.wraps(func)
-    def proxy(cls: Type["Model"], self: "Model", root: "Model", errors: List[Error]):
-        kw: Dict[str, Any] = {}
-        if "cls" in given_params:
-            kw["cls"] = cls
-        if "self" in given_params:
-            kw["self"] = self
-        if "root" in given_params:
-            kw["root"] = root
-        if "errors" in given_params:
-            kw["errors"] = errors
-        try:
-            result = func(**kw)
-        except ValueError as e:
-            result = ErrorFactory.value_error(Loc(), str(e))
-        except TypeError as e:
-            result = ErrorFactory.type_error(Loc(), str(e))
-        if result is None:
-            return tuple()
-        model_loc = self.get_loc()
-        if isinstance(result, Error):
-            return (Error(model_loc + result.loc, result.code, result.data),)
-        return tuple(Error(model_loc + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
+    def decorator(func):
 
-    sig = inspect.signature(func)
-    given_params = tuple(sig.parameters)
-    supported_params = ("cls", "self", "root", "errors")
-    if not _utils.is_subsequence(given_params, supported_params):
-        raise TypeError(
-            f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
-        )
-    proxy.__modelity_decorator_info__ = _ModelValidatorDecoratorInfo()
-    return proxy
+        @functools.wraps(func)
+        def proxy(cls: Type["Model"], self: "Model", root: "Model", errors: List[Error]):
+            kw: Dict[str, Any] = {}
+            if "cls" in given_params:
+                kw["cls"] = cls
+            if "self" in given_params:
+                kw["self"] = self
+            if "root" in given_params:
+                kw["root"] = root
+            if "errors" in given_params:
+                kw["errors"] = errors
+            try:
+                result = func(**kw)
+            except ValueError as e:
+                result = ErrorFactory.value_error(Loc(), str(e))
+            except TypeError as e:
+                result = ErrorFactory.type_error(Loc(), str(e))
+            if result is None:
+                return tuple()
+            model_loc = self.get_loc()
+            if isinstance(result, Error):
+                return (Error(model_loc + result.loc, result.code, result.data),)
+            return tuple(Error(model_loc + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
+
+        sig = inspect.signature(func)
+        given_params = tuple(sig.parameters)
+        supported_params = ("cls", "self", "root", "errors")
+        if not _utils.is_subsequence(given_params, supported_params):
+            raise TypeError(
+                f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
+            )
+        proxy.__modelity_decorator_info__ = _ModelValidatorDecoratorInfo(pre)
+        return proxy
+
+    return decorator
 
 
 def preprocessor(*field_names: str):
@@ -372,7 +389,8 @@ class ModelMeta(type):
     _preprocessors: Mapping[str, Sequence[Callable]]
     _postprocessors: Mapping[str, Sequence[Callable]]
     _field_validators: Mapping[str, Sequence[Callable]]
-    _model_validators: Sequence[Callable]
+    _model_prevalidators: Sequence[Callable]
+    _model_postvalidators: Sequence[Callable]
 
     def __new__(tp, classname: str, bases: Tuple[Type], attrs: dict):
 
@@ -419,7 +437,8 @@ class ModelMeta(type):
             fields[field_name] = field_info
         preprocessors: Dict[str, List[Callable]] = {}
         postprocessors: Dict[str, List[Callable]] = {}
-        model_validators: List[Callable] = []
+        model_prevalidators: List[Callable] = []
+        model_postvalidators: List[Callable] = []
         field_validators: Dict[str, List[Callable]] = {}
         for func, decorator_info in sorted(iter_decorators(), key=lambda x: x[1].ordering_id):
             if isinstance(decorator_info, _ProcessorDecoratorInfo):
@@ -432,12 +451,16 @@ class ModelMeta(type):
                 for field_name in decorator_info.field_names or fields:
                     field_validators.setdefault(field_name, []).append(func)
             elif isinstance(decorator_info, _ModelValidatorDecoratorInfo):
-                model_validators.append(func)
+                if decorator_info.pre:
+                    model_prevalidators.append(func)
+                else:
+                    model_postvalidators.append(func)
         attrs["__fields__"] = fields
         attrs["__slots__"] = attrs.get("__slots__", tuple()) + tuple(fields)
         attrs["_preprocessors"] = preprocessors
         attrs["_postprocessors"] = postprocessors
-        attrs["_model_validators"] = tuple(model_validators)
+        attrs["_model_prevalidators"] = tuple(model_prevalidators)
+        attrs["_model_postvalidators"] = tuple(model_postvalidators)
         attrs["_field_validators"] = field_validators
         return super().__new__(tp, classname, bases, attrs)
 

@@ -1045,7 +1045,7 @@ class TestModelValidator:
         class Dummy(Model):
             foo: int
 
-            @model_validator
+            @model_validator()
             def _validate_dummy():
                 return mock()
 
@@ -1090,7 +1090,7 @@ class TestModelValidator:
         with pytest.raises(TypeError) as excinfo:
 
             class Dummy(Model):
-                @model_validator
+                @model_validator()
                 def _invalid_validator(cls, foo, model):
                     pass
 
@@ -1102,7 +1102,7 @@ class TestModelValidator:
     def test_declare_with_cls_only(self, mock):
 
         class Dummy(Model):
-            @model_validator
+            @model_validator()
             def _validator(cls):
                 return mock(cls)
 
@@ -1113,7 +1113,7 @@ class TestModelValidator:
     def test_declare_with_self_only(self, mock):
 
         class Dummy(Model):
-            @model_validator
+            @model_validator()
             def _validator(self):
                 return mock(self)
 
@@ -1124,7 +1124,7 @@ class TestModelValidator:
     def test_declare_with_root_only(self, mock):
 
         class Dummy(Model):
-            @model_validator
+            @model_validator()
             def _validator(root):
                 return mock(root)
 
@@ -1137,7 +1137,7 @@ class TestModelValidator:
         class Dummy(Model):
             foo: int
 
-            @model_validator
+            @model_validator()
             def _validator(errors):
                 return mock(errors)
 
@@ -1154,11 +1154,11 @@ class TestModelValidator:
             class Dummy(Model):
                 foo: int
 
-                @model_validator
+                @model_validator()
                 def _first():
                     return mock.first()
 
-                @model_validator
+                @model_validator()
                 def _second():
                     return mock.second()
 
@@ -1178,14 +1178,14 @@ class TestModelValidator:
 
             class Base(Model):
 
-                @model_validator
+                @model_validator()
                 def _validate_child():
                     return mock.base()
 
             class Child(Base):
                 foo: int
 
-                @model_validator
+                @model_validator()
                 def _validate_child():
                     return mock.child()
 
@@ -1205,13 +1205,13 @@ class TestModelValidator:
 
             class Foo:
 
-                @model_validator
+                @model_validator()
                 def _validate_foo():
                     return mock.foo()
 
             class Bar:
 
-                @model_validator
+                @model_validator()
                 def _validate_bar():
                     return mock.bar()
 
@@ -1234,7 +1234,7 @@ class TestModelValidator:
             class Child(Model):
                 bar: Optional[int]
 
-                @model_validator
+                @model_validator()
                 def _validate_child(self, root: "Parent"):
                     return mock.child(self, root)
 
@@ -1286,7 +1286,7 @@ class TestModelValidator:
             class Dummy(Model):
                 foo: int
 
-                @model_validator
+                @model_validator()
                 def _validate_model(errors: List[Error]):
                     errors.append(Error(Loc("foo"), "CUSTOM_ERROR"))
 
@@ -1304,12 +1304,34 @@ class TestModelValidator:
             class Dummy(Model):
                 foo: int
 
-                @model_validator
+                @model_validator()
                 def _validate_model(errors: List[Error]):
                     errors.clear()
 
             dummy = Dummy()
             dummy.validate()
+
+    class TestWithPreOptionEnabled:
+
+        @pytest.fixture
+        def model_type(self):
+
+            class Dummy(Model):
+                foo: int
+
+                @model_validator(pre=True)
+                def _validate_model():
+                    return ErrorFactoryHelper.value_error(Loc("dummy"), "an error")
+
+            return Dummy
+
+        def test_model_validator_with_pre_option_enabled_is_executed_before_any_other_validators(self, model: Model):
+            with pytest.raises(ValidationError) as excinfo:
+                model.validate()
+            assert excinfo.value.errors == (
+                ErrorFactoryHelper.value_error(Loc("dummy"), "an error"),
+                ErrorFactoryHelper.required_missing(Loc("foo")),
+            )
 
 
 class TestWrapFieldProcessor:
