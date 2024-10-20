@@ -244,7 +244,7 @@ def field_validator(*field_names: str):
     return decorator
 
 
-def model_validator(pre: bool = False):  # TODO: Add pre/post options
+def model_validator(pre: bool = False):
     """Decorate custom function as model validator.
 
     Unlike field validators, model validators run for entire models, as a final
@@ -253,6 +253,9 @@ def model_validator(pre: bool = False):  # TODO: Add pre/post options
     Decorated function can have any number of arguments declared, but those must
     be named and ordered as depicted in :meth:`IModelValidator.__call__` method
     description.
+
+    :param pre:
+        Run this validator before any other validators.
     """
 
     def decorator(func):
