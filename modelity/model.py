@@ -160,7 +160,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, name, value))
     for model_validator in cls._model_validators:
-        errors.extend(model_validator(cls, obj, tuple(errors), root=root))
+        errors.extend(model_validator(cls, obj, errors, root))
 
 
 def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
@@ -243,7 +243,7 @@ def model_validator(func):  # TODO: Add pre/post options
     """
 
     @functools.wraps(func)
-    def proxy(cls: Type["Model"], self: "Model", errors: Tuple[Error, ...], root: "Model"):
+    def proxy(cls: Type["Model"], self: "Model", errors: List[Error], root: "Model"):
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls

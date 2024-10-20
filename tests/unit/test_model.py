@@ -4,7 +4,7 @@ import pytest
 
 from mockify.api import Invoke, Raise, ordered, Return, _
 
-from modelity.error import ErrorFactory
+from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.interface import IDumpFilter
 from modelity.invalid import Invalid
@@ -1142,7 +1142,7 @@ class TestModelValidator:
                 return mock(errors)
 
         dummy = Dummy()
-        mock.expect_call(tuple([ErrorFactoryHelper.required_missing(Loc("foo"))]))
+        mock.expect_call([ErrorFactoryHelper.required_missing(Loc("foo"))])
         with pytest.raises(ValidationError):
             dummy.validate()
 
@@ -1278,6 +1278,38 @@ class TestModelValidator:
                     ErrorFactoryHelper.value_error(Loc("child", 1), "bar"),
                 ]
             )
+
+    class TestWithErrorsArg:
+
+        def test_validation_fails_if_error_is_added_to_errors_list(self):
+
+            class Dummy(Model):
+                foo: int
+
+                @model_validator
+                def _validate_model(errors: List[Error]):
+                    errors.append(Error(Loc("foo"), "CUSTOM_ERROR"))
+
+            dummy = Dummy(foo=123)
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple(
+                [
+                    Error(Loc("foo"), "CUSTOM_ERROR"),
+                ]
+            )
+
+        def test_model_validator_can_clear_errors_list(self):
+
+            class Dummy(Model):
+                foo: int
+
+                @model_validator
+                def _validate_model(errors: List[Error]):
+                    errors.clear()
+
+            dummy = Dummy()
+            dummy.validate()
 
 
 class TestWrapFieldProcessor:
