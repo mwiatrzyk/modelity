@@ -572,9 +572,7 @@ class TestModelType:
             dummy = Dummy()
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
-            assert excinfo.value.errors == tuple([
-                ErrorFactoryHelper.required_missing(Loc("a"))
-            ])
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("a"))])
 
         def test_validate_nested_model(self):
 
@@ -587,9 +585,7 @@ class TestModelType:
             dummy = Dummy(nested=Nested())
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
-            assert excinfo.value.errors == tuple([
-                ErrorFactoryHelper.required_missing(Loc("nested", "a"))
-            ])
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("nested", "a"))])
 
         def test_validate_nested_model_wrapped_in_mapping(self):
 
@@ -602,9 +598,7 @@ class TestModelType:
             dummy = Dummy(nested={"foo": Nested()})
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
-            assert excinfo.value.errors == tuple([
-                ErrorFactoryHelper.required_missing(Loc("nested", "foo", "a"))
-            ])
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("nested", "foo", "a"))])
 
         def test_validate_nested_model_wrapped_in_sequence(self):
 
@@ -617,9 +611,7 @@ class TestModelType:
             dummy = Dummy(nested=[Nested()])
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
-            assert excinfo.value.errors == tuple([
-                ErrorFactoryHelper.required_missing(Loc("nested", 0, "a"))
-            ])
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("nested", 0, "a"))])
 
 
 class TestNestedModel:
