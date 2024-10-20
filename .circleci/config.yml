@@ -44,6 +44,7 @@ jobs:
     steps:
       - checkout
       - configure-git
+      - add_ssh_keys
       - install-deps:
           python_version: "3.12"
       - run: poetry run inv bump
