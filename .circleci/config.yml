@@ -50,8 +50,20 @@ jobs:
       - run: git push --set-upstream origin $CIRCLE_BRANCH
       - run: git push --tags
 
+  deploy:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - configure-git
+      - install-deps:
+          python_version: "3.12"
+      - run: poetry build
+      - run: poetry config pypi-token.pypi $PYPI_API_TOKEN
+      - run: poetry publish
+
 workflows:
-  all-tests:
+  test-bump-deploy:
     jobs:
       - test:
           matrix:
@@ -63,6 +75,12 @@ workflows:
           filters:
             branches:
               only: feat/circleci  # XXX: Change to main before merge
+      - deploy:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*$/
 
 #   push-to-git:
 #     steps:
