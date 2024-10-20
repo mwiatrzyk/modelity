@@ -11,7 +11,6 @@ branch = "feat/circleci"  # XXX: Change to main before merge
 when_breaking = "minor"
 when_feat = "minor"
 when_fix = "patch"
-prerelease = "a"
 
 [[semver.version_files]]
 path = "pyproject.toml"
