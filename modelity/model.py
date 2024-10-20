@@ -147,31 +147,31 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
     return result, False
 
 
-def _validate_model(model: "Model", loc: Loc, errors: List[Error], root_model: Optional["Model"]):
-    cls = model.__class__
+def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
+    cls = obj.__class__
     for name, field_info in cls.__fields__.items():
         field_loc = loc + Loc(name)
-        value = getattr(model, name)
+        value = getattr(obj, name)
         if value is Unset:
             if field_info.is_required():
                 errors.append(ErrorFactory.required_missing(loc + Loc(name)))
             continue
-        _validate_any(value, field_loc, errors, root_model)
+        _validate_any(value, field_loc, errors, root)
         for field_validator in cls._field_validators.get(name, []):
-            errors.extend(field_validator(cls, model, root_model, name, value))
+            errors.extend(field_validator(cls, obj, root, name, value))
     for model_validator in cls._model_validators:
-        errors.extend(model_validator(cls, model, tuple(errors), root_model=root_model))
+        errors.extend(model_validator(cls, obj, tuple(errors), root=root))
 
 
-def _validate_any(obj: Any, loc: Loc, errors: List[Error], root_model: Optional["Model"]):
+def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
     if isinstance(obj, IModel):
-        _validate_model(cast(Model, obj), loc, errors, root_model)
+        _validate_model(cast(Model, obj), loc, errors, root)
     elif isinstance(obj, Mapping):
         for k, v in obj.items():
-            _validate_any(v, loc + Loc(k), errors, root_model)
+            _validate_any(v, loc + Loc(k), errors, root)
     elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
         for i, v in enumerate(obj):
-            _validate_any(v, loc + Loc(i), errors, root_model)
+            _validate_any(v, loc + Loc(i), errors, root)
 
 
 
@@ -195,14 +195,14 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type["Model"], self: "Model", root_model: Optional["Model"], name: str, value: Any):
+        def proxy(cls: Type["Model"], self: "Model", root: "Model", name: str, value: Any):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
             if "self" in given_params:
                 kw["self"] = self
-            if "root_model" in given_params:
-                kw["root_model"] = root_model
+            if "root" in given_params:
+                kw["root"] = root
             if "name" in given_params:
                 kw["name"] = name
             if "value" in given_params:
@@ -221,7 +221,7 @@ def field_validator(*field_names: str):
             return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
 
         sig = inspect.signature(func)
-        supported_params = ("cls", "self", "root_model", "name", "value")
+        supported_params = ("cls", "self", "root", "name", "value")
         given_params = tuple(sig.parameters)
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
@@ -245,7 +245,7 @@ def model_validator(func):  # TODO: Add pre/post options
     """
 
     @functools.wraps(func)
-    def proxy(cls: Type["Model"], self: "Model", errors: Tuple[Error, ...], root_model: Optional["Model"] = None):
+    def proxy(cls: Type["Model"], self: "Model", errors: Tuple[Error, ...], root: "Model"):
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
@@ -253,8 +253,8 @@ def model_validator(func):  # TODO: Add pre/post options
             kw["self"] = self
         if "errors" in given_params:
             kw["errors"] = errors
-        if "root_model" in given_params:
-            kw["root_model"] = root_model
+        if "root" in given_params:
+            kw["root"] = root
         try:
             result = func(**kw)
         except ValueError as e:
@@ -270,7 +270,7 @@ def model_validator(func):  # TODO: Add pre/post options
 
     sig = inspect.signature(func)
     given_params = tuple(sig.parameters)
-    supported_params = ("cls", "self", "errors", "root_model")
+    supported_params = ("cls", "self", "errors", "root")
     if not _utils.is_subsequence(given_params, supported_params):
         raise TypeError(
             f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
@@ -531,12 +531,27 @@ class Model(metaclass=ModelMeta):
         return not self.__eq__(value)
 
     def set_loc(self, loc: Loc):
+        """Set location of this model.
+
+        This is used when this model is nested inside another model, to give it
+        the location that is later used to render proper error messages.
+
+        :param loc:
+            The location to be set.
+        """
         self._loc = loc
 
     def get_loc(self) -> Loc:
+        """Get location previously set by :meth:`set_loc` method."""
         return self._loc
 
-    def validate(self):
+    def validate(self) -> None:
+        """Validate this model.
+
+        This runs both built-in and user-defined validators (if any).
+        Validation does not run automatically, so this method must explicitly
+        be called to check if the model is valid.
+        """
         loc = self.get_loc()
         errors: List[Error] = []
         _validate_model(self, loc, errors, self)
@@ -544,6 +559,14 @@ class Model(metaclass=ModelMeta):
             raise ValidationError(self, tuple(errors))
 
     def dump(self, func: Optional[IDumpFilter] = None) -> dict:
+        """Dump this model to dict.
+
+        When optional *func* is provided, then use it to filter out unnecessary
+        values or change values that will be placed in the resulting dict.
+
+        :param func:
+            Filter function.
+        """
         loc = self.get_loc()
         func = (lambda l, v: (v, False)) if func is None else func
         dump_value = _dump_model(self, loc, cast(IDumpFilter, func))

@@ -799,7 +799,7 @@ class TestFieldValidator:
 
         assert (
             str(excinfo.value)
-            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, root_model, name, value)"
+            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, root, name, value)"
         )
 
     def test_declare_validator_without_args(self, mock):
@@ -865,13 +865,13 @@ class TestFieldValidator:
         mock.expect_call(123)
         dummy.validate()
 
-    def test_declare_validator_with_root_model_only(self, mock):
+    def test_declare_validator_with_root_only(self, mock):
         class Nested(Model):
             foo: int
 
             @field_validator()
-            def _validate_foo(root_model):
-                return mock(root_model)
+            def _validate_foo(root):
+                return mock(root)
 
         class Root(Model):
             nested: Nested
@@ -1096,7 +1096,7 @@ class TestModelValidator:
 
         assert (
             str(excinfo.value)
-            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, errors, root_model)"
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, errors, root)"
         )
 
     def test_declare_with_cls_only(self, mock):
@@ -1121,12 +1121,12 @@ class TestModelValidator:
         mock.expect_call(dummy)
         dummy.validate()
 
-    def test_declare_with_root_model_only(self, mock):
+    def test_declare_with_root_only(self, mock):
 
         class Dummy(Model):
             @model_validator
-            def _validator(root_model):
-                return mock(root_model)
+            def _validator(root):
+                return mock(root)
 
         dummy = Dummy()
         mock.expect_call(dummy)
@@ -1235,8 +1235,8 @@ class TestModelValidator:
                 bar: Optional[int]
 
                 @model_validator
-                def _validate_child(self, root_model: "Parent"):
-                    return mock.child(self, root_model)
+                def _validate_child(self, root: "Parent"):
+                    return mock.child(self, root)
 
             class Parent(Model):
                 foo: Optional[int]
@@ -1245,7 +1245,7 @@ class TestModelValidator:
             return Parent
 
         @pytest.mark.parametrize("initial_params", [{"foo": 1, "child": {"bar": 2}}])
-        def test_when_parent_is_validated_then_child_validator_receives_parent_model_as_root_model_argument(
+        def test_when_parent_is_validated_then_child_validator_receives_parent_model_as_root_argument(
             self, model: Model, mock
         ):
             mock.child.expect_call(model.child, model)

@@ -15,9 +15,26 @@ class ISupportsLess(Protocol):
 
 
 class IDumpFilter(Protocol):
-    """Interface for :meth:`IModel.dump` method filter callable."""
+    """Interface for functions to be used with :meth:`IModel.dump` method."""
 
-    def __call__(self, loc: Loc, value: Any) -> Tuple[Any, bool]: ...
+    def __call__(self, loc: Loc, value: Any) -> Tuple[Any, bool]:
+        """Prepare value to be placed in the resulting dictionary.
+
+        This method must return 2-element tuple containing value to be placed
+        inside resulting dict (it may be changed by this function), and boolean
+        value saying whether or not the value should be placed inside the
+        dict.
+
+        These functions can be used both for converting model's values before
+        putting to the dict (f.e. when JSON-capable dict is required), or just
+        to remove certain values (f.e. unset ones) from the resulting dict.
+
+        :param value:
+            The value to be processed.
+
+        :param loc:
+            The location of the value inside model tree.
+        """
 
 
 class IParser(Protocol, Generic[T_co]):
