@@ -160,7 +160,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, name, value))
     for model_validator in cls._model_validators:
-        errors.extend(model_validator(cls, obj, errors, root))
+        errors.extend(model_validator(cls, obj, root, errors))
 
 
 def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
@@ -243,16 +243,16 @@ def model_validator(func):  # TODO: Add pre/post options
     """
 
     @functools.wraps(func)
-    def proxy(cls: Type["Model"], self: "Model", errors: List[Error], root: "Model"):
+    def proxy(cls: Type["Model"], self: "Model", root: "Model", errors: List[Error]):
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
         if "self" in given_params:
             kw["self"] = self
-        if "errors" in given_params:
-            kw["errors"] = errors
         if "root" in given_params:
             kw["root"] = root
+        if "errors" in given_params:
+            kw["errors"] = errors
         try:
             result = func(**kw)
         except ValueError as e:
@@ -268,7 +268,7 @@ def model_validator(func):  # TODO: Add pre/post options
 
     sig = inspect.signature(func)
     given_params = tuple(sig.parameters)
-    supported_params = ("cls", "self", "errors", "root")
+    supported_params = ("cls", "self", "root", "errors")
     if not _utils.is_subsequence(given_params, supported_params):
         raise TypeError(
             f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"

@@ -1096,7 +1096,7 @@ class TestModelValidator:
 
         assert (
             str(excinfo.value)
-            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, errors, root)"
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, root, errors)"
         )
 
     def test_declare_with_cls_only(self, mock):
