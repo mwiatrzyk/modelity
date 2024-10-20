@@ -333,7 +333,7 @@ class TestModelType:
                     a: int
 
                 uut = Dummy()
-                mock.expect_call(Loc("a"), Unset).will_once(Return((Unset, True)))
+                mock.expect_call(Unset, Loc("a")).will_once(Return((Unset, True)))
                 assert uut.dump(mock) == {}
 
             def test_return_another_value(self, mock):
@@ -342,7 +342,7 @@ class TestModelType:
                     a: int
 
                 uut = Dummy(a=1)
-                mock.expect_call(Loc("a"), 1).will_once(Return((11, False)))
+                mock.expect_call(1, Loc("a")).will_once(Return((11, False)))
                 assert uut.dump(mock) == {"a": 11}
 
         class TestDumpMappingWithCustomFilter:
@@ -353,9 +353,9 @@ class TestModelType:
                     foo: Dict[str, int]
 
                 uut = Dummy(foo={"one": "1", "two": 2})
-                mock.expect_call(Loc("foo"), {"one": 1, "two": 2}).will_once(Invoke(lambda l, v: (v, False)))
-                mock.expect_call(Loc("foo", "one"), 1).will_once(Return((1, True)))
-                mock.expect_call(Loc("foo", "two"), 2).will_once(Return((2, False)))
+                mock.expect_call({"one": 1, "two": 2}, Loc("foo")).will_once(Invoke(lambda v, l: (v, False)))
+                mock.expect_call(1, Loc("foo", "one")).will_once(Return((1, True)))
+                mock.expect_call(2, Loc("foo", "two")).will_once(Return((2, False)))
                 assert uut.dump(mock) == {"foo": {"two": 2}}
 
             def test_return_another_value(self, mock):
@@ -364,14 +364,14 @@ class TestModelType:
                     a: int
 
                 uut = Dummy(a=1)
-                mock.expect_call(Loc("a"), 1).will_once(Return((11, False)))
+                mock.expect_call(1, Loc("a")).will_once(Return((11, False)))
                 assert uut.dump(mock) == {"a": 11}
 
     class TestDumpWithFunc:
 
         @pytest.fixture
         def func(self):
-            return lambda l, v: (v, False)  # False - don't skip
+            return lambda v, l: (v, False)  # False - don't skip
 
         @pytest.mark.parametrize(
             "tp, given, expected",
@@ -388,7 +388,7 @@ class TestModelType:
                 foo: tp
 
             uut = Dummy(foo=given)
-            mock.expect_call(Loc("foo"), expected).will_once(Invoke(func))
+            mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
             with ordered(mock):
                 assert uut.dump(mock)["foo"] == expected
 
@@ -399,9 +399,9 @@ class TestModelType:
 
             foo = {"a": 1, "b": 2}
             uut = Dummy(foo=foo)
-            mock.expect_call(Loc("foo"), foo).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "a"), 1).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "b"), 2).will_once(Invoke(func))
+            mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
+            mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
+            mock.expect_call(2, Loc("foo", "b")).will_once(Invoke(func))
             with ordered(mock):
                 assert uut.dump(mock) == {"foo": foo}
 
@@ -412,12 +412,12 @@ class TestModelType:
 
             foo = {"a": {"b": 1}, "c": {"d": 2, "e": 3}}
             uut = Dummy(foo=foo)
-            mock.expect_call(Loc("foo"), foo).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "a"), {"b": 1}).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "a", "b"), 1).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "c"), {"d": 2, "e": 3}).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "c", "d"), 2).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "c", "e"), 3).will_once(Invoke(func))
+            mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
+            mock.expect_call({"b": 1}, Loc("foo", "a")).will_once(Invoke(func))
+            mock.expect_call(1, Loc("foo", "a", "b")).will_once(Invoke(func))
+            mock.expect_call({"d": 2, "e": 3}, Loc("foo", "c")).will_once(Invoke(func))
+            mock.expect_call(2, Loc("foo", "c", "d")).will_once(Invoke(func))
+            mock.expect_call(3, Loc("foo", "c", "e")).will_once(Invoke(func))
             with ordered(mock):
                 assert uut.dump(mock) == {"foo": foo}
 
@@ -431,8 +431,8 @@ class TestModelType:
 
             foo = {"a": 1}
             uut = Bar(foo=foo)
-            mock.expect_call(Loc("foo"), Foo(a=1)).will_once(Invoke(func))
-            mock.expect_call(Loc("foo", "a"), 1).will_once(Invoke(func))
+            mock.expect_call(Foo(a=1), Loc("foo")).will_once(Invoke(func))
+            mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
             with ordered(mock):
                 assert uut.dump(mock) == {"foo": foo}
 
@@ -448,9 +448,9 @@ class TestModelType:
                 foo: List[tp]
 
             uut = Dummy(foo=given)
-            mock.expect_call(Loc("foo"), expected).will_once(Invoke(func))
+            mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
             for i, val in enumerate(expected):
-                mock.expect_call(Loc("foo", i), val).will_once(Invoke(func))
+                mock.expect_call(val, Loc("foo", i)).will_once(Invoke(func))
             with ordered(mock):
                 assert uut.dump(mock) == {"foo": expected}
 

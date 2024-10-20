@@ -115,7 +115,7 @@ def _dump_model(value: "Model", loc: Loc, func: IDumpFilter) -> Tuple[dict, bool
 
 
 def _dump_any(value: Any, loc: Loc, func: IDumpFilter) -> Tuple[Any, bool]:
-    value, skip = func(loc, value)
+    value, skip = func(value, loc)
     if skip:
         return value, skip
     if type(value) in (str, bytes, bytearray):  # Exception, to avoid infinite recursion (these are sequences)
@@ -172,8 +172,6 @@ def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
     elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
         for i, v in enumerate(obj):
             _validate_any(v, loc + Loc(i), errors, root)
-
-
 
 
 def field_validator(*field_names: str):
@@ -568,7 +566,7 @@ class Model(metaclass=ModelMeta):
             Filter function.
         """
         loc = self.get_loc()
-        func = (lambda l, v: (v, False)) if func is None else func
+        func = (lambda v, l: (v, False)) if func is None else func
         dump_value = _dump_model(self, loc, cast(IDumpFilter, func))
         return dump_value[0]
 

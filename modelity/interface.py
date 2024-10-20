@@ -17,7 +17,7 @@ class ISupportsLess(Protocol):
 class IDumpFilter(Protocol):
     """Interface for functions to be used with :meth:`IModel.dump` method."""
 
-    def __call__(self, loc: Loc, value: Any) -> Tuple[Any, bool]:
+    def __call__(self, value: Any, loc: Loc) -> Tuple[Any, bool]:
         """Prepare value to be placed in the resulting dictionary.
 
         This method must return 2-element tuple containing value to be placed
