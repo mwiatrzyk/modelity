@@ -1,10 +1,19 @@
 [tool.poetry]
 name = "modelity"
 version = "0.0.2"
-description = "Data parsing and validation library for Python projects"
+description = "Data parsing and validation library for Python"
 authors = ["Maciej Wiatrzyk <maciej.wiatrzyk@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/mwiatrzyk/modelity"
+keywords = ["parsing", "validation", "modelling", "parser", "validator", "model", "library", "toolkit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    #"Development Status :: 5 - Production/Stable"  <- Use this for first 1.x version
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
