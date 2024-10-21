@@ -171,7 +171,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
             continue
         _validate_any(value, field_loc, errors, root)
         for field_validator in cls._field_validators.get(name, []):
-            errors.extend(field_validator(cls, obj, root, name, value))
+            errors.extend(field_validator(cls, obj, root, field_loc, name, value))
     for model_validator in cls._model_postvalidators:
         errors.extend(model_validator(cls, obj, root, errors))
 
@@ -194,8 +194,30 @@ def field_validator(*field_names: str):
     that the value has correct type (as it has to be successfully parsed
     first).
 
-    Decorated function can have any number of arguments declared, but those must
-    be named and ordered as depicted in :meth:`IFieldValidator.__call__` method.
+    Decorated function can use any combination (including empty one) of these
+    arguments:
+
+    ``cls``
+        Model class.
+
+    ``self``
+        Model instance.
+
+    ``root``
+        Root model instance.
+
+        This is the model for which :meth:`Model.validate` was called.
+
+    ``loc``
+        Field's location inside a model.
+
+    ``name``
+        Name of the field being validated.
+
+    ``value``
+        Value of the field being validated.
+
+    .. note:: The order must be preserved if multiple arguments are used.
 
     :param `*field_names`:
         Names of fields to run this validator for.
@@ -206,7 +228,7 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type["Model"], self: "Model", root: "Model", name: str, value: Any):
+        def proxy(cls: Type["Model"], self: "Model", root: "Model", loc: Loc, name: str, value: Any):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
@@ -214,6 +236,8 @@ def field_validator(*field_names: str):
                 kw["self"] = self
             if "root" in given_params:
                 kw["root"] = root
+            if "loc" in given_params:
+                kw["loc"] = loc
             if "name" in given_params:
                 kw["name"] = name
             if "value" in given_params:
@@ -221,18 +245,17 @@ def field_validator(*field_names: str):
             try:
                 result = func(**kw)
             except ValueError as e:
-                result = ErrorFactory.value_error(Loc(), str(e))
+                return (ErrorFactory.value_error(loc, str(e)),)
             except TypeError as e:
-                result = ErrorFactory.type_error(Loc(), str(e))
+                return (ErrorFactory.type_error(loc, str(e)),)
             if result is None:
                 return tuple()
-            model_loc = self.get_loc()
             if isinstance(result, Error):
-                return (Error(model_loc + Loc(name) + result.loc, result.code, result.data),)
-            return tuple(Error(model_loc + Loc(name) + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
+                return (result,)
+            return tuple(result)
 
         sig = inspect.signature(func)
-        supported_params = ("cls", "self", "root", "name", "value")
+        supported_params = ("cls", "self", "root", "loc", "name", "value")
         given_params = tuple(sig.parameters)
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
@@ -245,14 +268,31 @@ def field_validator(*field_names: str):
 
 
 def model_validator(pre: bool = False):
-    """Decorate custom function as model validator.
+    """Decorate custom function as a model validator.
 
-    Unlike field validators, model validators run for entire models, as a final
-    validation step, after all other validators.
+    Unlike field validators, model validators are always executed, either
+    before or after other validators (depending on the *pre* flag value).
 
-    Decorated function can have any number of arguments declared, but those must
-    be named and ordered as depicted in :meth:`IModelValidator.__call__` method
-    description.
+    Decorated function can use any combination (including empty one) of these
+    arguments:
+
+    ``cls``
+        Model class.
+
+    ``self``
+        Model instance.
+
+    ``root``
+        Root model instance.
+
+        This is the model for which :meth:`Model.validate` was called.
+
+    ``errors``
+        List of errors.
+
+        Can be manipulated by validator.
+
+    .. note:: The order must be preserved if multiple arguments are used.
 
     :param pre:
         Run this validator before any other validators.
@@ -304,6 +344,23 @@ def preprocessor(*field_names: str):
     place. The role of preprocessors is to perform input data filtering for
     further steps like type parsing and postprocessors.
 
+    Decorated function can use any combination of the arguments from the list
+    below:
+
+    ``cls``
+        Model type.
+
+    ``loc``
+        Field's location inside model tree.
+
+    ``name``
+        Field's name.
+
+    ``value``
+        Field's candidate value.
+
+    .. note:: The order must be preserved if multiple arguments are used.
+
     :param `*field_names`:
         List of field names this preprocessor will be called for.
 
@@ -323,7 +380,26 @@ def postprocessor(*field_names: str):
 
     Postprocessors are called after preprocessors and type parsing, therefore
     it can be assumed that a value is of valid type when postprocessors are
-    called.
+    called. Postprocessors can be used to perform field-specific additional
+    processing, or to run field-specific validation that should fail on data
+    parsing step.
+
+    Decorated function can use any combination of the arguments from the list
+    below:
+
+    ``cls``
+        Model type.
+
+    ``loc``
+        Field's location inside model tree.
+
+    ``name``
+        Field's name.
+
+    ``value``
+        Field's parsed value.
+
+    .. note:: The order must be preserved if multiple arguments are used.
 
     :param `*field_names`:
         List of field names this postprocessor will be called for.

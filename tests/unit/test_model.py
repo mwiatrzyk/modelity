@@ -722,14 +722,14 @@ class TestFieldValidator:
                 "foo",
                 "123",
                 123,
-                ErrorFactoryHelper.value_error(Loc(), "an error"),
+                ErrorFactoryHelper.value_error(Loc("foo"), "an error"),
                 ErrorFactoryHelper.value_error(Loc("foo"), "an error"),
             ),
             (
                 "foo",
                 "123",
                 123,
-                ErrorFactoryHelper.value_error(Loc(1), "an error"),
+                ErrorFactoryHelper.value_error(Loc("foo", 1), "an error"),
                 ErrorFactoryHelper.value_error(Loc("foo", 1), "an error"),
             ),
         ],
@@ -751,14 +751,14 @@ class TestFieldValidator:
                 "foo",
                 "123",
                 123,
-                [ErrorFactoryHelper.value_error(Loc(), "an error")],
+                [ErrorFactoryHelper.value_error(Loc("foo"), "an error")],
                 [ErrorFactoryHelper.value_error(Loc("foo"), "an error")],
             ),
             (
                 "foo",
                 "123",
                 123,
-                [ErrorFactoryHelper.value_error(Loc(1), "an error")],
+                [ErrorFactoryHelper.value_error(Loc("foo", 1), "an error")],
                 [ErrorFactoryHelper.value_error(Loc("foo", 1), "an error")],
             ),
         ],
@@ -799,7 +799,7 @@ class TestFieldValidator:
 
         assert (
             str(excinfo.value)
-            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, root, name, value)"
+            == "incorrect field validator's signature; (value, name) is not a subsequence of (cls, self, root, loc, name, value)"
         )
 
     def test_declare_validator_without_args(self, mock):
@@ -852,6 +852,22 @@ class TestFieldValidator:
         root = Root(nested={"foo": 123})
         mock.expect_call(root)
         root.validate()
+
+    def test_declare_validator_with_loc_only(self, mock):
+        class Nested(Model):
+            foo: int
+
+            @field_validator()
+            def _validate_all(loc):
+                return mock(loc)
+
+        class Dummy(Model):
+            nested: Nested
+
+        dummy = Dummy(nested={"foo": 123})
+        mock.expect_call(Loc("nested", "foo"))
+        with ordered(mock):
+            dummy.validate()
 
     def test_declare_validator_with_name_only(self, mock):
         class Dummy(Model):
