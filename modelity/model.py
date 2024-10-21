@@ -187,6 +187,46 @@ def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
             _validate_any(v, loc + Loc(i), errors, root)
 
 
+def _get_model_field_value(obj: "Model", loc: Loc) -> Optional[Any]:
+    root, remainder = loc[0], loc[1:]
+    field_value = getattr(obj, root, Unset)
+    if field_value is Unset:
+        return None
+    if not remainder:
+        return field_value
+    return _get_any_value(field_value, remainder)
+
+
+def _get_mapping_value(obj: Mapping, loc: Loc) -> Optional[Any]:
+    root, remainder = loc[0], loc[1:]
+    value = obj.get(root, Unset)
+    if value is Unset:
+        return None
+    if not remainder:
+        return value
+    return _get_any_value(value, remainder)
+
+
+def _get_sequence_value(obj: Sequence, loc: Loc) -> Optional[Any]:
+    root, remainder = loc[0], loc[1:]
+    try:
+        value = obj[root]
+    except IndexError:
+        return None
+    if not remainder:
+        return value
+    return _get_any_value(value, remainder)
+
+
+def _get_any_value(obj: Any, loc: Loc) -> Optional[Any]:
+    if isinstance(obj, IModel):
+        return _get_model_field_value(cast(Model, obj), loc)
+    if isinstance(obj, Mapping):
+        return _get_mapping_value(obj, loc)
+    if isinstance(obj, Sequence):
+        return _get_sequence_value(obj, loc)
+
+
 def field_validator(*field_names: str):
     """Decorate custom function as a field validator.
 
@@ -449,8 +489,13 @@ def get_builtin_type_parser_provider() -> ITypeParserProvider:
 class ModelConfig:
     """Model configuration object.
 
-    Custom instances or subclasses are allowed to be set via
-    :attr:`Model.__config__` attribute.
+    Custom instances of this class, or subclass of this class, can be set via
+    :attr:`Model.__config__` attribute to customize behavior of the model. For
+    example, it will be necessary to explicitly configure model to register
+    custom type parser factories.
+
+    When creating custom config instances it is recommended to additionally
+    create custom base class for models that will use provided configuration.
     """
 
     #: Provider used to find type parser.
@@ -648,6 +693,32 @@ class Model(metaclass=ModelMeta):
     def get_loc(self) -> Loc:
         """Get location previously set by :meth:`set_loc` method."""
         return self._loc
+
+    def get_value(self, loc: Loc, memo: Optional[dict]=None) -> Optional[Any]:
+        """Get value at given absolute location, or return ``None`` if given
+        *loc* does not point to an existing value.
+
+        This method can be used to retrieve value from a nested model, nested
+        mapping, nested list or combination of all. Can be used by validators
+        to obtain value from a root model.
+
+        :param loc:
+            Absolute location of the value.
+
+        :param memo:
+            Optional dictionary to memoize values found for given *loc*.
+
+            When this is given and *loc* is missing, then perform full lookup
+            and store result in the memo. When called again with same *loc*,
+            then value from *memo* will be returned.
+        """
+        if memo is None:
+            return _get_model_field_value(self, loc)
+        memoized_value = memo.get(loc, Unset)
+        if memoized_value is not Unset:
+            return memoized_value
+        memo[loc] = value = _get_model_field_value(self, loc)
+        return value
 
     def validate(self) -> None:
         """Validate this model.

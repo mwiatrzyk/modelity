@@ -613,6 +613,52 @@ class TestModelType:
                 dummy.validate()
             assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("nested", 0, "a"))])
 
+    class TestGetValue:
+
+        @pytest.fixture
+        def model_type(self):
+
+            class Nested(Model):
+                a: int
+
+            class Dummy(Model):
+                foo: int
+                nested: Nested
+                mapping: Dict[int, str]
+                nested_mapping: Dict[int, Nested]
+                list: List[int]
+                nested_list: List[Nested]
+
+            return Dummy
+
+        @pytest.mark.parametrize("initial_params, loc, expected_result", [
+            ({}, Loc("a"), None),
+            ({}, Loc("foo"), None),
+            ({"foo": 1}, Loc("foo"), 1),
+            ({"nested": {"a": 2}}, Loc("nested", "a"), 2),
+            ({"mapping": {3: "three"}}, Loc("mapping", 3), "three"),
+            ({"nested_mapping": {4: {"a": 444}}}, Loc("nested_mapping", 4, "a"), 444),
+            ({"list": [111, 222, 333]}, Loc("list", 0), 111),
+            ({"list": [111, 222, 333]}, Loc("list", 1), 222),
+            ({"list": [111, 222, 333]}, Loc("list", 2), 333),
+            ({"list": [111, 222, 333]}, Loc("list", 3), None),
+            ({"list": [111, 222, 333]}, Loc("list", -1), 333),
+            ({"list": [111, 222, 333]}, Loc("list", -2), 222),
+            ({"list": [111, 222, 333]}, Loc("list", -3), 111),
+            ({"list": [111, 222, 333]}, Loc("list", -4), None),
+            ({"nested_list": [{"a": 5}]}, Loc("nested_list", 0, "a"), 5),
+        ])
+        def test_get_value(self, model: Model, loc, expected_result):
+            assert model.get_value(loc) == expected_result
+
+        def test_when_memo_used_then_getting_same_loc_returns_memoized_value(self, model: Model, mock):
+            model.foo = 123
+            mock.get.expect_call(Loc("foo"), Unset).will_once(Return(Unset))
+            mock.__setitem__.expect_call(Loc("foo"), 123)
+            assert model.get_value(Loc("foo"), mock) == 123
+            mock.get.expect_call(Loc("foo"), Unset).will_once(Return(123))
+            assert model.get_value(Loc("foo"), mock) == 123
+
 
 class TestNestedModel:
 
