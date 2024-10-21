@@ -1,3 +1,19 @@
+## 0.2.0 (2024-10-21)
+
+### BREAKING CHANGES
+
+- It is now required to explicitly pass `loc` when
+returning `Error` objects from the validator directly. However, this
+change makes the whole validator work in more explicit way, and allows
+generating errors also for other fields if needed.
+- Now it is required to explicitly pass `loc` when
+`Error` object is returned from the validator.
+
+### Feat
+
+- add support for `loc` argument to functions decorated with `field_validator` decorator
+- add support for `loc` argument for functions decorated with `model_validator`
+
 ## 0.1.0 (2024-10-20)
 
 ### BREAKING CHANGES
