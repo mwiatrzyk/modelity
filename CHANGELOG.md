@@ -1,3 +1,9 @@
+## 0.3.0 (2024-10-21)
+
+### Feat
+
+- add `Model.get_value` method allowing to perform full model lookup to find a value by its absolute location
+
 ## 0.2.0 (2024-10-21)
 
 ### BREAKING CHANGES
