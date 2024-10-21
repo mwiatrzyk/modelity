@@ -1,6 +1,6 @@
 import collections.abc
 
-from typing import Any
+from typing import Any, Union
 
 
 class Loc(collections.abc.Iterable):
@@ -14,7 +14,7 @@ class Loc(collections.abc.Iterable):
     def __iter__(self) -> collections.abc.Iterator:
         return iter(self._path)
 
-    def __getitem__(self, index: int) -> Any:
+    def __getitem__(self, index: Union[int, slice]) -> Any:
         return self._path[index]
 
     def __repr__(self) -> str:

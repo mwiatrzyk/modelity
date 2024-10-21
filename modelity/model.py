@@ -225,6 +225,7 @@ def _get_any_value(obj: Any, loc: Loc) -> Optional[Any]:
         return _get_mapping_value(obj, loc)
     if isinstance(obj, Sequence):
         return _get_sequence_value(obj, loc)
+    return None
 
 
 def field_validator(*field_names: str):
