@@ -161,7 +161,7 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
 def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
     cls = obj.__class__
     for model_validator in cls._model_prevalidators:
-        errors.extend(model_validator(cls, obj, root, errors))
+        errors.extend(model_validator(cls, obj, root, loc, errors))
     for name, field_info in cls.__fields__.items():
         field_loc = loc + Loc(name)
         value = getattr(obj, name)
@@ -173,7 +173,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, field_loc, name, value))
     for model_validator in cls._model_postvalidators:
-        errors.extend(model_validator(cls, obj, root, errors))
+        errors.extend(model_validator(cls, obj, root, loc, errors))
 
 
 def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
@@ -287,6 +287,9 @@ def model_validator(pre: bool = False):
 
         This is the model for which :meth:`Model.validate` was called.
 
+    ``loc``
+        The absolute location of the model being validated.
+
     ``errors``
         List of errors.
 
@@ -301,7 +304,7 @@ def model_validator(pre: bool = False):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type["Model"], self: "Model", root: "Model", errors: List[Error]):
+        def proxy(cls: Type["Model"], self: "Model", root: "Model", loc: Loc, errors: List[Error]):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
@@ -309,24 +312,25 @@ def model_validator(pre: bool = False):
                 kw["self"] = self
             if "root" in given_params:
                 kw["root"] = root
+            if "loc" in given_params:
+                kw["loc"] = loc
             if "errors" in given_params:
                 kw["errors"] = errors
             try:
                 result = func(**kw)
             except ValueError as e:
-                result = ErrorFactory.value_error(Loc(), str(e))
+                return (ErrorFactory.value_error(loc, str(e)),)
             except TypeError as e:
-                result = ErrorFactory.type_error(Loc(), str(e))
+                return (ErrorFactory.type_error(loc, str(e)),)
             if result is None:
                 return tuple()
-            model_loc = self.get_loc()
             if isinstance(result, Error):
-                return (Error(model_loc + result.loc, result.code, result.data),)
-            return tuple(Error(model_loc + e.loc, e.code, e.data) for e in cast(Iterable[Error], result))
+                return (result,)
+            return tuple(result)
 
         sig = inspect.signature(func)
         given_params = tuple(sig.parameters)
-        supported_params = ("cls", "self", "root", "errors")
+        supported_params = ("cls", "self", "root", "loc", "errors")
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
                 f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"

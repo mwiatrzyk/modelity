@@ -1112,7 +1112,7 @@ class TestModelValidator:
 
         assert (
             str(excinfo.value)
-            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, root, errors)"
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, root, loc, errors)"
         )
 
     def test_declare_with_cls_only(self, mock):
@@ -1146,6 +1146,22 @@ class TestModelValidator:
 
         dummy = Dummy()
         mock.expect_call(dummy)
+        dummy.validate()
+
+    def test_declare_with_loc_only(self, mock):
+
+        class Nested(Model):
+            foo: int
+
+            @model_validator()
+            def _validator(loc):
+                return mock(loc)
+
+        class Dummy(Model):
+            nested: Nested
+
+        dummy = Dummy(nested={"foo": 123})
+        mock.expect_call(Loc("nested"))
         dummy.validate()
 
     def test_declare_with_errors_only(self, mock):
@@ -1281,8 +1297,8 @@ class TestModelValidator:
             mock.child.expect_call(model.child, model).will_once(
                 Return(
                     [
-                        ErrorFactoryHelper.value_error(Loc(), "foo"),
-                        ErrorFactoryHelper.value_error(Loc(1), "bar"),
+                        ErrorFactoryHelper.value_error(Loc("child", 1), "foo"),
+                        ErrorFactoryHelper.value_error(Loc("child", 1), "bar"),
                     ]
                 )
             )
@@ -1290,7 +1306,7 @@ class TestModelValidator:
                 model.validate()
             assert excinfo.value.errors == tuple(
                 [
-                    ErrorFactoryHelper.value_error(Loc("child"), "foo"),
+                    ErrorFactoryHelper.value_error(Loc("child", 1), "foo"),
                     ErrorFactoryHelper.value_error(Loc("child", 1), "bar"),
                 ]
             )
