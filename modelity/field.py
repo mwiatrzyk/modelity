@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, Type, get_args, get_origin
+from typing import Any, Callable, Optional, Tuple, Type, get_args, get_origin
 
 from typing_extensions import dataclass_transform
 
@@ -16,14 +16,23 @@ class Field:
 
     .. testcode::
 
+        from modelity.model import Model, Field
+
         class Dummy(Model):
             foo: int = Field(default=123)
     """
 
-    __slots__ = ("default", "optional")
+    __slots__ = ("default", "default_factory", "optional")
 
     #: Field's default value.
     default: Any
+
+    #: Factory function for creating default value.
+    #:
+    #: This function, if given, will be invoked by constructor, and it will be
+    #: invoked once for each model instance. This attribute is ignored if
+    #: :attr:`default` is also set.
+    default_factory: Callable[[], Any]
 
     #: Flag telling if this field is optional.
     #:
@@ -34,13 +43,18 @@ class Field:
     #: you'll need.
     optional: bool
 
-    def __init__(self, default: Any = Unset, optional: bool = False):
+    def __init__(self, default: Any = Unset, default_factory: Callable[[], Any] = None, optional: bool = False):
         self.default = default
+        self.default_factory = default_factory
         self.optional = optional
 
     def compute_default(self) -> Any:
         """Compute default value for this field."""
-        return self.default
+        if self.default is not Unset:
+            return self.default
+        if self.default_factory is not None:
+            return self.default_factory()
+        return Unset
 
 
 class BoundField(Field):
