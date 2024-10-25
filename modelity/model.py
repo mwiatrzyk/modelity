@@ -765,7 +765,7 @@ class Model(metaclass=ModelMeta):
         return cls(**data)
 
     @classmethod
-    def create_valid(cls: Type[MT], **kwargs) -> MT:
+    def load_valid(cls: Type[MT], data: dict) -> MT:
         """Create model and validate it shortly after.
 
         This method was added for convenience to reduce boilerplate code in
@@ -777,7 +777,7 @@ class Model(metaclass=ModelMeta):
         :param `**kwargs`:
             Keyword args to initialize model with.
         """
-        obj = cls(**kwargs)
+        obj = cls(**data)
         obj.validate()
         return obj
 

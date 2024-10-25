@@ -194,13 +194,13 @@ class TestModelType:
             ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("foo"))]),
         ],
     )
-    def test_create_valid_fails_on_parsing_error_if_wrong_value_is_given_for_field(self, params, expected_errors):
+    def test_load_valid_fails_on_parsing_error_if_wrong_value_is_given_for_field(self, params, expected_errors):
 
         class Dummy(Model):
             foo: int
 
         with pytest.raises(ParsingError) as excinfo:
-            Dummy.create_valid(**params)
+            Dummy.load_valid(params)
         assert excinfo.value.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize(
@@ -209,13 +209,13 @@ class TestModelType:
             ({}, [ErrorFactoryHelper.required_missing(Loc("foo"))]),
         ],
     )
-    def test_create_valid_fails_on_validation_error_if_validation_errors_are_found(self, params, expected_errors):
+    def test_load_valid_fails_on_validation_error_if_validation_errors_are_found(self, params, expected_errors):
 
         class Dummy(Model):
             foo: int
 
         with pytest.raises(ValidationError) as excinfo:
-            Dummy.create_valid(**params)
+            Dummy.load_valid(params)
         assert excinfo.value.errors == tuple(expected_errors)
 
     class TestModelTypeDeclaration:
