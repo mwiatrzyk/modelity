@@ -20,10 +20,12 @@ class IDumpFilter(Protocol):
     def __call__(self, value: Any, loc: Loc) -> Tuple[Any, bool]:
         """Prepare value to be placed in the resulting dictionary.
 
-        This method must return 2-element tuple containing value to be placed
-        inside resulting dict (it may be changed by this function), and boolean
-        value saying whether or not the value should be placed inside the
-        dict.
+        This method must return 2-element tuple, where:
+
+        * 1st element is the output value (which may be different than *value*),
+        * 2nd element is the boolean value stating that the currently processed
+          value should be skipped (if set to ``True``), or accepted (if set to
+          ``False``).
 
         These functions can be used both for converting model's values before
         putting to the dict (f.e. when JSON-capable dict is required), or just

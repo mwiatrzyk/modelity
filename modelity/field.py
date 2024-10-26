@@ -81,7 +81,7 @@ class BoundField(Field):
         self._type_args = get_args(type)
 
     def __repr__(self) -> str:
-        return f"<{self.__module__}.{self.__class__.__qualname__}(name={self.name!r}, type={self.type!r}, default={self.default!r})>"
+        return f"<{self.__class__.__qualname__}(name={self.name!r}, type={self.type!r}, default={self.default!r}, default_factory={self.default_factory!r}, optional={self.optional!r})>"
 
     def __eq__(self, value: object) -> bool:
         if type(value) is not BoundField:

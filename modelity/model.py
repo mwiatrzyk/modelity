@@ -628,7 +628,7 @@ class Model(metaclass=ModelMeta):
 
     def __iter__(self) -> Iterator[str]:
         for field_name in self.__class__.__fields__.keys():
-            if field_name in self._fields_set:
+            if getattr(self, field_name) is not Unset:
                 yield field_name
 
     def __contains__(self, name: str) -> bool:
@@ -643,7 +643,7 @@ class Model(metaclass=ModelMeta):
         if name not in cls.__fields__ and name.startswith("_"):
             return super().__setattr__(name, value)
         if name not in cls.__fields__:
-            raise AttributeError(f"model {cls.__name__!r} has no field named {name!r}")
+            raise AttributeError(f"{cls.__name__!r} model has no field named {name!r}")
         self._fields_set.discard(name)
         if value is Unset:
             return super().__setattr__(name, value)

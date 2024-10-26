@@ -127,7 +127,7 @@ class TestModelType:
     def test_setting_attribute_fails_if_it_is_not_a_field(self, model: Model):
         with pytest.raises(AttributeError) as excinfo:
             model.spam = 123
-        assert str(excinfo.value) == "model 'Dummy' has no field named 'spam'"
+        assert str(excinfo.value) == "'Dummy' model has no field named 'spam'"
 
     def test_use_a_non_reserved_private_variable_as_field_name(self):
 

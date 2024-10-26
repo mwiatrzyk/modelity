@@ -28,6 +28,8 @@ pytest-cov = "^5.0.0"
 mockify = "^0.14.0"
 mypy = "^1.11.2"
 bumpify = "^0.3.0"
+sphinx = "*"
+sphinx-rtd-theme = "*"
 
 [build-system]
 requires = ["poetry-core"]
