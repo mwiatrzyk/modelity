@@ -67,11 +67,11 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.InvalidTupleFormat", expected_format=expected_format)
 
     @staticmethod
-    def value_too_low(loc: Loc, min_inclusive: Any=None, min_exclusive: Any=None):
+    def value_too_low(loc: Loc, min_inclusive: Any = None, min_exclusive: Any = None):
         return Error.create(loc, "modelity.ValueTooLow", min_inclusive=min_inclusive, min_exclusive=min_exclusive)
 
     @staticmethod
-    def value_too_high(loc: Loc, max_inclusive: Any=None, max_exclusive: Any=None):
+    def value_too_high(loc: Loc, max_inclusive: Any = None, max_exclusive: Any = None):
         return Error.create(loc, "modelity.ValueTooHigh", max_inclusive=max_inclusive, max_exclusive=max_exclusive)
 
     @staticmethod

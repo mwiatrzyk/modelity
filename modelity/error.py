@@ -122,11 +122,11 @@ class ErrorFactory:
         return cls.create(loc, ErrorCode.TYPE_ERROR, message=message)
 
     @classmethod
-    def value_too_low(cls, loc: Loc, min_inclusive: Any=None, min_exclusive: Any=None) -> Error:
+    def value_too_low(cls, loc: Loc, min_inclusive: Any = None, min_exclusive: Any = None) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min_inclusive=min_inclusive, min_exclusive=min_exclusive)
 
     @classmethod
-    def value_too_high(cls, loc: Loc, max_inclusive: Any=None, max_exclusive: Any=None) -> Error:
+    def value_too_high(cls, loc: Loc, max_inclusive: Any = None, max_exclusive: Any = None) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max_inclusive=max_inclusive, max_exclusive=max_exclusive)
 
     @classmethod

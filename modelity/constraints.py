@@ -50,7 +50,7 @@ class MinValue(Generic[T]):
     #: Minimum exclusive value.
     min_exclusive: Optional[T]
 
-    def __init__(self, min_inclusive: Optional[T]=None, min_exclusive: Optional[T]=None):
+    def __init__(self, min_inclusive: Optional[T] = None, min_exclusive: Optional[T] = None):
         if min_inclusive is None and min_exclusive is None:
             raise TypeError("__init__() requires either 'min_inclusive' or 'min_exclusive' argument to be provided")
         if min_inclusive is not None and min_exclusive is not None:
@@ -109,7 +109,7 @@ class MaxValue(Generic[T]):
     #: Maximum exclusive value.
     max_exclusive: Optional[T]
 
-    def __init__(self, max_inclusive: Optional[T]=None, max_exclusive: Optional[T]=None):
+    def __init__(self, max_inclusive: Optional[T] = None, max_exclusive: Optional[T] = None):
         if max_inclusive is None and max_exclusive is None:
             raise TypeError("__init__() requires either 'max_inclusive' or 'max_exclusive' argument to be provided")
         if max_inclusive is not None and max_exclusive is not None:

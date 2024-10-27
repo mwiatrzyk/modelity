@@ -619,9 +619,9 @@ class TestModelType:
             class Dummy(Model):
                 foo: Annotated[List[int], MaxLength(3)]
 
-            dummy = Dummy(foo=['1', '2', '3'])
+            dummy = Dummy(foo=["1", "2", "3"])
             assert dummy.foo == [1, 2, 3]
-            dummy.foo.append('4')  # Not possible to check constraints from here
+            dummy.foo.append("4")  # Not possible to check constraints from here
             assert dummy.foo == [1, 2, 3, 4]
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
