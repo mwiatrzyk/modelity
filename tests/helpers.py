@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Tuple, Type
+from typing import Any, Tuple, Type
 from modelity.error import Error
 from modelity.loc import Loc
 
@@ -67,16 +67,12 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.InvalidTupleFormat", expected_format=expected_format)
 
     @staticmethod
-    def value_out_of_range(loc: Loc, min: Number, max: Number):
-        return Error.create(loc, "modelity.ValueOutOfRange", min=min, max=max)
+    def value_too_low(loc: Loc, min_inclusive: Any=None, min_exclusive: Any=None):
+        return Error.create(loc, "modelity.ValueTooLow", min_inclusive=min_inclusive, min_exclusive=min_exclusive)
 
     @staticmethod
-    def value_too_low(loc: Loc, min: Number):
-        return Error.create(loc, "modelity.ValueTooLow", min=min)
-
-    @staticmethod
-    def value_too_high(loc: Loc, max: Number):
-        return Error.create(loc, "modelity.ValueTooHigh", max=max)
+    def value_too_high(loc: Loc, max_inclusive: Any=None, max_exclusive: Any=None):
+        return Error.create(loc, "modelity.ValueTooHigh", max_inclusive=max_inclusive, max_exclusive=max_exclusive)
 
     @staticmethod
     def value_error(loc: Loc, message: str):

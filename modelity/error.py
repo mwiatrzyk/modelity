@@ -21,7 +21,6 @@ class ErrorCode:
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
     INVALID_LITERAL = "modelity.InvalidLiteral"
-    VALUE_OUT_OF_RANGE = "modelity.ValueOutOfRange"
     VALUE_TOO_LOW = "modelity.ValueTooLow"
     VALUE_TOO_HIGH = "modelity.ValueTooHigh"
     REQUIRED_MISSING = "modelity.RequiredMissing"
@@ -121,13 +120,9 @@ class ErrorFactory:
         return cls.create(loc, ErrorCode.TYPE_ERROR, message=message)
 
     @classmethod
-    def value_out_of_range(cls, loc: Loc, min: Any, max: Any) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_OUT_OF_RANGE, min=min, max=max)
+    def value_too_low(cls, loc: Loc, min_inclusive: Any=None, min_exclusive: Any=None) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min_inclusive=min_inclusive, min_exclusive=min_exclusive)
 
     @classmethod
-    def value_too_low(cls, loc: Loc, min: Any) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min=min)
-
-    @classmethod
-    def value_too_high(cls, loc: Loc, max: Any) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max=max)
+    def value_too_high(cls, loc: Loc, max_inclusive: Any=None, max_exclusive: Any=None) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max_inclusive=max_inclusive, max_exclusive=max_exclusive)

@@ -8,10 +8,12 @@ T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
 
 
-class ISupportsLess(Protocol):
-    """Interface for objects that contain less operator."""
+class ISupportsLessEqual(Protocol):
+    """Interface for objects that contain less and less or equal operator."""
 
     def __lt__(self, other: object) -> bool: ...
+
+    def __le__(self, other: object) -> bool: ...
 
 
 class IDumpFilter(Protocol):

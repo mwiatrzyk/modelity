@@ -11,7 +11,7 @@ from modelity.loc import Loc
 from modelity.model import Model
 from modelity._parsing.type_parsers import all
 from modelity.interface import IParser, ITypeParserProvider
-from modelity.constraints import Max, Min, Range
+from modelity.constraints import MaxValue, MinValue
 from tests.helpers import ErrorFactoryHelper
 
 
@@ -329,10 +329,10 @@ class TestAnnotated:
     @pytest.mark.parametrize(
         "tp, given, expected",
         [
-            (Annotated[int, Range(1, 10)], 1, 1),
-            (Annotated[int, Range(1, 10)], "10", 10),
-            (Annotated[float, Range(0, 1)], "0", 0.0),
-            (Annotated[float, Range(0, 1)], "1", 1.0),
+            (Annotated[int, MinValue(1), MaxValue(10)], 1, 1),
+            (Annotated[int, MinValue(1), MaxValue(10)], "10", 10),
+            (Annotated[float, MinValue(0), MaxValue(1)], "0", 0.0),
+            (Annotated[float, MinValue(0), MaxValue(1)], "1", 1.0),
         ],
     )
     def test_successfully_parse_annotated_type(self, parser: IParser, loc, given, expected):
@@ -342,34 +342,34 @@ class TestAnnotated:
         "tp, given, invalid_value, expected_error",
         [
             (
-                Annotated[int, Range(1, 10)],
+                Annotated[int, MinValue(0)],
                 "spam",
                 "spam",
                 ErrorFactoryHelper.integer_required(Loc()),
             ),
             (
-                Annotated[int, Range(1, 10)],
+                Annotated[int, MinValue(1), MaxValue(10)],
                 "0",
                 0,
-                ErrorFactoryHelper.value_out_of_range(Loc(), min=1, max=10),
+                ErrorFactoryHelper.value_too_low(Loc(), min_inclusive=1),
             ),
             (
-                Annotated[int, Range(1, 10)],
+                Annotated[int, MinValue(1), MaxValue(10)],
                 "11",
                 11,
-                ErrorFactoryHelper.value_out_of_range(Loc(), min=1, max=10),
+                ErrorFactoryHelper.value_too_high(Loc(), max_inclusive=10),
             ),
             (
-                Annotated[int, Min(1), Max(2)],
+                Annotated[int, MinValue(1), MaxValue(2)],
                 0,
                 0,
-                ErrorFactoryHelper.value_too_low(Loc(), min=1),
+                ErrorFactoryHelper.value_too_low(Loc(), min_inclusive=1),
             ),
             (
-                Annotated[int, Min(1), Max(2)],
+                Annotated[int, MinValue(1), MaxValue(2)],
                 3,
                 3,
-                ErrorFactoryHelper.value_too_high(Loc(), max=2),
+                ErrorFactoryHelper.value_too_high(Loc(), max_inclusive=2),
             ),
         ],
     )

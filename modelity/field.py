@@ -32,7 +32,7 @@ class Field:
     #: This function, if given, will be invoked by constructor, and it will be
     #: invoked once for each model instance. This attribute is ignored if
     #: :attr:`default` is also set.
-    default_factory: Callable[[], Any]
+    default_factory: Optional[Callable[[], Any]]
 
     #: Flag telling if this field is optional.
     #:
@@ -43,7 +43,9 @@ class Field:
     #: you'll need.
     optional: bool
 
-    def __init__(self, default: Any = Unset, default_factory: Callable[[], Any] = None, optional: bool = False):
+    def __init__(
+        self, default: Any = Unset, default_factory: Optional[Callable[[], Any]] = None, optional: bool = False
+    ):
         self.default = default
         self.default_factory = default_factory
         self.optional = optional

@@ -631,23 +631,26 @@ class TestModelType:
 
             return Dummy
 
-        @pytest.mark.parametrize("initial_params, loc, expected_result", [
-            ({}, Loc("a"), None),
-            ({}, Loc("foo"), None),
-            ({"foo": 1}, Loc("foo"), 1),
-            ({"nested": {"a": 2}}, Loc("nested", "a"), 2),
-            ({"mapping": {3: "three"}}, Loc("mapping", 3), "three"),
-            ({"nested_mapping": {4: {"a": 444}}}, Loc("nested_mapping", 4, "a"), 444),
-            ({"list": [111, 222, 333]}, Loc("list", 0), 111),
-            ({"list": [111, 222, 333]}, Loc("list", 1), 222),
-            ({"list": [111, 222, 333]}, Loc("list", 2), 333),
-            ({"list": [111, 222, 333]}, Loc("list", 3), None),
-            ({"list": [111, 222, 333]}, Loc("list", -1), 333),
-            ({"list": [111, 222, 333]}, Loc("list", -2), 222),
-            ({"list": [111, 222, 333]}, Loc("list", -3), 111),
-            ({"list": [111, 222, 333]}, Loc("list", -4), None),
-            ({"nested_list": [{"a": 5}]}, Loc("nested_list", 0, "a"), 5),
-        ])
+        @pytest.mark.parametrize(
+            "initial_params, loc, expected_result",
+            [
+                ({}, Loc("a"), None),
+                ({}, Loc("foo"), None),
+                ({"foo": 1}, Loc("foo"), 1),
+                ({"nested": {"a": 2}}, Loc("nested", "a"), 2),
+                ({"mapping": {3: "three"}}, Loc("mapping", 3), "three"),
+                ({"nested_mapping": {4: {"a": 444}}}, Loc("nested_mapping", 4, "a"), 444),
+                ({"list": [111, 222, 333]}, Loc("list", 0), 111),
+                ({"list": [111, 222, 333]}, Loc("list", 1), 222),
+                ({"list": [111, 222, 333]}, Loc("list", 2), 333),
+                ({"list": [111, 222, 333]}, Loc("list", 3), None),
+                ({"list": [111, 222, 333]}, Loc("list", -1), 333),
+                ({"list": [111, 222, 333]}, Loc("list", -2), 222),
+                ({"list": [111, 222, 333]}, Loc("list", -3), 111),
+                ({"list": [111, 222, 333]}, Loc("list", -4), None),
+                ({"nested_list": [{"a": 5}]}, Loc("nested_list", 0, "a"), 5),
+            ],
+        )
         def test_get_value(self, model: Model, loc, expected_result):
             assert model.get_value(loc) == expected_result
 

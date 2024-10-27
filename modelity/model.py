@@ -695,7 +695,7 @@ class Model(metaclass=ModelMeta):
         """Get location previously set by :meth:`set_loc` method."""
         return self._loc
 
-    def get_value(self, loc: Loc, memo: Optional[dict]=None) -> Optional[Any]:
+    def get_value(self, loc: Loc, memo: Optional[dict] = None) -> Optional[Any]:
         """Get value at given absolute location, or return ``None`` if given
         *loc* does not point to an existing value.
 

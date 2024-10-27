@@ -35,7 +35,6 @@ def format(ctx: invoke.Context):
     ctx.run("black --line-length=120 .")
 
 
-
 @invoke.task
 def build_docs(ctx: invoke.Context):
     """Build HTML documentation for Modelity."""
