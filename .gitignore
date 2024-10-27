@@ -3,6 +3,7 @@ __pycache__
 .vscode
 .pytest_cache
 .python-version
+.mypy_cache
 .coverage
 dist
 docs/build
