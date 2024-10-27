@@ -1,7 +1,8 @@
-from typing import Any, Callable, Optional, Tuple, Type, get_args, get_origin
+from typing import Annotated, Any, Callable, Optional, Tuple, Type, get_args, get_origin
 
 from typing_extensions import dataclass_transform
 
+from modelity.interface import IParser
 from modelity.unset import Unset
 
 
@@ -62,9 +63,9 @@ class Field:
 class BoundField(Field):
     """Object containing field metadata.
 
-    Objects of this type are automatically created from type annotations, but
-    can also be created explicitly to override field defaults (see :meth:`field`
-    for details).
+    Extends :class:`Field` and, in addition to user-editable properties,
+    provides also read-only ones. Instances of this class are created from
+    annotations, when model class is created.
     """
 
     __slots__ = ("name", "type", "_type_origin", "_type_args")
@@ -121,3 +122,14 @@ class BoundField(Field):
         set to ``(str, int)``.
         """
         return self._type_args
+
+    @property
+    def constraints(self) -> Tuple[IParser, ...]:
+        """Return tuple of constraints for this field defined via
+        :class:`typing.Annotated` type.
+
+        This will return empty tuple if field does not have any constraints.
+        """
+        if self.type_origin is not Annotated:
+            return tuple()
+        return self.type_args[1:]  # First element is the type, remaining ones are constraints

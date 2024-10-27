@@ -4,6 +4,7 @@ import inspect
 import itertools
 import dataclasses
 from typing import (
+    Annotated,
     Any,
     Callable,
     Dict,
@@ -169,6 +170,10 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
             if field_info.is_required():
                 errors.append(ErrorFactory.required_missing(loc + Loc(name)))
             continue
+        for constraint in field_info.constraints:
+            check_result = constraint(value, field_loc)
+            if isinstance(check_result, Invalid):
+                errors.extend(check_result.errors)
         _validate_any(value, field_loc, errors, root)
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, field_loc, name, value))

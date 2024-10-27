@@ -1,9 +1,10 @@
-from typing import _SpecialForm, Dict, List, Optional, Set, Type
+from typing import _SpecialForm, Annotated, Dict, List, Optional, Set, Type
 
 import pytest
 
 from mockify.api import Invoke, Raise, ordered, Return, _
 
+from modelity.constraints import MaxLength
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.interface import IDumpFilter
@@ -612,6 +613,19 @@ class TestModelType:
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
             assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("nested", 0, "a"))])
+
+        def test_validation_fails_if_constraints_fails_for_validated_field(self):
+
+            class Dummy(Model):
+                foo: Annotated[List[int], MaxLength(3)]
+
+            dummy = Dummy(foo=['1', '2', '3'])
+            assert dummy.foo == [1, 2, 3]
+            dummy.foo.append('4')  # Not possible to check constraints from here
+            assert dummy.foo == [1, 2, 3, 4]
+            with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_too_long(Loc("foo"), 3)])
 
     class TestGetValue:
 
