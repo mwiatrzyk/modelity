@@ -1,3 +1,17 @@
+## 0.4.0 (2024-10-27)
+
+### BREAKING CHANGES
+
+- rename `create_valid` to `load_valid` for compatibility with `load` method
+- refactor constraints module and get rid of `Range` constraint in favor of jsut `MinValue` and `MaxValue`
+
+### Feat
+
+- add `default_factory` option to `Field` class
+- rename `create_valid` to `load_valid` for compatibility with `load` method
+- add `MinLength` and `MaxLength` constraints
+- re-run constraint checks for fields with constraints defined while validating
+
 ## 0.3.0 (2024-10-21)
 
 ### Feat
