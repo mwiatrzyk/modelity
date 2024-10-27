@@ -1,6 +1,6 @@
 import pytest
 
-from modelity.constraints import MaxValue, MinValue
+from modelity.constraints import MaxLength, MaxValue, MinLength, MinValue
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
@@ -61,6 +61,44 @@ class TestMaxValue:
         (MaxValue(max_inclusive=0), 1, Loc(), ErrorFactoryHelper.value_too_high(Loc(), max_inclusive=0)),
         (MaxValue(max_exclusive=0), 1, Loc(), ErrorFactoryHelper.value_too_high(Loc(), max_exclusive=0)),
         (MaxValue(max_exclusive=0), 0, Loc(), ErrorFactoryHelper.value_too_high(Loc(), max_exclusive=0)),
+    ])
+    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
+        result = uut(value, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == value
+        assert result.errors == (expected_error,)
+
+
+class TestMinLength:
+
+    @pytest.mark.parametrize("uut, value, loc", [
+        (MinLength(3), "foo", Loc()),
+    ])
+    def test_constraint_checking_passed(self, uut, value, loc):
+        result = uut(value, loc)
+        assert result == value
+
+    @pytest.mark.parametrize("uut, value, loc, expected_error", [
+        (MinLength(1), "", Loc(), ErrorFactoryHelper.value_too_short(Loc(), 1)),
+    ])
+    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
+        result = uut(value, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == value
+        assert result.errors == (expected_error,)
+
+
+class TestMaxLength:
+
+    @pytest.mark.parametrize("uut, value, loc", [
+        (MaxLength(3), "foo", Loc()),
+    ])
+    def test_constraint_checking_passed(self, uut, value, loc):
+        result = uut(value, loc)
+        assert result == value
+
+    @pytest.mark.parametrize("uut, value, loc, expected_error", [
+        (MaxLength(1), "foo", Loc(), ErrorFactoryHelper.value_too_long(Loc(), 1)),
     ])
     def test_constraint_checking_failed(self, uut, value, loc, expected_error):
         result = uut(value, loc)

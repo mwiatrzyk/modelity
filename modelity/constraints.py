@@ -1,4 +1,4 @@
-from typing import Generic, Optional, Union, TypeVar
+from typing import Any, Generic, Optional, Sequence, Sized, Union, TypeVar
 
 from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
@@ -122,4 +122,98 @@ class MaxValue(Generic[T]):
             return Invalid(value, ErrorFactory.value_too_high(loc, max_inclusive=self.max_inclusive))
         if self.max_exclusive is not None and value >= self.max_exclusive:
             return Invalid(value, ErrorFactory.value_too_high(loc, max_exclusive=self.max_exclusive))
+        return value
+
+
+class MinLength:
+    """Constraint for annotating model field with minimum length.
+
+    Suitable for model fields with types implementing :class:`typing.Sized`
+    protocol, f.e. lists, strings, dicts etc.
+
+    Example use:
+
+    .. testcode::
+
+        from typing import Annotated
+
+        from modelity.model import Model
+        from modelity.constraints import MinLength
+
+        class Dummy(Model):
+            foo: Annotated[str, MinLength(1)]
+
+    .. doctest::
+
+        >>> dummy = Dummy()
+        >>> dummy.foo = "spam"
+        >>> dummy.foo
+        'spam'
+        >>> dummy.foo = ""
+        Traceback (most recent call last):
+            ...
+        modelity.exc.ParsingError: parsing failed with 1 error(-s):
+          foo:
+            modelity.ValueTooShort {'min_length': 1}
+
+    :param min_length:
+        Minimum length of the value.
+    """
+
+    #: Minimum length of the value.
+    min_length: int
+
+    def __init__(self, min_length: int):
+        self.min_length = min_length
+
+    def __call__(self, value: Sized, loc: Loc) -> Union[Sized, Invalid]:
+        if len(value) < self.min_length:
+            return Invalid(value, ErrorFactory.value_too_short(loc, min_length=self.min_length))
+        return value
+
+
+class MaxLength:
+    """Constraint for annotating model field with maximum length.
+
+    Suitable for model fields with types implementing :class:`typing.Sized`
+    protocol, f.e. lists, strings, dicts etc.
+
+    Example use:
+
+    .. testcode::
+
+        from typing import Annotated
+
+        from modelity.model import Model
+        from modelity.constraints import MaxLength
+
+        class Dummy(Model):
+            foo: Annotated[str, MaxLength(3)]
+
+    .. doctest::
+
+        >>> dummy = Dummy()
+        >>> dummy.foo = "foo"
+        >>> dummy.foo
+        'foo'
+        >>> dummy.foo = "spam"
+        Traceback (most recent call last):
+            ...
+        modelity.exc.ParsingError: parsing failed with 1 error(-s):
+          foo:
+            modelity.ValueTooLong {'max_length': 3}
+
+    :param max_length:
+        Maximum length of the value.
+    """
+
+    #: Maximum length of the value.
+    max_length: int
+
+    def __init__(self, max_length: int):
+        self.max_length = max_length
+
+    def __call__(self, value: Sized, loc: Loc) -> Union[Sized, Invalid]:
+        if len(value) > self.max_length:
+            return Invalid(value, ErrorFactory.value_too_long(loc, max_length=self.max_length))
         return value

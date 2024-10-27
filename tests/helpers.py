@@ -75,6 +75,14 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.ValueTooHigh", max_inclusive=max_inclusive, max_exclusive=max_exclusive)
 
     @staticmethod
+    def value_too_short(loc: Loc, min_length: int):
+        return Error.create(loc, "modelity.ValueTooShort", min_length=min_length)
+
+    @staticmethod
+    def value_too_long(loc: Loc, max_length: int):
+        return Error.create(loc, "modelity.ValueTooLong", max_length=max_length)
+
+    @staticmethod
     def value_error(loc: Loc, message: str):
         return Error.create(loc, "modelity.ValueError", message=message)
 

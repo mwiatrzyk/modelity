@@ -23,6 +23,8 @@ class ErrorCode:
     INVALID_LITERAL = "modelity.InvalidLiteral"
     VALUE_TOO_LOW = "modelity.ValueTooLow"
     VALUE_TOO_HIGH = "modelity.ValueTooHigh"
+    VALUE_TOO_SHORT = "modelity.ValueTooShort"
+    VALUE_TOO_LONG = "modelity.ValueTooLong"
     REQUIRED_MISSING = "modelity.RequiredMissing"
     VALUE_ERROR = "modelity.ValueError"
     TYPE_ERROR = "modelity.TypeError"
@@ -126,3 +128,11 @@ class ErrorFactory:
     @classmethod
     def value_too_high(cls, loc: Loc, max_inclusive: Any=None, max_exclusive: Any=None) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max_inclusive=max_inclusive, max_exclusive=max_exclusive)
+
+    @classmethod
+    def value_too_short(cls, loc: Loc, min_length: int) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_SHORT, min_length=min_length)
+
+    @classmethod
+    def value_too_long(cls, loc: Loc, max_length: int) -> Error:
+        return cls.create(loc, ErrorCode.VALUE_TOO_LONG, max_length=max_length)
