@@ -130,7 +130,7 @@ def _dump_any(value: Any, loc: Loc, func: IDumpFilter) -> Tuple[Any, bool]:
     value, skip = func(value, loc)
     if skip:
         return value, skip
-    if type(value) in (str, bytes, bytearray):  # Exception, to avoid infinite recursion (these are sequences)
+    if isinstance(value, (str, bytes)):
         return value, False
     if isinstance(value, Model):
         return _dump_model(value, loc, func)

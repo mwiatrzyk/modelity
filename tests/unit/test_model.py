@@ -368,92 +368,116 @@ class TestModelType:
                 mock.expect_call(1, Loc("a")).will_once(Return((11, False)))
                 assert uut.dump(mock) == {"a": 11}
 
-    class TestDumpWithFunc:
+        class TestDumpStrByteBytearraySubclasses:
 
-        @pytest.fixture
-        def func(self):
-            return lambda v, l: (v, False)  # False - don't skip
+            class Str(str):
+                pass
 
-        @pytest.mark.parametrize(
-            "tp, given, expected",
-            [
-                (int, "1", 1),
-                (float, "1.41", 1.41),
-                (str, "dummy", "dummy"),
-                (bool, "true", True),
-            ],
-        )
-        def test_visit_scalar_field(self, mock, tp, given, expected, func):
+            class Bytes(bytes):
+                pass
 
-            class Dummy(Model):
-                foo: tp
+            class Bytearray(bytearray):
+                pass
 
-            uut = Dummy(foo=given)
-            mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
-            with ordered(mock):
-                assert uut.dump(mock)["foo"] == expected
+            @pytest.mark.parametrize("tp, value, expected_dump", [
+                (Str, Str("dummy"), {"foo": ["dummy"]}),
+                (Bytes, Bytes(b"dummy"), {"foo": [b"dummy"]}),
+            ])
+            def test_dont_convert_str_byte_or_bytearray_subclasses_to_sequence(self, tp, value, expected_dump):
 
-        def test_visit_mapping_field(self, mock, func):
+                class Dummy(Model):
+                    foo: List[tp] = []
 
-            class Dummy(Model):
-                foo: Dict[str, int]
+                dummy = Dummy()
+                dummy.foo.append(value)
+                assert dummy.dump() == expected_dump
 
-            foo = {"a": 1, "b": 2}
-            uut = Dummy(foo=foo)
-            mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
-            mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
-            mock.expect_call(2, Loc("foo", "b")).will_once(Invoke(func))
-            with ordered(mock):
-                assert uut.dump(mock) == {"foo": foo}
+        class TestDumpWithFunc:
 
-        def test_visit_mapping_field_with_values_being_another_mapping(self, mock, func):
+            @pytest.fixture
+            def func(self):
+                return lambda v, l: (v, False)  # False - don't skip
 
-            class Dummy(Model):
-                foo: Dict[str, Dict[str, int]]
+            @pytest.mark.parametrize(
+                "tp, given, expected",
+                [
+                    (int, "1", 1),
+                    (float, "1.41", 1.41),
+                    (str, "dummy", "dummy"),
+                    (bool, "true", True),
+                ],
+            )
+            def test_visit_scalar_field(self, mock, tp, given, expected, func):
 
-            foo = {"a": {"b": 1}, "c": {"d": 2, "e": 3}}
-            uut = Dummy(foo=foo)
-            mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
-            mock.expect_call({"b": 1}, Loc("foo", "a")).will_once(Invoke(func))
-            mock.expect_call(1, Loc("foo", "a", "b")).will_once(Invoke(func))
-            mock.expect_call({"d": 2, "e": 3}, Loc("foo", "c")).will_once(Invoke(func))
-            mock.expect_call(2, Loc("foo", "c", "d")).will_once(Invoke(func))
-            mock.expect_call(3, Loc("foo", "c", "e")).will_once(Invoke(func))
-            with ordered(mock):
-                assert uut.dump(mock) == {"foo": foo}
+                class Dummy(Model):
+                    foo: tp
 
-        def test_visit_nested_model(self, mock, func):
+                uut = Dummy(foo=given)
+                mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
+                with ordered(mock):
+                    assert uut.dump(mock)["foo"] == expected
 
-            class Foo(Model):
-                a: int
+            def test_visit_mapping_field(self, mock, func):
 
-            class Bar(Model):
-                foo: Foo
+                class Dummy(Model):
+                    foo: Dict[str, int]
 
-            foo = {"a": 1}
-            uut = Bar(foo=foo)
-            mock.expect_call(Foo(a=1), Loc("foo")).will_once(Invoke(func))
-            mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
-            with ordered(mock):
-                assert uut.dump(mock) == {"foo": foo}
+                foo = {"a": 1, "b": 2}
+                uut = Dummy(foo=foo)
+                mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
+                mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
+                mock.expect_call(2, Loc("foo", "b")).will_once(Invoke(func))
+                with ordered(mock):
+                    assert uut.dump(mock) == {"foo": foo}
 
-        @pytest.mark.parametrize(
-            "tp, given, expected",
-            [
-                (int, ["1", "2"], [1, 2]),
-            ],
-        )
-        def test_visit_sequence_field(self, mock, tp, given, expected, func):
+            def test_visit_mapping_field_with_values_being_another_mapping(self, mock, func):
 
-            class Dummy(Model):
-                foo: List[tp]
+                class Dummy(Model):
+                    foo: Dict[str, Dict[str, int]]
 
-            uut = Dummy(foo=given)
-            mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
-            for i, val in enumerate(expected):
-                mock.expect_call(val, Loc("foo", i)).will_once(Invoke(func))
-            with ordered(mock):
-                assert uut.dump(mock) == {"foo": expected}
+                foo = {"a": {"b": 1}, "c": {"d": 2, "e": 3}}
+                uut = Dummy(foo=foo)
+                mock.expect_call(foo, Loc("foo")).will_once(Invoke(func))
+                mock.expect_call({"b": 1}, Loc("foo", "a")).will_once(Invoke(func))
+                mock.expect_call(1, Loc("foo", "a", "b")).will_once(Invoke(func))
+                mock.expect_call({"d": 2, "e": 3}, Loc("foo", "c")).will_once(Invoke(func))
+                mock.expect_call(2, Loc("foo", "c", "d")).will_once(Invoke(func))
+                mock.expect_call(3, Loc("foo", "c", "e")).will_once(Invoke(func))
+                with ordered(mock):
+                    assert uut.dump(mock) == {"foo": foo}
+
+            def test_visit_nested_model(self, mock, func):
+
+                class Foo(Model):
+                    a: int
+
+                class Bar(Model):
+                    foo: Foo
+
+                foo = {"a": 1}
+                uut = Bar(foo=foo)
+                mock.expect_call(Foo(a=1), Loc("foo")).will_once(Invoke(func))
+                mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
+                with ordered(mock):
+                    assert uut.dump(mock) == {"foo": foo}
+
+            @pytest.mark.parametrize(
+                "tp, given, expected",
+                [
+                    (int, ["1", "2"], [1, 2]),
+                ],
+            )
+            def test_visit_sequence_field(self, mock, tp, given, expected, func):
+
+                class Dummy(Model):
+                    foo: List[tp]
+
+                uut = Dummy(foo=given)
+                mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
+                for i, val in enumerate(expected):
+                    mock.expect_call(val, Loc("foo", i)).will_once(Invoke(func))
+                with ordered(mock):
+                    assert uut.dump(mock) == {"foo": expected}
 
     class TestCustomConfig:
 

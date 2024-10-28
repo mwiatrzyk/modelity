@@ -14,3 +14,14 @@ def make_string_parser():
         return Invalid(value, Error.create(loc, ErrorCode.STRING_REQUIRED))
 
     return parse_string
+
+
+@provider.type_parser_factory(bytes)
+def make_bytes_parser():
+
+    def parse_bytes(value, loc):
+        if isinstance(value, bytes):
+            return value
+        return Invalid(value, Error.create(loc, ErrorCode.BYTES_REQUIRED))
+
+    return parse_bytes

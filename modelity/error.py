@@ -10,6 +10,7 @@ class ErrorCode:
     NONE_REQUIRED = "modelity.NoneRequired"
     INTEGER_REQUIRED = "modelity.IntegerRequired"
     STRING_REQUIRED = "modelity.StringRequired"
+    BYTES_REQUIRED = "modelity.BytesRequired"
     FLOAT_REQUIRED = "modelity.FloatRequired"
     BOOLEAN_REQUIRED = "modelity.BooleanRequired"
     ITERABLE_REQUIRED = "modelity.IterableRequired"
