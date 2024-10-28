@@ -1,3 +1,13 @@
+## 0.5.0 (2024-10-28)
+
+### Fix
+
+- when dumping, allow subclasses of `str` and `bytes` to avoid unwanted recursion
+
+### Feat
+
+- allow `str` field to be initialized with `bytes` and vice-versa
+
 ## 0.4.0 (2024-10-27)
 
 ### BREAKING CHANGES
