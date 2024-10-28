@@ -6,12 +6,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-# import os
-# import sys
+import os
+import sys
 
-# this_dir = os.path.dirname(os.path.abspath(__file__))
-# root_dir = os.path.join(this_dir, "..", "..")
-# sys.path.insert(0, root_dir)
+this_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.join(this_dir, "..", "..")
+sys.path.insert(0, root_dir)
 
 import doctest
 import modelity
