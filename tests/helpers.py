@@ -31,6 +31,14 @@ class ErrorFactoryHelper:
         return Error.create(loc, "modelity.StringRequired")
 
     @staticmethod
+    def bytes_required(loc: Loc) -> Error:
+        return Error.create(loc, "modelity.BytesRequired")
+
+    @staticmethod
+    def unicode_decode_error(loc: Loc, encoding: str):
+        return Error.create(loc, "modelity.UnicodeDecodeError", encoding=encoding)
+
+    @staticmethod
     def boolean_required(loc: Loc) -> Error:
         return Error.create(loc, "modelity.BooleanRequired")
 

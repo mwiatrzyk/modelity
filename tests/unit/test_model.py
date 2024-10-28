@@ -379,10 +379,13 @@ class TestModelType:
             class Bytearray(bytearray):
                 pass
 
-            @pytest.mark.parametrize("tp, value, expected_dump", [
-                (Str, Str("dummy"), {"foo": ["dummy"]}),
-                (Bytes, Bytes(b"dummy"), {"foo": [b"dummy"]}),
-            ])
+            @pytest.mark.parametrize(
+                "tp, value, expected_dump",
+                [
+                    (Str, Str("dummy"), {"foo": ["dummy"]}),
+                    (Bytes, Bytes(b"dummy"), {"foo": [b"dummy"]}),
+                ],
+            )
             def test_dont_convert_str_byte_or_bytearray_subclasses_to_sequence(self, tp, value, expected_dump):
 
                 class Dummy(Model):

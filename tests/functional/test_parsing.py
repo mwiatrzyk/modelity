@@ -138,6 +138,37 @@ class TestStrParser:
         "given, expected",
         [
             ("foo", "foo"),
+            (b"foo", "foo"),
+        ],
+    )
+    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
+        assert parser(given, loc) == expected
+
+    @pytest.mark.parametrize(
+        "given, expected_error_func",
+        [
+            (123, lambda loc: ErrorFactoryHelper.string_required(loc)),
+            (b"\xff", lambda loc: ErrorFactoryHelper.unicode_decode_error(loc, "utf-8")),
+        ],
+    )
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_error_func):
+        result = parser(given, loc)
+        assert isinstance(result, Invalid)
+        assert result.value == given
+        assert result.errors == (expected_error_func(loc),)
+
+
+class TestBytesParser:
+
+    @pytest.fixture
+    def tp(self):
+        return bytes
+
+    @pytest.mark.parametrize(
+        "given, expected",
+        [
+            (b"foo", b"foo"),
+            ("foo", b"foo"),
         ],
     )
     def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
@@ -148,7 +179,7 @@ class TestStrParser:
         result = parser(given, loc)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == tuple([ErrorFactoryHelper.string_required(loc)])
+        assert result.errors == tuple([ErrorFactoryHelper.bytes_required(loc)])
 
 
 class TestBoolParser:

@@ -29,6 +29,7 @@ class ErrorCode:
     REQUIRED_MISSING = "modelity.RequiredMissing"
     VALUE_ERROR = "modelity.ValueError"
     TYPE_ERROR = "modelity.TypeError"
+    UNICODE_DECODE_ERROR = "modelity.UnicodeDecodeError"
 
 
 @dataclasses.dataclass
@@ -99,6 +100,14 @@ class ErrorFactory:
         return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
 
     @classmethod
+    def string_required(cls, loc: Loc) -> Error:
+        return cls.create(loc, ErrorCode.STRING_REQUIRED)
+
+    @classmethod
+    def bytes_required(cls, loc: Loc) -> Error:
+        return cls.create(loc, ErrorCode.BYTES_REQUIRED)
+
+    @classmethod
     def mapping_required(cls, loc: Loc) -> Error:
         return cls.create(loc, ErrorCode.MAPPING_REQUIRED)
 
@@ -137,3 +146,7 @@ class ErrorFactory:
     @classmethod
     def value_too_long(cls, loc: Loc, max_length: int) -> Error:
         return cls.create(loc, ErrorCode.VALUE_TOO_LONG, max_length=max_length)
+
+    @classmethod
+    def unicode_decode_error(cls, loc: Loc, encoding: str) -> Error:
+        return cls.create(loc, ErrorCode.UNICODE_DECODE_ERROR, encoding=encoding)

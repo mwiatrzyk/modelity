@@ -1,4 +1,4 @@
-from modelity.error import Error, ErrorCode
+from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
 
@@ -11,7 +11,12 @@ def make_string_parser():
     def parse_string(value, loc):
         if isinstance(value, str):
             return value
-        return Invalid(value, Error.create(loc, ErrorCode.STRING_REQUIRED))
+        if isinstance(value, bytes):
+            try:
+                return value.decode()
+            except UnicodeDecodeError:
+                return Invalid(value, ErrorFactory.unicode_decode_error(loc, "utf-8"))
+        return Invalid(value, ErrorFactory.string_required(loc))
 
     return parse_string
 
@@ -22,6 +27,8 @@ def make_bytes_parser():
     def parse_bytes(value, loc):
         if isinstance(value, bytes):
             return value
-        return Invalid(value, Error.create(loc, ErrorCode.BYTES_REQUIRED))
+        if isinstance(value, str):
+            return value.encode()
+        return Invalid(value, ErrorFactory.bytes_required(loc))
 
     return parse_bytes
