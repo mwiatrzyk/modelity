@@ -6,7 +6,7 @@ from mockify.api import Invoke, Raise, ordered, Return, _
 
 from modelity.constraints import MaxLength
 from modelity.error import Error, ErrorFactory
-from modelity.exc import ParsingError, ValidationError
+from modelity.exc import ModelError, ParsingError, ValidationError
 from modelity.interface import IDumpFilter
 from modelity.invalid import Invalid
 from modelity.loc import Loc
@@ -122,6 +122,22 @@ class TestModelType:
     )
     def test_setting_field_to_wrong_type_causes_parsing_error(self, model: Model, name, value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
+            setattr(model, name, value)
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize(
+        "name, value, expected_errors",
+        [
+            ("a", "spam", [ErrorFactoryHelper.integer_required(Loc("a"))]),
+            (
+                "b",
+                123,
+                [ErrorFactoryHelper.unsupported_type(Loc("b"), supported_types=(str, type(None)))],
+            ),
+        ],
+    )
+    def test_catch_parsing_errors_via_model_error_base_class(self, model: Model, name, value, expected_errors):
+        with pytest.raises(ModelError) as excinfo:
             setattr(model, name, value)
         assert excinfo.value.errors == tuple(expected_errors)
 
@@ -599,6 +615,16 @@ class TestModelType:
 
             dummy = Dummy()
             with pytest.raises(ValidationError) as excinfo:
+                dummy.validate()
+            assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("a"))])
+
+        def test_validation_errors_can_be_caught_using_model_error_type(self):
+
+            class Dummy(Model):
+                a: int
+
+            dummy = Dummy()
+            with pytest.raises(ModelError) as excinfo:
                 dummy.validate()
             assert excinfo.value.errors == tuple([ErrorFactoryHelper.required_missing(Loc("a"))])
 
