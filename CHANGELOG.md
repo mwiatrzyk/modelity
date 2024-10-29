@@ -1,3 +1,9 @@
+## 0.6.0 (2024-10-29)
+
+### Feat
+
+- add `ModelError` as a common base class for `ParsingError` and `ValidationError`
+
 ## 0.5.0 (2024-10-28)
 
 ### Fix
