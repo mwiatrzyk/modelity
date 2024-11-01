@@ -1,4 +1,4 @@
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
 
@@ -11,6 +11,6 @@ def make_none_parser():
     def parse_none(value, loc):
         if value is None:
             return value
-        return Invalid(value, Error.create(loc, ErrorCode.NONE_REQUIRED))
+        return Invalid(value, ErrorFactory.create(loc, ErrorCode.NONE_REQUIRED))
 
     return parse_none

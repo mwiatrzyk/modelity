@@ -1,12 +1,12 @@
 import dataclasses
 import enum
-from numbers import Number
 from typing import Any, Tuple, Type
 
 from modelity.loc import Loc
 
 
 class ErrorCode:
+    """Class containing constants with all built-in error codes."""
     NONE_REQUIRED = "modelity.NoneRequired"
     INTEGER_REQUIRED = "modelity.IntegerRequired"
     STRING_REQUIRED = "modelity.StringRequired"
@@ -44,18 +44,6 @@ class Error:
 
     #: Optional error data, with format depending on the :attr:`code`.
     data: dict = dataclasses.field(default_factory=dict)
-
-    @classmethod
-    def create(cls, loc: Loc, code: str, **data: Any) -> "Error":
-        return cls(loc, code, data)
-
-    @classmethod
-    def create_unsupported_type(cls, loc: Loc, supported_types: Tuple[Type]) -> "Error":
-        return cls.create(loc, ErrorCode.UNSUPPORTED_TYPE, supported_types=supported_types)
-
-    @classmethod
-    def create_invalid_tuple_format(cls, loc: Loc, expected_format: Tuple[Type]) -> "Error":
-        return cls.create(loc, ErrorCode.INVALID_TUPLE_FORMAT, expected_format=expected_format)
 
 
 class ErrorFactory:
@@ -98,6 +86,14 @@ class ErrorFactory:
         """Returned for :class:`typing.Literal` types, when user input does not
         match literal type being used."""
         return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
+
+    @classmethod
+    def create_unsupported_type(cls, loc: Loc, supported_types: Tuple[Type]) -> "Error":
+        return cls.create(loc, ErrorCode.UNSUPPORTED_TYPE, supported_types=supported_types)
+
+    @classmethod
+    def create_invalid_tuple_format(cls, loc: Loc, expected_format: Tuple[Type]) -> "Error":
+        return cls.create(loc, ErrorCode.INVALID_TUPLE_FORMAT, expected_format=expected_format)
 
     @classmethod
     def string_required(cls, loc: Loc) -> Error:

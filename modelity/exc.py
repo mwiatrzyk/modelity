@@ -47,7 +47,7 @@ class ParsingError(ModelError):
 
 
 class ValidationError(ModelError):
-    """Exception raised when model failed validation.
+    """Exception raised when model validation failed.
 
     :param model:
         The model for which validation has failed.

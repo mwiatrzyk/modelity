@@ -1,7 +1,7 @@
 import itertools
 from typing import Iterable, get_args
 
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.interface import ITypeParserProvider
 from modelity.providers import TypeParserProvider
@@ -15,7 +15,7 @@ def make_set_parser(provider: ITypeParserProvider, tp: type):
 
     def ensure_iterable(value, loc):
         if not isinstance(value, Iterable):
-            return Invalid(value, Error.create(loc, ErrorCode.ITERABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.ITERABLE_REQUIRED))
         return value
 
     def parse_any_set(value, loc):
@@ -25,7 +25,7 @@ def make_set_parser(provider: ITypeParserProvider, tp: type):
         try:
             return set(result)
         except TypeError:
-            return Invalid(value, Error.create(loc, ErrorCode.HASHABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.HASHABLE_REQUIRED))
 
     def parse_typed_set(value, loc):
         result = ensure_iterable(value, loc)
@@ -34,7 +34,7 @@ def make_set_parser(provider: ITypeParserProvider, tp: type):
         try:
             result = set(item_parser(x, loc) for x in result)
         except TypeError:
-            return Invalid(value, Error.create(loc, ErrorCode.HASHABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.HASHABLE_REQUIRED))
         errors = tuple(itertools.chain(*(x.errors for x in result if isinstance(x, Invalid))))
         if len(errors) > 0:
             return Invalid(value, *errors)

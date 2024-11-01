@@ -1,6 +1,6 @@
 from numbers import Number
 from typing import Union
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.interface import ITypeParserProvider
 from modelity.providers import TypeParserProvider
@@ -15,7 +15,7 @@ def make_int_parser():
         try:
             return int(value)
         except (ValueError, TypeError):
-            return Invalid(value, Error.create(loc, ErrorCode.INTEGER_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.INTEGER_REQUIRED))
 
     return parse_int
 
@@ -27,7 +27,7 @@ def make_float_parser():
         try:
             return float(value)
         except (ValueError, TypeError):
-            return Invalid(value, Error.create(loc, ErrorCode.FLOAT_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.FLOAT_REQUIRED))
 
     return parse_float
 

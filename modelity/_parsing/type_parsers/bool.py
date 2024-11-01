@@ -1,4 +1,4 @@
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorFactory, ErrorCode
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
 
@@ -16,6 +16,6 @@ def make_bool_parser():
             return True
         if value in _FALSE_VALUES:
             return False
-        return Invalid(value, Error.create(loc, ErrorCode.BOOLEAN_REQUIRED))
+        return Invalid(value, ErrorFactory.create(loc, ErrorCode.BOOLEAN_REQUIRED))
 
     return parse_bool

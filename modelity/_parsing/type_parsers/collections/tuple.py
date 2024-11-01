@@ -1,6 +1,6 @@
 import itertools
 from typing import get_args
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import ITypeParserProvider
@@ -16,7 +16,7 @@ def make_tuple_parser(provider: ITypeParserProvider, tp: type):
         try:
             return tuple(value)
         except TypeError:
-            return Invalid(value, Error.create(loc, ErrorCode.ITERABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.create(loc, ErrorCode.ITERABLE_REQUIRED))
 
     def parse_any_length_typed_tuple(value, loc):
         result = parse_any_tuple(value, loc)
@@ -34,7 +34,7 @@ def make_tuple_parser(provider: ITypeParserProvider, tp: type):
             return result
         result = tuple(parse(elem, loc + Loc(i)) for i, parse, elem in zip(range(len(result)), parsers, result))
         if len(result) != len(args):
-            return Invalid(value, Error.create_invalid_tuple_format(loc, args))
+            return Invalid(value, ErrorFactory.create_invalid_tuple_format(loc, args))
         errors = tuple(itertools.chain(*(x.errors for x in result if isinstance(x, Invalid))))
         if len(errors) > 0:
             return Invalid(value, *errors)
