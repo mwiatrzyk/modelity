@@ -14,7 +14,7 @@ class TypeParserProvider:
     but can also be used to extend existing types with custom ones.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._type_parser_factories: Dict[Any, ITypeParserFactory] = {}
 
     def attach(self, other: ITypeParserProvider):

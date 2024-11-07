@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Union
+from typing import Any, Type, Union, cast
 from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.interface import IModelConfig
@@ -35,4 +35,5 @@ def make_float_parser():
 @provider.type_parser_factory(Number)
 def make_number_parser(model_config: IModelConfig):
     # IMPORTANT: Remember to add more numeric types here
-    return model_config.type_parser_provider.provide_type_parser(Union[int, float], model_config)
+    tp = cast(Type[Any], Union[int, float])
+    return model_config.type_parser_provider.provide_type_parser(tp, model_config)

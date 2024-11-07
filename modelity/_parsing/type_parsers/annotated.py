@@ -7,7 +7,7 @@ provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(Annotated)
-def make_annotated_parser(tp: Annotated, model_config: IModelConfig):
+def make_annotated_parser(tp: Annotated, model_config: IModelConfig):  # type: ignore
 
     def parse_annotated(value, loc):
         result = type_parser(value, loc)
