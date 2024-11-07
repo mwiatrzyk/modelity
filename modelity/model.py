@@ -29,7 +29,7 @@ from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IDumpFilter, ITypeParserProvider
+from modelity.interface import IDumpFilter, IModelConfig, ITypeParserProvider
 from modelity.providers import CachingTypeParserProviderProxy
 from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
@@ -518,7 +518,7 @@ class ModelConfig:
 class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
 
-    __config__: ModelConfig
+    __config__: IModelConfig
     __fields__: Mapping[str, BoundField]
     _preprocessors: Mapping[str, Sequence[Callable]]
     _postprocessors: Mapping[str, Sequence[Callable]]
@@ -659,7 +659,8 @@ class Model(metaclass=ModelMeta):
                 break
         if not isinstance(value, Invalid):
             field = cls.__fields__[name]
-            parser = cls.__config__.type_parser_provider.provide_type_parser(field.type)
+            model_config = cls.__config__
+            parser = cls.__config__.type_parser_provider.provide_type_parser(field.type, model_config)
             value = parser(value, self._loc + Loc(name))
         if not isinstance(value, Invalid):
             for postprocessor in cls._postprocessors.get(name, []):

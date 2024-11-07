@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Iterator, Optional, Type, get_origin
 
 from modelity import _utils
 from modelity.exc import UnsupportedType
-from modelity.interface import T, IParser, ITypeParserFactory, ITypeParserProvider
+from modelity.interface import T, IModelConfig, IParser, ITypeParserFactory, ITypeParserProvider
 
 
 class TypeParserProvider:
@@ -15,7 +15,7 @@ class TypeParserProvider:
     """
 
     def __init__(self):
-        self._type_parser_factories = {}
+        self._type_parser_factories: Dict[Any, ITypeParserFactory] = {}
 
     def attach(self, other: ITypeParserProvider):
         """Attach other type parser provider object to this one.
@@ -58,17 +58,17 @@ class TypeParserProvider:
         """
 
         @functools.wraps(func)
-        def proxy(provider: ITypeParserProvider, tp: Type[T]) -> IParser[T]:
+        def proxy(tp: Type[T], model_config: IModelConfig) -> IParser[T]:
             kw: Dict[str, Any] = {}
-            if "provider" in declared_params:
-                kw["provider"] = provider
             if "tp" in declared_params:
                 kw["tp"] = tp
+            if "model_config" in declared_params:
+                kw["model_config"] = model_config
             return func(**kw)
 
         sig = inspect.signature(func)
         declared_params = sig.parameters
-        allowed_params = ("provider", "tp")
+        allowed_params = ("tp", "model_config")
         if not _utils.is_subsequence(declared_params, allowed_params):
             raise TypeError(
                 f"incorrect type parser factory signature: {_utils.format_signature(declared_params)} is not a subsequence of {_utils.format_signature(allowed_params)}"
@@ -88,22 +88,21 @@ class TypeParserProvider:
 
         return decorator
 
-    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider] = None) -> IParser[T]:
-        root = self if root is None else root
+    def provide_type_parser(self, tp: Type[T], model_config: IModelConfig) -> IParser[T]:
         make_parser = self._type_parser_factories.get(tp)
         if make_parser is not None:
-            return make_parser(root, tp)
+            return make_parser(tp, model_config)
         origin = get_origin(tp)
         make_parser = self._type_parser_factories.get(origin)
         if make_parser is not None:
-            return make_parser(root, tp)
+            return make_parser(tp, model_config)
         for base in inspect.getmro(tp):
             make_parser = self._type_parser_factories.get(base)
             if make_parser is not None:
-                return make_parser(root, tp)
+                return make_parser(tp, model_config)
         for maybe_base, make_parser in self._type_parser_factories.items():
             if isinstance(maybe_base, type) and issubclass(tp, maybe_base):
-                return make_parser(root, tp)
+                return make_parser(tp, model_config)
         raise UnsupportedType(tp)
 
 
@@ -113,6 +112,7 @@ class CachingTypeParserProviderProxy:
     :param target:
         The target provider.
     """
+    __slots__ = ("_target", "_cache")
 
     def __init__(self, target: ITypeParserProvider):
         self._target = target
@@ -127,8 +127,7 @@ class CachingTypeParserProviderProxy:
     def get_type_parser_factory(self, tp: Type[T]) -> Optional[ITypeParserFactory[T]]:
         return self._target.get_type_parser_factory(tp)
 
-    def provide_type_parser(self, tp: Type[T], root: Optional[ITypeParserProvider] = None) -> IParser[T]:
-        root = self if root is None else root  # TODO: Add testcase for this
+    def provide_type_parser(self, tp: Type[T], model_config: IModelConfig) -> IParser[T]:
         if tp not in self._cache:
-            self._cache[tp] = self._target.provide_type_parser(tp, root=self)
+            self._cache[tp] = self._target.provide_type_parser(tp, model_config)
         return self._cache[tp]

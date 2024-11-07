@@ -1,9 +1,9 @@
 import itertools
-from typing import Iterable, get_args
+from typing import Iterable, Type, get_args
 
 from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelConfig
 from modelity.providers import TypeParserProvider
 from modelity._parsing.proxies import MutableSetProxy
 
@@ -11,7 +11,7 @@ provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(set)
-def make_set_parser(provider: ITypeParserProvider, tp: type):
+def make_set_parser(tp: Type[set], model_config: IModelConfig):
 
     def ensure_iterable(value, loc):
         if not isinstance(value, Iterable):
@@ -43,5 +43,5 @@ def make_set_parser(provider: ITypeParserProvider, tp: type):
     args = get_args(tp)
     if not args:
         return parse_any_set
-    item_parser = provider.provide_type_parser(args[0])
+    item_parser = model_config.type_parser_provider.provide_type_parser(args[0], model_config)
     return parse_typed_set

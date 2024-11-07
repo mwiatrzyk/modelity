@@ -205,6 +205,35 @@ class TestModelType:
         assert "c" in model
         assert "d" in model
 
+    def test_two_different_models_inheriting_from_same_base_model_class_use_same_config_object(self):
+
+        class Base(Model):
+            __config__ = ModelConfig()
+
+        class Nested(Base):
+            foo: int
+
+        class Owning(Base):
+            nested: Nested
+
+        assert Nested.__config__ is Owning.__config__
+        assert Owning.__config__ is Base.__config__
+
+    def test_change_config_after_inheriting_one_from_base(self):
+
+        class Base(Model):
+            __config__ = ModelConfig()
+
+        class Nested(Base):
+            __config__ = ModelConfig()
+            foo: int
+
+        class Owning(Base):
+            nested: Nested
+
+        assert Nested.__config__ is not Base.__config__
+        assert Owning.__config__ is Base.__config__
+
     @pytest.mark.parametrize(
         "params, expected_errors",
         [
@@ -545,7 +574,7 @@ class TestModelType:
 
                 a: int
 
-            mock.provide_type_parser.expect_call(int).will_once(Return(mock.parse_int))
+            mock.provide_type_parser.expect_call(int, Dummy.__config__).will_once(Return(mock.parse_int))
             mock.parse_int.expect_call("123", Loc("a")).will_once(Return(123))
             dummy = Dummy(a="123")
             assert dummy.a == 123

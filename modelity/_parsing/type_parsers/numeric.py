@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union
 from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelConfig
 from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
@@ -33,6 +33,6 @@ def make_float_parser():
 
 
 @provider.type_parser_factory(Number)
-def make_number_parser(provider: ITypeParserProvider):
+def make_number_parser(model_config: IModelConfig):
     # IMPORTANT: Remember to add more numeric types here
-    return provider.provide_type_parser(Union[int, float])  # type: ignore
+    return model_config.type_parser_provider.provide_type_parser(Union[int, float], model_config)

@@ -8,9 +8,9 @@ from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.model import Model, ModelConfig
 from modelity._parsing.type_parsers import all
-from modelity.interface import IParser, ITypeParserProvider
+from modelity.interface import IModelConfig, IParser, ITypeParserProvider
 from modelity.constraints import MaxValue, MinValue
 from tests.helpers import ErrorFactoryHelper
 
@@ -24,13 +24,13 @@ def make_unsupported_type_error(loc: Loc, supported_types: tuple[type]) -> Error
 
 
 @pytest.fixture
-def registry():
-    return all.provider
+def model_config():
+    return ModelConfig(type_parser_provider=all.provider)
 
 
 @pytest.fixture
-def parser(registry: ITypeParserProvider, tp: Type):
-    return registry.provide_type_parser(tp)
+def parser(model_config: IModelConfig, tp: Type):
+    return model_config.type_parser_provider.provide_type_parser(tp, model_config)
 
 
 @pytest.fixture

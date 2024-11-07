@@ -1,16 +1,17 @@
 import itertools
-from typing import get_args
+from typing import Type, get_args
+
 from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelConfig
 from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(tuple)
-def make_tuple_parser(provider: ITypeParserProvider, tp: type):
+def make_tuple_parser(tp: Type[tuple], model_config: IModelConfig):
 
     def parse_any_tuple(value, loc):
         try:
@@ -43,8 +44,9 @@ def make_tuple_parser(provider: ITypeParserProvider, tp: type):
     args = get_args(tp)
     if not args:
         return parse_any_tuple
+    provide_type_parser = model_config.type_parser_provider.provide_type_parser
     if args[-1] is Ellipsis:
-        parser = provider.provide_type_parser(args[0])
+        parser = provide_type_parser(args[0], model_config)
         return parse_any_length_typed_tuple
-    parsers = tuple(provider.provide_type_parser(x) for x in args)
+    parsers = tuple(provide_type_parser(x, model_config) for x in args)
     return parse_fixed_length_typed_tuple

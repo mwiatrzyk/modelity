@@ -1,10 +1,10 @@
 import itertools
-from typing import get_args
+from typing import Type, get_args
 
 from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelConfig, ITypeParserProvider
 from modelity.providers import TypeParserProvider
 from modelity._parsing.proxies import MutableMappingProxy
 
@@ -12,7 +12,7 @@ provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(dict)
-def make_dict_parser(provider: ITypeParserProvider, tp: type):
+def make_dict_parser(tp: Type[dict], model_config: IModelConfig):
 
     def parse_dict(value, loc):
         try:
@@ -36,6 +36,6 @@ def make_dict_parser(provider: ITypeParserProvider, tp: type):
     if not args:
         return parse_dict
     key_type, value_type = args
-    key_parser = provider.provide_type_parser(key_type)
-    value_parser = provider.provide_type_parser(value_type)
+    key_parser = model_config.type_parser_provider.provide_type_parser(key_type, model_config)
+    value_parser = model_config.type_parser_provider.provide_type_parser(value_type, model_config)
     return parse_typed_dict

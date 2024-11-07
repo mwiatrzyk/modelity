@@ -2,14 +2,14 @@ import typing
 
 from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
-from modelity.interface import ITypeParserProvider
+from modelity.interface import IModelConfig, ITypeParserProvider
 from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(typing.Union)
-def make_union_parser(provider: ITypeParserProvider, tp: type):
+def make_union_parser(tp: typing.Any, model_config: IModelConfig):
 
     def parse_union(value, loc):
         for type in supported_types:
@@ -22,5 +22,6 @@ def make_union_parser(provider: ITypeParserProvider, tp: type):
         return Invalid(value, ErrorFactory.create_unsupported_type(loc, supported_types))
 
     supported_types = typing.get_args(tp)
-    supported_parsers = [provider.provide_type_parser(x) for x in supported_types]
+    provide_type_parser = model_config.type_parser_provider.provide_type_parser
+    supported_parsers = [provide_type_parser(x, model_config) for x in supported_types]
     return parse_union

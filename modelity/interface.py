@@ -80,38 +80,52 @@ class ITypeParserProvider(Protocol):
             The type to retrieve parser factory for.
         """
 
-    def provide_type_parser(self, tp: Type[T], root: Optional["ITypeParserProvider"] = None) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], model_config: "IModelConfig") -> IParser[T]:
         """Provide parser for given type.
 
-        Returns parser for given type or raises
+        Returns parser for given type *tp* or raises
         :exc:`modelity.exc.UnsupportedType` if parser was not found.
 
         :param tp:
             The type to find parser for.
 
-        :param root:
-            The root parser provider.
+        :param model_config:
+            Model configuration object.
 
-            This will be passed to type parser factories and can be used to
-            access root provider to find parser for nested types. Normally it
-            is not required to pass this argument, as it defaults to *self*.
-            However, it might be necessary to override this when calling
-            :meth:`provide_type_parser` from behind a proxy class.
+            This allows to access both built-in and user-defined model settings
+            from type parser factories.
         """
 
 
 class ITypeParserFactory(Protocol, Generic[T]):
     """Interface for type parser factory functions."""
 
-    def __call__(self, provider: ITypeParserProvider, tp: Type[T]) -> IParser[T]:
+    def __call__(self, tp: Type[T], model_config: "IModelConfig") -> IParser[T]:
         """Create parser for given type.
-
-        :param provider:
-            Reference to the root provider.
 
         :param tp:
             The type to create parser for.
+
+        :param model_config:
+            Reference to the model configuration object.
         """
+
+
+class IModelConfig(Protocol):
+    """Protocol describing model configuration object."""
+
+    #: Root type parser provider.
+    #:
+    #: This is used by model to find type parsers for its fields. This property
+    #: can be overwritten by user to extend built-in parsing mechanism, or to
+    #: completely replace with custom one that implements same interface.
+    type_parser_provider: ITypeParserProvider
+
+    #: Placeholder for user-defined data.
+    #:
+    #: This can be used to pass additional model-specific parameters to
+    #: user-defined field pre- and postprocessors and/or validators.
+    user_data: Optional[dict]
 
 
 class IModel(abc.ABC):
