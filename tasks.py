@@ -45,3 +45,10 @@ def build_docs(ctx: invoke.Context):
 def serve_docs(ctx: invoke.Context):
     """Build and serve HTML documentation for Modelity."""
     ctx.run("python -m http.server 8080 --directory docs/build/html")
+
+
+@invoke.task()
+def clean(ctx: invoke.Context, dry_run=False):
+    """Clean the workspace."""
+    extra_opts = "n" if dry_run else ""
+    ctx.run(f"git clean -xdf{extra_opts} -e .python-version")

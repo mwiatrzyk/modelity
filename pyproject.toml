@@ -30,6 +30,7 @@ mypy = "^1.11.2"
 bumpify = "^0.3.0"
 sphinx = "*"
 sphinx-rtd-theme = "*"
+pytest-profiling = "^1.7.0"
 
 [build-system]
 requires = ["poetry-core"]
