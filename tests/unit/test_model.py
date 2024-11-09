@@ -1,17 +1,16 @@
-from typing import _SpecialForm, Annotated, Dict, List, Optional, Set, Type
+from typing import Annotated, Dict, List, Optional, Set, Type
 
 import pytest
 
 from mockify.api import Invoke, Raise, ordered, Return, _
 
 from modelity.constraints import MaxLength
-from modelity.error import Error, ErrorFactory
+from modelity.error import Error, ErrorCode
 from modelity.exc import ModelError, ParsingError, ValidationError
-from modelity.interface import IDumpFilter
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.model import (
-    ModelConfig,
+    Config,
     field,
     field_validator,
     model_validator,
@@ -34,6 +33,11 @@ def initial_params():
 @pytest.fixture
 def model(model_type: Type[Model], initial_params: dict):
     return model_type(**initial_params)
+
+
+@pytest.fixture
+def config(model_type: Type[Model]):
+    return model_type.__config__
 
 
 class TestModelType:
@@ -208,7 +212,7 @@ class TestModelType:
     def test_two_different_models_inheriting_from_same_base_model_class_use_same_config_object(self):
 
         class Base(Model):
-            __config__ = ModelConfig()
+            __config__ = Config()
 
         class Nested(Base):
             foo: int
@@ -222,10 +226,10 @@ class TestModelType:
     def test_change_config_after_inheriting_one_from_base(self):
 
         class Base(Model):
-            __config__ = ModelConfig()
+            __config__ = Config()
 
         class Nested(Base):
-            __config__ = ModelConfig()
+            __config__ = Config()
             foo: int
 
         class Owning(Base):
@@ -540,11 +544,11 @@ class TestModelType:
 
             return Dummy
 
-        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        @pytest.mark.parametrize("config", [Config(None)])
         def test_if_custom_config_provided_then_it_overrides_default_one(self, model_type: Type[Model], config):
             assert model_type.__config__ is config
 
-        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        @pytest.mark.parametrize("config", [Config(None)])
         def test_if_custom_config_provided_for_base_model_then_child_model_also_uses_that_config(
             self, model_type: Type[Model], config
         ):
@@ -554,7 +558,7 @@ class TestModelType:
 
             assert Child.__config__ is config
 
-        @pytest.mark.parametrize("config", [ModelConfig(None)])
+        @pytest.mark.parametrize("config", [Config(None)])
         def test_if_custom_config_provided_for_base_model_then_grandchild_model_also_uses_that_config(
             self, model_type: Type[Model], config
         ):
@@ -570,12 +574,12 @@ class TestModelType:
         def test_override_default_type_parser_provider(self, mock):
 
             class Dummy(Model):
-                __config__ = ModelConfig(type_parser_provider=mock)
+                __config__ = Config(type_parser_provider=mock)
 
                 a: int
 
             mock.provide_type_parser.expect_call(int, Dummy.__config__).will_once(Return(mock.parse_int))
-            mock.parse_int.expect_call("123", Loc("a")).will_once(Return(123))
+            mock.parse_int.expect_call("123", Loc("a"), Dummy.__config__).will_once(Return(123))
             dummy = Dummy(a="123")
             assert dummy.a == 123
 
@@ -761,14 +765,14 @@ class TestModelType:
 
 class TestNestedModel:
 
+    class Child(Model):
+        foo: int
+
     @pytest.fixture
     def model_type(self):
 
-        class Child(Model):
-            foo: int
-
         class Parent(Model):
-            child: Child
+            child: self.Child
 
         return Parent
 
@@ -808,7 +812,7 @@ class TestNestedModel:
     @pytest.mark.parametrize(
         "given_child, expected_errors",
         [
-            (None, [ErrorFactoryHelper.mapping_required(Loc("child"))]),
+            (None, [ErrorFactoryHelper.invalid_model(Loc("child"), Child)]),
             ({"foo": "spam"}, [ErrorFactoryHelper.integer_required(Loc("child", "foo"))]),
         ],
     )
@@ -1257,7 +1261,7 @@ class TestModelValidator:
 
         assert (
             str(excinfo.value)
-            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, root, loc, errors)"
+            == "model validator '_invalid_validator' has incorrect signature: (cls, foo, model) is not a subsequence of (cls, self, root, loc, errors, config)"
         )
 
     def test_declare_with_cls_only(self, mock):
@@ -1320,6 +1324,20 @@ class TestModelValidator:
 
         dummy = Dummy()
         mock.expect_call([ErrorFactoryHelper.required_missing(Loc("foo"))])
+        with pytest.raises(ValidationError):
+            dummy.validate()
+
+    def test_declare_with_config_only(self, mock, config):
+
+        class Dummy(Model):
+            foo: int
+
+            @model_validator()
+            def _validator(config):
+                return mock(config)
+
+        dummy = Dummy()
+        mock.expect_call(config)
         with pytest.raises(ValidationError):
             dummy.validate()
 
@@ -1521,54 +1539,64 @@ class TestWrapFieldProcessor:
 
         return Dummy
 
-    def test_wrap_function_without_args(self, model: Model, mock):
+    def test_wrap_function_without_args(self, model: Model, mock, config):
 
         def func():
             return mock()
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call().will_once(Return(123))
-        result = wrapped(type(model), model, "foo", "spam")
+        result = wrapped(type(model), model, "foo", "spam", config)
         assert result == 123
 
-    def test_wrap_function_with_cls_arg_only(self, model: Model, mock):
+    def test_wrap_function_with_cls_arg_only(self, model: Model, mock, config):
 
         def func(cls):
             return mock(cls)
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call(type(model)).will_once(Return(123))
-        result = wrapped(type(model), model, "foo", "spam")
+        result = wrapped(type(model), model, "foo", "spam", config)
         assert result == 123
 
-    def test_wrap_function_with_loc_arg_only(self, model: Model, mock):
+    def test_wrap_function_with_loc_arg_only(self, model: Model, mock, config):
 
         def func(loc):
             return mock(loc)
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call(Loc("foo")).will_once(Return(123))
-        result = wrapped(type(model), Loc("foo"), "foo", "spam")
+        result = wrapped(type(model), Loc("foo"), "foo", "spam", config)
         assert result == 123
 
-    def test_wrap_function_with_name_arg_only(self, model: Model, mock):
+    def test_wrap_function_with_name_arg_only(self, model: Model, mock, config):
 
         def func(name):
             return mock(name)
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call("foo").will_once(Return(123))
-        result = wrapped(type(model), model, "foo", "spam")
+        result = wrapped(type(model), model, "foo", "spam", config)
         assert result == 123
 
-    def test_wrap_function_with_value_arg_only(self, model: Model, mock):
+    def test_wrap_function_with_value_arg_only(self, model: Model, mock, config):
 
         def func(value):
             return mock(value)
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call("spam").will_once(Return(123))
-        result = wrapped(type(model), model, "foo", "spam")
+        result = wrapped(type(model), model, "foo", "spam", config)
+        assert result == 123
+
+    def test_wrap_function_with_config_arg_only(self, model: Model, mock, config):
+
+        def func(config):
+            return mock(config)
+
+        wrapped = _wrap_field_processor(func)
+        mock.expect_call(config).will_once(Return(123))
+        result = wrapped(type(model), model, "foo", "spam", config)
         assert result == 123
 
     def test_if_wrong_signature_of_wrapped_function_then_raise_type_error(self, model: Model):
@@ -1580,7 +1608,7 @@ class TestWrapFieldProcessor:
             _wrap_field_processor(func)
         assert (
             str(excinfo.value)
-            == "field processor 'func' has incorrect signature: (cls, value, name) is not a subsequence of (cls, loc, name, value)"
+            == "field processor 'func' has incorrect signature: (cls, value, name) is not a subsequence of (cls, loc, name, value, config)"
         )
 
     @pytest.mark.parametrize(
@@ -1605,7 +1633,7 @@ class TestWrapFieldProcessor:
         ],
     )
     def test_if_wrapped_func_raises_type_or_value_error_then_exception_is_converted_to_invalid_object(
-        self, model: Model, mock, given_exc, model_loc, field_name, field_value, expected_error
+        self, model: Model, mock, given_exc, model_loc, field_name, field_value, expected_error, config
     ):
 
         def func():
@@ -1613,7 +1641,7 @@ class TestWrapFieldProcessor:
 
         wrapped = _wrap_field_processor(func)
         mock.expect_call().will_once(Raise(given_exc))
-        result = wrapped(type(model), model_loc + Loc(field_name), field_name, field_value)
+        result = wrapped(type(model), model_loc + Loc(field_name), field_name, field_value, config)
         assert isinstance(result, Invalid)
         assert result.value == field_value
         assert result.errors == (expected_error,)
@@ -1627,7 +1655,7 @@ class TestWrapFieldProcessor:
         ],
     )
     def test_if_wrapped_func_returns_invalid_object_then_new_invalid_object_with_updated_loc_is_returned(
-        self, model: Model, mock, field_name, field_value, model_loc, given_loc, expected_loc
+        self, model: Model, mock, field_name, field_value, model_loc, given_loc, expected_loc, config
     ):
 
         def func():
@@ -1638,7 +1666,7 @@ class TestWrapFieldProcessor:
             Return(Invalid(field_value, ErrorFactoryHelper.value_error(given_loc, "an error")))
         )
         model.set_loc(model_loc)
-        result = wrapped(type(model), model.get_loc() + Loc(field_name), field_name, field_value)
+        result = wrapped(type(model), model.get_loc() + Loc(field_name), field_name, field_value, config)
         assert isinstance(result, Invalid)
         assert result.value == field_value
         assert result.errors == (ErrorFactoryHelper.value_error(expected_loc, "an error"),)
@@ -1678,7 +1706,7 @@ class TestPreprocessor:
         assert model.bar == 456
 
     def test_when_invalid_is_return_then_parsing_error_is_raised(self, model_type: Type[Model], mock):
-        mock.expect_call("foo", "spam").will_once(Return(Invalid("spam", ErrorFactory.value_error(Loc(), "an error"))))
+        mock.expect_call("foo", "spam").will_once(Return(Invalid("spam", Error(Loc(), ErrorCode.VALUE_ERROR, msg="an error"))))
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo="spam")
         assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])
@@ -1878,7 +1906,7 @@ class TestPostprocessor:
         assert model.bar == 22
 
     def test_when_invalid_is_return_then_parsing_error_is_raised(self, model_type: Type[Model], mock):
-        mock.expect_call("foo", 1).will_once(Return(Invalid(1, ErrorFactory.value_error(Loc(), "an error"))))
+        mock.expect_call("foo", 1).will_once(Return(Invalid(1, Error(Loc(), ErrorCode.VALUE_ERROR, msg="an error"))))
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo="1")
         assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])

@@ -1,6 +1,6 @@
 import dataclasses
 import enum
-from typing import Any, Tuple, Type
+from typing import Any, Optional, Protocol, Tuple, Type, cast
 
 from modelity.loc import Loc
 
@@ -22,6 +22,7 @@ class ErrorCode:
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
     INVALID_LITERAL = "modelity.InvalidLiteral"
+    INVALID_MODEL = "modelity.InvalidModel"
     VALUE_TOO_LOW = "modelity.ValueTooLow"
     VALUE_TOO_HIGH = "modelity.ValueTooHigh"
     VALUE_TOO_SHORT = "modelity.ValueTooShort"
@@ -43,106 +44,151 @@ class Error:
     code: str
 
     #: Optional error data, with format depending on the :attr:`code`.
-    data: dict = dataclasses.field(default_factory=dict)
+    data: Optional[dict] = None
+
+    #: Formatted error message.
+    msg: Optional[str] = None
 
 
-class ErrorFactory:
-    """Factory class for making errors that can be reported by built-in types."""
+class IErrorCreator(Protocol):
+    """Protocol representing error creator function."""
 
-    @staticmethod
-    def create(loc: Loc, code: str, **data: Any) -> Error:
-        """Generic error factory.
+    def __call__(self, loc: Loc, code: str, data: Optional[dict]=None) -> Error:
+        """Create error object.
 
         :param loc:
-            Error location.
+            Location of the error.
 
         :param code:
             Error code.
 
-        :param `**data`:
-            Code-specific additional error data.
+        :param data:
+            Error data.
 
-            Check specific factory methods for description of what parameters
-            can be expected here.
+            This is code-specific.
         """
+
+
+def get_builtin_error_creator() -> IErrorCreator:
+    """Get error creator function for built-in types."""
+
+    def create_unknown_datetime_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        supported_formats = cast(Tuple[str], data["supported_formats"])
+        return Error(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, data, f"unknown datetime format; supported formats are: {', '.join(supported_formats)}")
+
+    def create_invalid_enum(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        allowed_values = cast(tuple, data["allowed_values"])
+        msg = f"not a valid enum; allowed values are: {', '.join(repr(x) for x in allowed_values)}"
+        return Error(loc, ErrorCode.INVALID_ENUM, data, msg)
+
+    def create_invalid_literal(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        allowed_values = cast(tuple, data["allowed_values"])
+        msg = f"not a valid literal; allowed values are: {', '.join(repr(x) for x in allowed_values)}"
+        return Error(loc, ErrorCode.INVALID_LITERAL, data, msg)
+
+    def create_invalid_model(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        model_type = cast(type, data["model_type"])
+        msg = f"not a valid {model_type.__name__!r} model value; need either a mapping, or an instance of {model_type.__name__!r} model"
+        return Error(loc, ErrorCode.INVALID_MODEL, data, msg)
+
+    def create_unicode_decode_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        codec = cast(str, data["codec"])
+        return Error(loc, ErrorCode.UNICODE_DECODE_ERROR, data, f"could not decode value using {codec!r} codec")
+
+    def create_unsupported_type_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        supported_types = cast(Tuple[type], data["supported_types"])
+        msg = f"value of unsupported type given; supported types are: {', '.join(repr(x) for x in supported_types)}"
+        return Error(loc, ErrorCode.UNSUPPORTED_TYPE, data, msg)
+
+    def create_invalid_tuple_format_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        expected_format = cast(tuple, data["expected_format"])
+        msg = f"invalid format of a tuple value; expected format is: {expected_format!r}"
+        return Error(loc, ErrorCode.INVALID_TUPLE_FORMAT, data, msg)
+
+    def create_value_too_low_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        min_inclusive = data.get("min_inclusive")
+        min_exclusive = data.get("min_exclusive")
+        msg = "value must be"
+        if min_inclusive is not None:
+            msg = f"{msg} >= {min_inclusive}"
+        elif min_exclusive is not None:
+            msg = f"{msg} > {min_exclusive}"
+        return Error(loc, ErrorCode.VALUE_TOO_LOW, data, msg)
+
+    def create_value_too_high_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        max_inclusive = data.get("max_inclusive")
+        max_exclusive = data.get("max_exclusive")
+        msg = "value must be"
+        if max_inclusive is not None:
+            msg = f"{msg} <= {max_inclusive}"
+        elif max_exclusive is not None:
+            msg = f"{msg} < {max_exclusive}"
+        return Error(loc, ErrorCode.VALUE_TOO_HIGH, data, msg)
+
+    def create_value_too_short_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        min_length = data["min_length"]
+        return Error(loc, ErrorCode.VALUE_TOO_SHORT, data, f"value too short; minimum length is {min_length}")
+
+    def create_value_too_long_error(loc: Loc, data: Optional[dict]) -> Error:
+        assert data is not None
+        max_length = data["max_length"]
+        return Error(loc, ErrorCode.VALUE_TOO_LONG, data, f"value too long; maximum length is {max_length}")
+
+    def create_error(loc: Loc, code: str, data: Optional[dict]=None) -> Error:
+        if code == ErrorCode.REQUIRED_MISSING:
+            return Error(loc, code, data, "this field is required")
+        if code == ErrorCode.NONE_REQUIRED:
+            return Error(loc, code, data, "not a None value")
+        if code == ErrorCode.INTEGER_REQUIRED:
+            return Error(loc, code, data, "not a valid integer number")
+        if code == ErrorCode.FLOAT_REQUIRED:
+            return Error(loc, code, data, "not a valid float number")
+        if code == ErrorCode.STRING_REQUIRED:
+            return Error(loc, code, data, "not a valid string value")
+        if code == ErrorCode.BYTES_REQUIRED:
+            return Error(loc, code, data, "not a valid bytes value")
+        if code == ErrorCode.BOOLEAN_REQUIRED:
+            return Error(loc, code, data, "not a valid boolean value")
+        if code == ErrorCode.DATETIME_REQUIRED:
+            return Error(loc, code, data, "not a valid datetime value")
+        if code == ErrorCode.MAPPING_REQUIRED:
+            return Error(loc, code, data, "not a valid mapping value")
+        if code == ErrorCode.ITERABLE_REQUIRED:
+            return Error(loc, code, data, "not a valid iterable value")
+        if code == ErrorCode.HASHABLE_REQUIRED:
+            return Error(loc, code, data, "not a valid hashable value")
+        if code == ErrorCode.UNKNOWN_DATETIME_FORMAT:
+            return create_unknown_datetime_error(loc, data)
+        if code == ErrorCode.INVALID_ENUM:
+            return create_invalid_enum(loc, data)
+        if code == ErrorCode.INVALID_LITERAL:
+            return create_invalid_literal(loc, data)
+        if code == ErrorCode.INVALID_MODEL:
+            return create_invalid_model(loc, data)
+        if code == ErrorCode.UNICODE_DECODE_ERROR:
+            return create_unicode_decode_error(loc, data)
+        if code == ErrorCode.UNSUPPORTED_TYPE:
+            return create_unsupported_type_error(loc, data)
+        if code == ErrorCode.INVALID_TUPLE_FORMAT:
+            return create_invalid_tuple_format_error(loc, data)
+        if code == ErrorCode.VALUE_TOO_LOW:
+            return create_value_too_low_error(loc, data)
+        if code == ErrorCode.VALUE_TOO_HIGH:
+            return create_value_too_high_error(loc, data)
+        if code == ErrorCode.VALUE_TOO_SHORT:
+            return create_value_too_short_error(loc, data)
+        if code == ErrorCode.VALUE_TOO_LONG:
+            return create_value_too_long_error(loc, data)
         return Error(loc, code, data)
 
-    @classmethod
-    def create_invalid_enum(cls, loc: Loc, tp: enum.Enum) -> Error:
-        """Create invalid enum value error.
-
-        Used by parser for :class:`enum.Enum` subclasses when it fails to map
-        user input to supported list of enum values.
-
-        Additional error data:
-
-        ``supported_values``
-            Tuple containing supported enum values.
-        """
-        return cls.create(loc, ErrorCode.INVALID_ENUM, supported_values=tuple(tp))  # type: ignore
-
-    @classmethod
-    def create_invalid_literal(cls, loc: Loc, supported_values: tuple) -> Error:
-        """Returned for :class:`typing.Literal` types, when user input does not
-        match literal type being used."""
-        return cls.create(loc, ErrorCode.INVALID_LITERAL, supported_values=supported_values)
-
-    @classmethod
-    def create_unsupported_type(cls, loc: Loc, supported_types: Tuple[Type]) -> "Error":
-        return cls.create(loc, ErrorCode.UNSUPPORTED_TYPE, supported_types=supported_types)
-
-    @classmethod
-    def create_invalid_tuple_format(cls, loc: Loc, expected_format: Tuple[Type]) -> "Error":
-        return cls.create(loc, ErrorCode.INVALID_TUPLE_FORMAT, expected_format=expected_format)
-
-    @classmethod
-    def string_required(cls, loc: Loc) -> Error:
-        return cls.create(loc, ErrorCode.STRING_REQUIRED)
-
-    @classmethod
-    def bytes_required(cls, loc: Loc) -> Error:
-        return cls.create(loc, ErrorCode.BYTES_REQUIRED)
-
-    @classmethod
-    def mapping_required(cls, loc: Loc) -> Error:
-        return cls.create(loc, ErrorCode.MAPPING_REQUIRED)
-
-    @classmethod
-    def datetime_required(cls, loc: Loc) -> Error:
-        return cls.create(loc, ErrorCode.DATETIME_REQUIRED)
-
-    @classmethod
-    def unknown_datetime_format(cls, loc: Loc, supported_formats: Tuple[str]) -> Error:
-        return cls.create(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, supported_formats=supported_formats)
-
-    @classmethod
-    def required_missing(cls, loc: Loc) -> Error:
-        return cls.create(loc, ErrorCode.REQUIRED_MISSING)
-
-    @classmethod
-    def value_error(cls, loc: Loc, message: str) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_ERROR, message=message)
-
-    @classmethod
-    def type_error(cls, loc: Loc, message: str) -> Error:
-        return cls.create(loc, ErrorCode.TYPE_ERROR, message=message)
-
-    @classmethod
-    def value_too_low(cls, loc: Loc, min_inclusive: Any = None, min_exclusive: Any = None) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_LOW, min_inclusive=min_inclusive, min_exclusive=min_exclusive)
-
-    @classmethod
-    def value_too_high(cls, loc: Loc, max_inclusive: Any = None, max_exclusive: Any = None) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_HIGH, max_inclusive=max_inclusive, max_exclusive=max_exclusive)
-
-    @classmethod
-    def value_too_short(cls, loc: Loc, min_length: int) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_SHORT, min_length=min_length)
-
-    @classmethod
-    def value_too_long(cls, loc: Loc, max_length: int) -> Error:
-        return cls.create(loc, ErrorCode.VALUE_TOO_LONG, max_length=max_length)
-
-    @classmethod
-    def unicode_decode_error(cls, loc: Loc, encoding: str) -> Error:
-        return cls.create(loc, ErrorCode.UNICODE_DECODE_ERROR, encoding=encoding)
+    return create_error

@@ -1,8 +1,4 @@
-import functools
-from typing import Callable, Iterable, Optional, TypeVar, Union
-
-from modelity.error import Error, ErrorFactory
-from modelity.loc import Loc
+from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 
 T = TypeVar("T")
 
@@ -33,29 +29,3 @@ def get_method(obj: object, method_name: str) -> Optional[Callable]:
     if not callable(maybe_method):
         return None
     return maybe_method
-
-
-def make_noexcept_func(func: Callable[..., T], loc: Loc = Loc()) -> Callable[..., Union[T, Error]]:
-    """Convert provided function into new function returning :class:`Error`
-    whenever given ``func`` raises :exc:`ValueError` or :exc:`TypeError`
-    exceptions.
-
-    This is used to wrap custom validator and filter functions.
-
-    :param func:
-        The callable to be wrapped.
-
-    :param loc:
-        The location to use when error is returned.
-    """
-
-    @functools.wraps(func)
-    def proxy(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except ValueError as e:
-            return ErrorFactory.value_error(loc, str(e))
-        except TypeError as e:
-            return ErrorFactory.type_error(loc, str(e))
-
-    return proxy

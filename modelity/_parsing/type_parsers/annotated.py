@@ -1,20 +1,20 @@
 from typing import Annotated, Tuple, get_args
 from modelity.invalid import Invalid
-from modelity.interface import IModelConfig, IParser
+from modelity.interface import IConfig, IParser
 from modelity.providers import TypeParserProvider
 
 provider = TypeParserProvider()
 
 
 @provider.type_parser_factory(Annotated)
-def make_annotated_parser(tp: Annotated, model_config: IModelConfig):  # type: ignore
+def make_annotated_parser(tp: Annotated, model_config: IConfig):  # type: ignore
 
-    def parse_annotated(value, loc):
-        result = type_parser(value, loc)
+    def parse_annotated(value, loc, config):
+        result = type_parser(value, loc, config)
         if isinstance(result, Invalid):
             return result
         for parser in additional_parsers:
-            result = parser(result, loc)
+            result = parser(result, loc, config)
             if isinstance(result, Invalid):
                 return result
         return result

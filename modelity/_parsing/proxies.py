@@ -4,14 +4,16 @@ from typing import Any, MutableMapping, MutableSequence, MutableSet
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IParser
+from modelity.interface import IConfig, IParser, IConfig
 
 
 class MutableMappingProxy(collections.abc.MutableMapping):
+    __slots__ = ("_target", "_loc", "_config", "_key_parser", "_value_parser")
 
-    def __init__(self, target: MutableMapping, loc: Loc, key_parser: IParser, value_parser: IParser):
+    def __init__(self, target: MutableMapping, loc: Loc, config: IConfig, key_parser: IParser, value_parser: IParser):
         self._target = target
         self._loc = loc
+        self._config = config
         self._key_parser = key_parser
         self._value_parser = value_parser
 
@@ -34,8 +36,8 @@ class MutableMappingProxy(collections.abc.MutableMapping):
         return len(self._target)
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        key = self._key_parser(key, self._loc)
-        value = self._value_parser(value, self._loc)
+        key = self._key_parser(key, self._loc, self._config)
+        value = self._value_parser(value, self._loc, self._config)
         if isinstance(key, Invalid):
             raise ParsingError(key.errors)
         if isinstance(value, Invalid):
@@ -44,10 +46,12 @@ class MutableMappingProxy(collections.abc.MutableMapping):
 
 
 class MutableSequenceProxy(collections.abc.MutableSequence):
+    __slots__ = ("_target", "_loc", "_config", "_item_parser")
 
-    def __init__(self, target: MutableSequence, loc: Loc, item_parser: IParser):
-        self._loc = loc
+    def __init__(self, target: MutableSequence, loc: Loc, config: IConfig, item_parser: IParser):
         self._target = target
+        self._loc = loc
+        self._config = config
         self._item_parser = item_parser
 
     def __eq__(self, value: object) -> bool:
@@ -63,7 +67,7 @@ class MutableSequenceProxy(collections.abc.MutableSequence):
         return self._target[index]
 
     def __setitem__(self, index, value) -> None:
-        value = self._item_parser(value, self._loc)
+        value = self._item_parser(value, self._loc, self._config)
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
         self._target[index] = value
@@ -72,17 +76,19 @@ class MutableSequenceProxy(collections.abc.MutableSequence):
         return len(self._target)
 
     def insert(self, index: int, value: Any) -> None:
-        value = self._item_parser(value, self._loc)
+        value = self._item_parser(value, self._loc, self._config)
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
         return self._target.insert(index, value)
 
 
 class MutableSetProxy(collections.abc.MutableSet):
+    __slots__ = ("_target", "_loc", "_config", "_item_parser")
 
-    def __init__(self, target: MutableSet, loc: Loc, item_parser: IParser):
+    def __init__(self, target: MutableSet, loc: Loc, config: IConfig, item_parser: IParser):
         self._target = target
         self._loc = loc
+        self._config = config
         self._item_parser = item_parser
 
     def __repr__(self) -> str:
@@ -98,7 +104,7 @@ class MutableSetProxy(collections.abc.MutableSet):
         return len(self._target)
 
     def add(self, value: Any):
-        value = self._item_parser(value, self._loc)
+        value = self._item_parser(value, self._loc, self._config)
         if isinstance(value, Invalid):
             raise ParsingError(value.errors)
         self._target.add(value)

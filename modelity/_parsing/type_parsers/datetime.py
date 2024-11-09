@@ -1,7 +1,7 @@
 import datetime
-from typing import Type
 
-from modelity.error import ErrorFactory
+from modelity.error import ErrorCode
+from modelity.interface import IConfig
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
 
@@ -11,18 +11,18 @@ provider = TypeParserProvider()
 @provider.type_parser_factory(datetime.datetime)
 def make_datetime_parser():
 
-    def parse_datetime(value, loc):
+    def parse_datetime(value, loc, config: IConfig):
         if isinstance(value, datetime.datetime):
             return value
         if not isinstance(value, str):
-            return Invalid(value, ErrorFactory.datetime_required(loc))
+            return Invalid(value, config.create_error(loc, ErrorCode.DATETIME_REQUIRED))
         for format_ in supported_formats:
             try:
                 return datetime.datetime.strptime(value, format_)
             except ValueError:
                 pass
         return Invalid(
-            value, ErrorFactory.unknown_datetime_format(loc, supported_formats=supported_formats_human_readable)
+            value, config.create_error(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, {"supported_formats": supported_formats_human_readable})
         )
 
     supported_formats = (

@@ -42,7 +42,7 @@ class ParsingError(ModelError):
         out = [f"parsing failed with {len(self.errors)} error(-s):"]
         for error in sorted(self.errors, key=lambda x: x.loc):
             out.append(f"  {error.loc}:")
-            out.append(f"    {error.code} {error.data}")
+            out.append(f"    {error.msg} [code={error.code}, data={error.data}]")
         return "\n".join(out)
 
 
@@ -70,7 +70,7 @@ class ValidationError(ModelError):
         out = [f"validation of model {self.model.__class__.__qualname__!r} failed with {len(self.errors)} error(-s):"]
         for error in sorted(self.errors, key=lambda x: str(x.loc)):
             out.append(f"  {error.loc}:")
-            out.append(f"    {error.code} {error.data}")
+            out.append(f"    {error.msg} [code={error.code}, data={error.data}]")
         return "\n".join(out)
 
 

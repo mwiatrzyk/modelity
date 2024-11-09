@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Iterator, Optional, Type, get_origin
 
 from modelity import _utils
 from modelity.exc import UnsupportedType
-from modelity.interface import T, IModelConfig, IParser, ITypeParserFactory, ITypeParserProvider
+from modelity.interface import T, IConfig, IParser, ITypeParserFactory, ITypeParserProvider
 
 
 class TypeParserProvider:
@@ -58,7 +58,7 @@ class TypeParserProvider:
         """
 
         @functools.wraps(func)
-        def proxy(tp: Type[T], model_config: IModelConfig) -> IParser[T]:
+        def proxy(tp: Type[T], model_config: IConfig) -> IParser[T]:
             kw: Dict[str, Any] = {}
             if "tp" in declared_params:
                 kw["tp"] = tp
@@ -88,7 +88,7 @@ class TypeParserProvider:
 
         return decorator
 
-    def provide_type_parser(self, tp: Type[T], model_config: IModelConfig) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], model_config: IConfig) -> IParser[T]:
         make_parser = self._type_parser_factories.get(tp)
         if make_parser is not None:
             return make_parser(tp, model_config)
@@ -127,7 +127,7 @@ class CachingTypeParserProviderProxy:
     def get_type_parser_factory(self, tp: Type[T]) -> Optional[ITypeParserFactory[T]]:
         return self._target.get_type_parser_factory(tp)
 
-    def provide_type_parser(self, tp: Type[T], model_config: IModelConfig) -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], model_config: IConfig) -> IParser[T]:
         if tp not in self._cache:
             self._cache[tp] = self._target.provide_type_parser(tp, model_config)
         return self._cache[tp]

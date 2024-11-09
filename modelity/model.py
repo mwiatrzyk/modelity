@@ -4,11 +4,9 @@ import inspect
 import itertools
 import dataclasses
 from typing import (
-    Annotated,
     Any,
     Callable,
     Dict,
-    Iterable,
     Iterator,
     List,
     Mapping,
@@ -24,12 +22,12 @@ from typing import (
 from typing_extensions import dataclass_transform
 
 from modelity import _utils
-from modelity.error import ErrorFactory, Error
+from modelity.error import ErrorCode, Error, IErrorCreator, get_builtin_error_creator
 from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IDumpFilter, IModelConfig, ITypeParserProvider
+from modelity.interface import IDumpFilter, IConfig, IConfig, ITypeParserProvider
 from modelity.providers import CachingTypeParserProviderProxy
 from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
@@ -87,7 +85,7 @@ class _ModelValidatorDecoratorInfo(_DecoratorInfo):
 def _wrap_field_processor(func: Callable):
 
     @functools.wraps(func)
-    def proxy(cls: Type["Model"], loc: Loc, name: str, value: Any) -> Union[Any, Invalid]:
+    def proxy(cls: Type["Model"], loc: Loc, name: str, value: Any, config: IConfig) -> Union[Any, Invalid]:
         kw: Dict[str, Any] = {}
         if "cls" in given_params:
             kw["cls"] = cls
@@ -97,19 +95,21 @@ def _wrap_field_processor(func: Callable):
             kw["name"] = name
         if "value" in given_params:
             kw["value"] = value
+        if "config" in given_params:
+            kw["config"] = config
         try:
             result = func(**kw)
         except ValueError as e:
-            return Invalid(value, ErrorFactory.value_error(loc, str(e)))
+            return Invalid(value, Error(loc, ErrorCode.VALUE_ERROR, msg=str(e)))  # TODO: config.create_error
         except TypeError as e:
-            return Invalid(value, ErrorFactory.type_error(loc, str(e)))
+            return Invalid(value, Error(loc, ErrorCode.TYPE_ERROR, msg=str(e)))
         if isinstance(result, Invalid):
-            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data) for e in result.errors))
+            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data, e.msg) for e in result.errors))
         return result
 
     sig = inspect.signature(func)
     given_params = tuple(sig.parameters)
-    supported_params = ("cls", "loc", "name", "value")
+    supported_params = ("cls", "loc", "name", "value", "config")
     if not _utils.is_subsequence(given_params, supported_params):
         raise TypeError(
             f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
@@ -159,37 +159,37 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
     return result, False
 
 
-def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model"):
+def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model", config: IConfig):
     cls = obj.__class__
     for model_validator in cls._model_prevalidators:
-        errors.extend(model_validator(cls, obj, root, loc, errors))
+        errors.extend(model_validator(cls, obj, root, loc, errors, config))
     for name, field_info in cls.__fields__.items():
         field_loc = loc + Loc(name)
         value = getattr(obj, name)
         if value is Unset:
             if field_info.is_required():
-                errors.append(ErrorFactory.required_missing(loc + Loc(name)))
+                errors.append(config.create_error(field_loc, ErrorCode.REQUIRED_MISSING))
             continue
         for constraint in field_info.constraints:
-            check_result = constraint(value, field_loc)
+            check_result = constraint(value, field_loc, config)
             if isinstance(check_result, Invalid):
                 errors.extend(check_result.errors)
-        _validate_any(value, field_loc, errors, root)
+        _validate_any(value, field_loc, errors, root, config)
         for field_validator in cls._field_validators.get(name, []):
             errors.extend(field_validator(cls, obj, root, field_loc, name, value))
     for model_validator in cls._model_postvalidators:
-        errors.extend(model_validator(cls, obj, root, loc, errors))
+        errors.extend(model_validator(cls, obj, root, loc, errors, config))
 
 
-def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model"):
+def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model", config: IConfig):
     if isinstance(obj, IModel):
-        _validate_model(cast(Model, obj), loc, errors, root)
+        _validate_model(cast(Model, obj), loc, errors, root, config)
     elif isinstance(obj, Mapping):
         for k, v in obj.items():
-            _validate_any(v, loc + Loc(k), errors, root)
+            _validate_any(v, loc + Loc(k), errors, root, config)
     elif isinstance(obj, Sequence) and type(obj) not in (str, bytes, bytearray):
         for i, v in enumerate(obj):
-            _validate_any(v, loc + Loc(i), errors, root)
+            _validate_any(v, loc + Loc(i), errors, root, config)
 
 
 def _get_model_field_value(obj: "Model", loc: Loc) -> Optional[Any]:
@@ -291,9 +291,9 @@ def field_validator(*field_names: str):
             try:
                 result = func(**kw)
             except ValueError as e:
-                return (ErrorFactory.value_error(loc, str(e)),)
+                return (Error(loc, ErrorCode.VALUE_ERROR, msg=str(e)),)  # TODO: config.create_error
             except TypeError as e:
-                return (ErrorFactory.type_error(loc, str(e)),)
+                return (Error(loc, ErrorCode.TYPE_ERROR, msg=str(e)),)
             if result is None:
                 return tuple()
             if isinstance(result, Error):
@@ -350,7 +350,7 @@ def model_validator(pre: bool = False):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: Type["Model"], self: "Model", root: "Model", loc: Loc, errors: List[Error]):
+        def proxy(cls: Type["Model"], self: "Model", root: "Model", loc: Loc, errors: List[Error], config: IConfig):
             kw: Dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
@@ -362,12 +362,14 @@ def model_validator(pre: bool = False):
                 kw["loc"] = loc
             if "errors" in given_params:
                 kw["errors"] = errors
+            if "config" in given_params:
+                kw["config"] = config
             try:
                 result = func(**kw)
             except ValueError as e:
-                return (ErrorFactory.value_error(loc, str(e)),)
+                return (Error(loc, ErrorCode.VALUE_ERROR, msg=str(e)),)  # TODO: config.create_error
             except TypeError as e:
-                return (ErrorFactory.type_error(loc, str(e)),)
+                return (Error(loc, ErrorCode.TYPE_ERROR, msg=str(e)),)
             if result is None:
                 return tuple()
             if isinstance(result, Error):
@@ -376,7 +378,7 @@ def model_validator(pre: bool = False):
 
         sig = inspect.signature(func)
         given_params = tuple(sig.parameters)
-        supported_params = ("cls", "self", "root", "loc", "errors")
+        supported_params = ("cls", "self", "root", "loc", "errors", "config")
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
                 f"model validator {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
@@ -492,7 +494,7 @@ def get_builtin_type_parser_provider() -> ITypeParserProvider:
 
 
 @dataclasses.dataclass()
-class ModelConfig:
+class Config:
     """Model configuration object.
 
     Custom instances of this class, or subclass of this class, can be set via
@@ -511,14 +513,17 @@ class ModelConfig:
         default_factory=lambda: CachingTypeParserProviderProxy(get_builtin_type_parser_provider())
     )
 
+    #: Error creating function.
+    create_error: IErrorCreator = dataclasses.field(default_factory=lambda: get_builtin_error_creator())
+
     #: Placeholder for user-defined data.
-    user_data: dict = dataclasses.field(default_factory=dict)
+    user_data: Optional[dict] = None
 
 
 class ModelMeta(type):
     """Metaclass for :class:`Model` class."""
 
-    __config__: IModelConfig
+    __config__: IConfig
     __fields__: Mapping[str, BoundField]
     _preprocessors: Mapping[str, Sequence[Callable]]
     _postprocessors: Mapping[str, Sequence[Callable]]
@@ -612,14 +617,17 @@ class Model(metaclass=ModelMeta):
 
     To create custom model, you simply need to create subclass of this type and
     declare fields via annotations.
+
+    This class is a virtual subclass of :class:`IModel` abstract base class.
     """
 
-    __slots__ = ("_loc", "_fields_set")
-    __config__ = ModelConfig()
+    __slots__ = ("_loc", "_fields_set", "_config")
+    __config__ = Config()
 
     def __init__(self, **kwargs):
         self._loc = Loc()
         self._fields_set = set()
+        self._config = self.__class__.__config__
         errors = []
         fields = self.__class__.__fields__
         for name, field_info in fields.items():
@@ -649,22 +657,22 @@ class Model(metaclass=ModelMeta):
             return super().__setattr__(name, value)
         if name not in cls.__fields__:
             raise AttributeError(f"{cls.__name__!r} model has no field named {name!r}")
+        config = self._config
         self._fields_set.discard(name)
         if value is Unset:
             return super().__setattr__(name, value)
         loc = self.get_loc() + Loc(name)
         for preprocessor in cls._preprocessors.get(name, []):
-            value = preprocessor(cls, loc, name, value)
+            value = preprocessor(cls, loc, name, value, config)
             if isinstance(value, Invalid):
                 break
         if not isinstance(value, Invalid):
             field = cls.__fields__[name]
-            model_config = cls.__config__
-            parser = cls.__config__.type_parser_provider.provide_type_parser(field.type, model_config)
-            value = parser(value, self._loc + Loc(name))
+            parser = config.type_parser_provider.provide_type_parser(field.type, config)
+            value = parser(value, loc, config)
         if not isinstance(value, Invalid):
             for postprocessor in cls._postprocessors.get(name, []):
-                value = postprocessor(cls, loc, name, value)
+                value = postprocessor(cls, loc, name, value, config)
                 if isinstance(value, Invalid):
                     break
         if isinstance(value, Invalid):
@@ -686,15 +694,10 @@ class Model(metaclass=ModelMeta):
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
 
+    def set_config(self, config: IConfig):
+        self._config = config
+
     def set_loc(self, loc: Loc):
-        """Set location of this model.
-
-        This is used when this model is nested inside another model, to give it
-        the location that is later used to render proper error messages.
-
-        :param loc:
-            The location to be set.
-        """
         self._loc = loc
 
     def get_loc(self) -> Loc:
@@ -736,7 +739,7 @@ class Model(metaclass=ModelMeta):
         """
         loc = self.get_loc()
         errors: List[Error] = []
-        _validate_model(self, loc, errors, self)
+        _validate_model(self, loc, errors, self, self.__config__)
         if errors:
             raise ValidationError(self, tuple(errors))
 

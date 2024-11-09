@@ -1,6 +1,7 @@
 import abc
 from typing import Any, Iterator, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
+from modelity.error import IErrorCreator
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
@@ -45,7 +46,7 @@ class IParser(Protocol, Generic[T_co]):
     """Interface for type parsers."""
 
     @abc.abstractmethod
-    def __call__(self, value: Any, loc: Loc) -> Union[T_co, Invalid]:
+    def __call__(self, value: Any, loc: Loc, config: "IConfig") -> Union[T_co, Invalid]:
         """Try to parse given *value* of any type into instance of type *T*.
 
         On success, object of type *T* is returned. On failure, :class:`Invalid`
@@ -56,6 +57,9 @@ class IParser(Protocol, Generic[T_co]):
 
         :param loc:
             The location of the value inside a model.
+
+        :param config:
+            Model config object.
         """
 
 
@@ -80,7 +84,7 @@ class ITypeParserProvider(Protocol):
             The type to retrieve parser factory for.
         """
 
-    def provide_type_parser(self, tp: Type[T], model_config: "IModelConfig") -> IParser[T]:
+    def provide_type_parser(self, tp: Type[T], model_config: "IConfig") -> IParser[T]:
         """Provide parser for given type.
 
         Returns parser for given type *tp* or raises
@@ -100,7 +104,7 @@ class ITypeParserProvider(Protocol):
 class ITypeParserFactory(Protocol, Generic[T]):
     """Interface for type parser factory functions."""
 
-    def __call__(self, tp: Type[T], model_config: "IModelConfig") -> IParser[T]:
+    def __call__(self, tp: Type[T], model_config: "IConfig") -> IParser[T]:
         """Create parser for given type.
 
         :param tp:
@@ -111,7 +115,7 @@ class ITypeParserFactory(Protocol, Generic[T]):
         """
 
 
-class IModelConfig(Protocol):
+class IConfig(Protocol):
     """Protocol describing model configuration object."""
 
     #: Root type parser provider.
@@ -121,10 +125,16 @@ class IModelConfig(Protocol):
     #: completely replace with custom one that implements same interface.
     type_parser_provider: ITypeParserProvider
 
-    #: Placeholder for user-defined data.
+    #: Function used to create both parsing and validation errors.
     #:
-    #: This can be used to pass additional model-specific parameters to
-    #: user-defined field pre- and postprocessors and/or validators.
+    #: By default, built-in error creator is used, but this can be replaced
+    #: with custom one that may still use built-in error creator if needed.
+    create_error: IErrorCreator
+
+    #: Placeholder for user data.
+    #:
+    #: This can be used use this to pass user-defined additional data to custom
+    #: parsers and/or validators.
     user_data: Optional[dict]
 
 
@@ -134,3 +144,29 @@ class IModel(abc.ABC):
     This is not used directly, but it is needed to register type parser for
     models.
     """
+
+    @abc.abstractmethod
+    def set_config(self, config: IConfig):
+        """Set config to be used by this model.
+
+        This overrides static config provided by :attr:`IModel.__config__`
+        attribute and can be used if it is needed change default config object
+        just for particular instance, not for all instances.
+
+        :param config:
+            New config object.
+        """
+
+    @abc.abstractmethod
+    def set_loc(self, loc: Loc):
+        """Set root location for this model.
+
+        Root location will be used to prefix locations of all errors that may
+        be reported by this model. By default, each model has root location set
+        to empty location. By using this method it is possible to prefix all
+        errors with user defined prefix whenever needed (f.e. when this model
+        is used as a field in a dataclass).
+
+        :param loc:
+            New root location.
+        """

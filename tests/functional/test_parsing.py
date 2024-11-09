@@ -1,5 +1,6 @@
 import datetime
 import enum
+from re import L
 from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Tuple, Type, Union
 
 import pytest
@@ -8,9 +9,8 @@ from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.model import Model, ModelConfig
-from modelity._parsing.type_parsers import all
-from modelity.interface import IModelConfig, IParser, ITypeParserProvider
+from modelity.model import Model, Config
+from modelity.interface import IConfig, IParser
 from modelity.constraints import MaxValue, MinValue
 from tests.helpers import ErrorFactoryHelper
 
@@ -19,17 +19,18 @@ def make_error(loc: Loc, code: str, **data: Any) -> Error:
     return Error(loc, code, data)
 
 
-def make_unsupported_type_error(loc: Loc, supported_types: tuple[type]) -> Error:
-    return make_error(loc, "modelity.UnsupportedType", supported_types=supported_types)
-
-
 @pytest.fixture
 def model_config():
-    return ModelConfig(type_parser_provider=all.provider)
+    return Config()
 
 
 @pytest.fixture
-def parser(model_config: IModelConfig, tp: Type):
+def config(model_config):
+    return model_config
+
+
+@pytest.fixture
+def parser(model_config: IConfig, tp: Type):
     return model_config.type_parser_provider.provide_type_parser(tp, model_config)
 
 
@@ -50,12 +51,12 @@ class TestNoneParser:
             (None, None),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize("given", [123, "spam"])
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.none_required(loc)])
@@ -74,8 +75,8 @@ class TestIntParser:
             ("2", 2),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "given",
@@ -88,8 +89,8 @@ class TestIntParser:
             tuple(),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.integer_required(loc)])
@@ -108,8 +109,8 @@ class TestFloatParser:
             ("2.1", 2.1),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "given",
@@ -121,8 +122,8 @@ class TestFloatParser:
             tuple(),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.float_required(loc)])
@@ -141,8 +142,8 @@ class TestStrParser:
             (b"foo", "foo"),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "given, expected_error_func",
@@ -151,8 +152,8 @@ class TestStrParser:
             (b"\xff", lambda loc: ErrorFactoryHelper.unicode_decode_error(loc, "utf-8")),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_error_func):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_error_func):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == (expected_error_func(loc),)
@@ -171,12 +172,12 @@ class TestBytesParser:
             ("foo", b"foo"),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize("given", [123])
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.bytes_required(loc)])
@@ -201,12 +202,12 @@ class TestBoolParser:
             ("false", False),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize("given", [2, None, "dummy", [], {}])
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.boolean_required(loc)])
@@ -255,19 +256,19 @@ class TestDateTimeParser:
             ),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize("given", [123, None, [], {}])
-    def test_parsing_fails_if_input_has_wrong_type(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_has_wrong_type(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple([ErrorFactoryHelper.datetime_required(loc)])
 
     @pytest.mark.parametrize("given", ["not a datetime"])
-    def test_parsing_fails_if_input_has_incorrect_datetime_format(self, parser: IParser, loc, given):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_has_incorrect_datetime_format(self, parser: IParser, loc, config, given):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(
@@ -306,8 +307,8 @@ class TestEnumParser:
             (3, Dummy.BAZ),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "given",
@@ -315,15 +316,15 @@ class TestEnumParser:
             0,
         ],
     )
-    def test_parsing_fails_if_input_value_does_not_match_any_enum(self, parser: IParser, given, loc):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_value_does_not_match_any_enum(self, parser: IParser, given, loc, config):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(
             [
                 ErrorFactoryHelper.invalid_enum(
                     loc,
-                    supported_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ),
+                    allowed_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ),
                 )
             ]
         )
@@ -337,8 +338,8 @@ class TestLiteralParser:
             (Literal["foo"], "foo"),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given):
-        assert parser(given, loc) == given
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given):
+        assert parser(given, loc, config) == given
 
     @pytest.mark.parametrize(
         "tp, given, supported_values",
@@ -346,12 +347,12 @@ class TestLiteralParser:
             (Literal["foo"], "bar", ["foo"]),
         ],
     )
-    def test_parsing_fails_if_input_value_is_out_of_literal_range(self, parser: IParser, given, supported_values):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_value_is_out_of_literal_range(self, parser: IParser, loc, config, given, supported_values):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(
-            [ErrorFactoryHelper.invalid_literal(loc, supported_values=tuple(supported_values))]
+            [ErrorFactoryHelper.invalid_literal(loc, allowed_values=tuple(supported_values))]
         )
 
 
@@ -366,8 +367,8 @@ class TestAnnotated:
             (Annotated[float, MinValue(0), MaxValue(1)], "1", 1.0),
         ],
     )
-    def test_successfully_parse_annotated_type(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_annotated_type(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, invalid_value, expected_error",
@@ -404,8 +405,8 @@ class TestAnnotated:
             ),
         ],
     )
-    def test_parsing_fails_if_input_value_is_invalid(self, parser: IParser, given, invalid_value, loc, expected_error):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_value_is_invalid(self, parser: IParser, given, invalid_value, loc, config, expected_error):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == invalid_value
         assert result.errors == tuple([expected_error])
@@ -421,8 +422,8 @@ class TestOptionalParser:
             (Optional[int], None, None),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, supported_types",
@@ -430,8 +431,8 @@ class TestOptionalParser:
             (Optional[str], 123, (str, type(None))),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, supported_types):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, supported_types):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == (ErrorFactoryHelper.unsupported_type(loc, supported_types),)
@@ -446,8 +447,8 @@ class TestUnionParser:
             (Union[int, str], "123", "123"),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, supported_types",
@@ -455,8 +456,8 @@ class TestUnionParser:
             (Union[str, int, float], None, (str, int, float)),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, supported_types):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, supported_types):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == (ErrorFactoryHelper.unsupported_type(loc, supported_types),)
@@ -477,8 +478,8 @@ class TestTupleParser:
             (Tuple[Tuple[int]], [("1",)], ((1,),)),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
@@ -524,8 +525,8 @@ class TestTupleParser:
             ),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_errors):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == expected_errors
@@ -543,8 +544,8 @@ class TestListParser:
             (List[Union[int, str]], [1, 2, "foo"], [1, 2, "foo"]),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
@@ -561,8 +562,8 @@ class TestListParser:
             ),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_errors):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == expected_errors
@@ -574,8 +575,8 @@ class TestListParser:
             return List[int]
 
         @pytest.fixture
-        def sut(self, parser: IParser, initial_value, loc):
-            return parser(initial_value, loc)
+        def sut(self, parser: IParser, initial_value, loc, config):
+            return parser(initial_value, loc, config)
 
         @pytest.mark.parametrize(
             "initial_value, given_list",
@@ -716,8 +717,8 @@ class TestDictParser:
             (Dict[str, List[int]], {"foo": [1, "2", "3"]}, {"foo": [1, 2, 3]}),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
@@ -733,8 +734,8 @@ class TestDictParser:
             (Dict[int, str], None, (ErrorFactoryHelper.mapping_required(Loc()),)),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_errors):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == expected_errors
@@ -746,8 +747,8 @@ class TestDictParser:
             return Dict[str, int]
 
         @pytest.fixture
-        def sut(self, parser: IParser, initial, loc):
-            return parser(initial, loc)
+        def sut(self, parser: IParser, initial, loc, config):
+            return parser(initial, loc, config)
 
         @pytest.mark.parametrize(
             "initial, expected_repr",
@@ -844,8 +845,8 @@ class TestSetParser:
             (Set[int], ["1", "2", "2", "3"], {1, 2, 3}),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, given, expected_errors",
@@ -857,8 +858,8 @@ class TestSetParser:
             (Set[list], [[1]], [ErrorFactoryHelper.hashable_required(Loc())]),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_errors):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(expected_errors)
@@ -870,8 +871,8 @@ class TestSetParser:
             return Set[int]
 
         @pytest.fixture
-        def sut(self, parser: IParser, initial, loc):
-            return parser(initial, loc)
+        def sut(self, parser: IParser, initial, loc, config):
+            return parser(initial, loc, config)
 
         @pytest.mark.parametrize(
             "initial, expected_repr",
@@ -940,20 +941,20 @@ class TestModelParser:
             (Dummy, {"value": "123"}, Dummy(value=123)),
         ],
     )
-    def test_successfully_parse_input_value(self, parser: IParser, loc, given, expected):
-        assert parser(given, loc) == expected
+    def test_successfully_parse_input_value(self, parser: IParser, loc, config, given, expected):
+        assert parser(given, loc, config) == expected
 
     @pytest.mark.parametrize(
         "tp, loc, given, expected_errors",
         [
-            (Dummy, Loc(), None, [ErrorFactoryHelper.mapping_required(Loc())]),
-            (Dummy, Loc("root"), None, [ErrorFactoryHelper.mapping_required(Loc("root"))]),
+            (Dummy, Loc(), None, [ErrorFactoryHelper.invalid_model(Loc(), Dummy)]),
+            (Dummy, Loc("root"), None, [ErrorFactoryHelper.invalid_model(Loc("root"), Dummy)]),
             (Dummy, Loc(), {"value": "spam"}, [ErrorFactoryHelper.integer_required(Loc("value"))]),
             (Dummy, Loc("root"), {"value": "spam"}, [ErrorFactoryHelper.integer_required(Loc("root", "value"))]),
         ],
     )
-    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, given, expected_errors):
-        result = parser(given, loc)
+    def test_parsing_fails_if_input_cannot_be_parsed(self, parser: IParser, loc, config, given, expected_errors):
+        result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
         assert result.errors == tuple(expected_errors)

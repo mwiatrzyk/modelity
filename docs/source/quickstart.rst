@@ -129,18 +129,19 @@ required fields are missing:
 
 .. doctest::
 
+
     >>> Book.load_valid({})
     Traceback (most recent call last):
         ...
     modelity.exc.ValidationError: validation of model 'Book' failed with 4 error(-s):
       author:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
       publisher:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
       title:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
       year:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
 
 Setting and getting fields
 --------------------------
@@ -156,6 +157,7 @@ are set is done during validation step, that must be executed explicitly. So
 let's now set some fields on the model we've created:
 
 .. doctest::
+
 
     >>> book.author = "John Doe"
     >>> book.title = "Yet Another Book"
@@ -175,7 +177,7 @@ complain about it by raising :exc:`modelity.exc.ParsingError` exception:
         ...
     modelity.exc.ParsingError: parsing failed with 1 error(-s):
       author:
-        modelity.StringRequired {}
+        not a valid string value [code=modelity.StringRequired, data=None]
 
 And the field will still have previous value set:
 
@@ -373,9 +375,9 @@ to be accepted:
         ...
     modelity.exc.ValidationError: validation of model 'Book' failed with 2 error(-s):
       publisher:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
       year:
-        modelity.RequiredMissing {}
+        this field is required [code=modelity.RequiredMissing, data=None]
 
 Now, thanks to the :exc:`modelity.exc.ValidationError` exception being raised,
 the user will be informed that the form is still missing 2 required fields:

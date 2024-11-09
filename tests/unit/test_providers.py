@@ -7,7 +7,7 @@ from mockify.api import Return
 from modelity.exc import UnsupportedType
 from modelity.interface import ITypeParserProvider
 from modelity.loc import Loc
-from modelity.model import ModelConfig
+from modelity.model import Config
 from modelity.providers import CachingTypeParserProviderProxy, TypeParserProvider
 
 
@@ -19,7 +19,7 @@ class TestTypeParserProvider:
 
     @pytest.fixture
     def model_config(self, uut: ITypeParserProvider):
-        return ModelConfig(type_parser_provider=uut)
+        return Config(type_parser_provider=uut)
 
     def test_register_function_taking_no_args(self, uut: TypeParserProvider, mock):
 
@@ -173,7 +173,7 @@ class TestCachingTypeParserProvider:
 
     @pytest.fixture
     def model_config(self, uut: ITypeParserProvider):
-        return ModelConfig(type_parser_provider=uut)
+        return Config(type_parser_provider=uut)
 
     def test_when_parser_created_for_the_first_time_then_use_target_to_find_provider(self, uut: UUT, mock, model_config):
         mock.provide_type_parser.expect_call(int, model_config).will_once(Return(mock.parse_int))

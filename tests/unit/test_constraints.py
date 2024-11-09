@@ -4,7 +4,13 @@ from modelity.constraints import MaxLength, MaxValue, MinLength, MinValue
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 
+from modelity.model import Config
 from tests.helpers import ErrorFactoryHelper
+
+
+@pytest.fixture
+def config():
+    return Config()
 
 
 class TestMinValue:
@@ -30,8 +36,8 @@ class TestMinValue:
             (MinValue(min_exclusive=0), 1, Loc()),
         ],
     )
-    def test_constraint_checking_passed(self, uut, value, loc):
-        result = uut(value, loc)
+    def test_constraint_checking_passed(self, uut, value, loc, config):
+        result = uut(value, loc, config)
         assert result == value
 
     @pytest.mark.parametrize(
@@ -42,8 +48,8 @@ class TestMinValue:
             (MinValue(min_exclusive=0), 0, Loc(), ErrorFactoryHelper.value_too_low(Loc(), min_exclusive=0)),
         ],
     )
-    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
-        result = uut(value, loc)
+    def test_constraint_checking_failed(self, uut, value, loc, expected_error, config):
+        result = uut(value, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == value
         assert result.errors == (expected_error,)
@@ -72,8 +78,8 @@ class TestMaxValue:
             (MaxValue(max_exclusive=0), -1, Loc()),
         ],
     )
-    def test_constraint_checking_passed(self, uut, value, loc):
-        result = uut(value, loc)
+    def test_constraint_checking_passed(self, uut, value, loc, config):
+        result = uut(value, loc, config)
         assert result == value
 
     @pytest.mark.parametrize(
@@ -84,8 +90,8 @@ class TestMaxValue:
             (MaxValue(max_exclusive=0), 0, Loc(), ErrorFactoryHelper.value_too_high(Loc(), max_exclusive=0)),
         ],
     )
-    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
-        result = uut(value, loc)
+    def test_constraint_checking_failed(self, uut, value, loc, config, expected_error):
+        result = uut(value, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == value
         assert result.errors == (expected_error,)
@@ -100,7 +106,7 @@ class TestMinLength:
         ],
     )
     def test_constraint_checking_passed(self, uut, value, loc):
-        result = uut(value, loc)
+        result = uut(value, loc, config)
         assert result == value
 
     @pytest.mark.parametrize(
@@ -109,8 +115,8 @@ class TestMinLength:
             (MinLength(1), "", Loc(), ErrorFactoryHelper.value_too_short(Loc(), 1)),
         ],
     )
-    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
-        result = uut(value, loc)
+    def test_constraint_checking_failed(self, uut, value, loc, config, expected_error):
+        result = uut(value, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == value
         assert result.errors == (expected_error,)
@@ -124,8 +130,8 @@ class TestMaxLength:
             (MaxLength(3), "foo", Loc()),
         ],
     )
-    def test_constraint_checking_passed(self, uut, value, loc):
-        result = uut(value, loc)
+    def test_constraint_checking_passed(self, uut, value, loc, config):
+        result = uut(value, loc, config)
         assert result == value
 
     @pytest.mark.parametrize(
@@ -134,8 +140,8 @@ class TestMaxLength:
             (MaxLength(1), "foo", Loc(), ErrorFactoryHelper.value_too_long(Loc(), 1)),
         ],
     )
-    def test_constraint_checking_failed(self, uut, value, loc, expected_error):
-        result = uut(value, loc)
+    def test_constraint_checking_failed(self, uut, value, loc, config, expected_error):
+        result = uut(value, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == value
         assert result.errors == (expected_error,)

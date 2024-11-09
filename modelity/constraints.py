@@ -1,9 +1,9 @@
-from typing import Any, Generic, Optional, Sequence, Sized, Union, TypeVar
+from typing import Generic, Optional, Sized, Union, TypeVar
 
-from modelity.error import ErrorFactory
+from modelity.error import ErrorCode
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import ISupportsLessEqual
+from modelity.interface import IConfig, ISupportsLessEqual
 
 T = TypeVar("T", bound=ISupportsLessEqual)
 
@@ -35,7 +35,7 @@ class MinValue(Generic[T]):
             ...
         modelity.exc.ParsingError: parsing failed with 1 error(-s):
           foo:
-            modelity.ValueTooLow {'min_inclusive': 0, 'min_exclusive': None}
+            value must be >= 0 [code=modelity.ValueTooLow, data={'min_inclusive': 0}]
 
     :param min_inclusive:
         Minimum value (inclusive).
@@ -58,11 +58,11 @@ class MinValue(Generic[T]):
         self.min_inclusive = min_inclusive
         self.min_exclusive = min_exclusive
 
-    def __call__(self, value: T, loc: Loc) -> Union[T, Invalid]:
+    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, Invalid]:
         if self.min_inclusive is not None and value < self.min_inclusive:
-            return Invalid(value, ErrorFactory.value_too_low(loc, min_inclusive=self.min_inclusive))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LOW, {"min_inclusive": self.min_inclusive}))
         if self.min_exclusive is not None and value <= self.min_exclusive:
-            return Invalid(value, ErrorFactory.value_too_low(loc, min_exclusive=self.min_exclusive))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LOW, {"min_exclusive": self.min_exclusive}))
         return value
 
 
@@ -93,7 +93,7 @@ class MaxValue(Generic[T]):
             ...
         modelity.exc.ParsingError: parsing failed with 1 error(-s):
           foo:
-            modelity.ValueTooHigh {'max_inclusive': 10, 'max_exclusive': None}
+            value must be <= 10 [code=modelity.ValueTooHigh, data={'max_inclusive': 10}]
 
     :param max_inclusive:
         Maximum value (inclusive).
@@ -117,11 +117,11 @@ class MaxValue(Generic[T]):
         self.max_inclusive = max_inclusive
         self.max_exclusive = max_exclusive
 
-    def __call__(self, value: T, loc: Loc) -> Union[T, Invalid]:
+    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, Invalid]:
         if self.max_inclusive is not None and value > self.max_inclusive:
-            return Invalid(value, ErrorFactory.value_too_high(loc, max_inclusive=self.max_inclusive))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_HIGH, {'max_inclusive': self.max_inclusive}))
         if self.max_exclusive is not None and value >= self.max_exclusive:
-            return Invalid(value, ErrorFactory.value_too_high(loc, max_exclusive=self.max_exclusive))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_HIGH, {'max_exclusive': self.max_exclusive}))
         return value
 
 
@@ -154,7 +154,7 @@ class MinLength:
             ...
         modelity.exc.ParsingError: parsing failed with 1 error(-s):
           foo:
-            modelity.ValueTooShort {'min_length': 1}
+            value too short; minimum length is 1 [code=modelity.ValueTooShort, data={'min_length': 1}]
 
     :param min_length:
         Minimum length of the value.
@@ -166,9 +166,9 @@ class MinLength:
     def __init__(self, min_length: int):
         self.min_length = min_length
 
-    def __call__(self, value: Sized, loc: Loc) -> Union[Sized, Invalid]:
+    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, Invalid]:
         if len(value) < self.min_length:
-            return Invalid(value, ErrorFactory.value_too_short(loc, min_length=self.min_length))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_SHORT, {'min_length': self.min_length}))
         return value
 
 
@@ -201,7 +201,7 @@ class MaxLength:
             ...
         modelity.exc.ParsingError: parsing failed with 1 error(-s):
           foo:
-            modelity.ValueTooLong {'max_length': 3}
+            value too long; maximum length is 3 [code=modelity.ValueTooLong, data={'max_length': 3}]
 
     :param max_length:
         Maximum length of the value.
@@ -213,7 +213,7 @@ class MaxLength:
     def __init__(self, max_length: int):
         self.max_length = max_length
 
-    def __call__(self, value: Sized, loc: Loc) -> Union[Sized, Invalid]:
+    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, Invalid]:
         if len(value) > self.max_length:
-            return Invalid(value, ErrorFactory.value_too_long(loc, max_length=self.max_length))
+            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LONG, {'max_length': self.max_length}))
         return value
