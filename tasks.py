@@ -23,6 +23,11 @@ def test(ctx: invoke.Context):
     ctx.run("pytest")
 
 
+@invoke.task(lint, test)
+def check(ctx):
+    """Run all code quality checks."""
+
+
 @invoke.task
 def bump(ctx: invoke.Context):
     """Bump project version."""
