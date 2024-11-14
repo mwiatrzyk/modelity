@@ -1,6 +1,6 @@
 from typing import Any, Optional, Tuple, Type
 
-from modelity.error import Error
+from modelity.interface import IError
 
 
 class ModelityError(Exception):
@@ -28,9 +28,9 @@ class ModelError(ModelityError):
     """
 
     #: Tuple with either parsing, or validation errors.
-    errors: Tuple[Error, ...]
+    errors: Tuple[IError, ...]
 
-    def __init__(self, errors: Tuple[Error, ...]):
+    def __init__(self, errors: Tuple[IError, ...]):
         super().__init__()
         self.errors = errors
 
@@ -62,7 +62,7 @@ class ValidationError(ModelError):
     #: The model for which validation has failed.
     model: Any
 
-    def __init__(self, model: Any, errors: Tuple[Error, ...]):
+    def __init__(self, model: Any, errors: Tuple[IError, ...]):
         super().__init__(errors)
         self.model = model
 

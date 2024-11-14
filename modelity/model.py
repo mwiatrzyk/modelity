@@ -27,7 +27,7 @@ from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IDumpFilter, IConfig, IConfig, ITypeParserProvider
+from modelity.interface import IDumpFilter, IConfig, IConfig, IError, ITypeParserProvider
 from modelity.providers import CachingTypeParserProviderProxy
 from modelity._parsing.type_parsers.all import provider as _root_provider
 from modelity.unset import Unset
@@ -159,7 +159,7 @@ def _dump_sequence(value: Sequence, loc: Loc, func: IDumpFilter) -> Tuple[list, 
     return result, False
 
 
-def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model", config: IConfig):
+def _validate_model(obj: "Model", loc: Loc, errors: List[IError], root: "Model", config: IConfig):
     cls = obj.__class__
     for model_validator in cls._model_prevalidators:
         errors.extend(model_validator(cls, obj, root, loc, errors, config))
@@ -181,7 +181,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[Error], root: "Model", 
         errors.extend(model_validator(cls, obj, root, loc, errors, config))
 
 
-def _validate_any(obj: Any, loc: Loc, errors: List[Error], root: "Model", config: IConfig):
+def _validate_any(obj: Any, loc: Loc, errors: List[IError], root: "Model", config: IConfig):
     if isinstance(obj, IModel):
         _validate_model(cast(Model, obj), loc, errors, root, config)
     elif isinstance(obj, Mapping):
@@ -738,7 +738,7 @@ class Model(metaclass=ModelMeta):
         be called to check if the model is valid.
         """
         loc = self.get_loc()
-        errors: List[Error] = []
+        errors: List[IError] = []
         _validate_model(self, loc, errors, self, self.__config__)
         if errors:
             raise ValidationError(self, tuple(errors))

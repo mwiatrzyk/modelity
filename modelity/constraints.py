@@ -3,7 +3,7 @@ from typing import Generic, Optional, Sized, Union, TypeVar
 from modelity.error import ErrorCode
 from modelity.invalid import Invalid
 from modelity.loc import Loc
-from modelity.interface import IConfig, ISupportsLessEqual
+from modelity.interface import IConfig, IInvalid, ISupportsLessEqual
 
 T = TypeVar("T", bound=ISupportsLessEqual)
 
@@ -58,7 +58,7 @@ class MinValue(Generic[T]):
         self.min_inclusive = min_inclusive
         self.min_exclusive = min_exclusive
 
-    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, Invalid]:
+    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, IInvalid]:
         if self.min_inclusive is not None and value < self.min_inclusive:
             return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LOW, {"min_inclusive": self.min_inclusive}))
         if self.min_exclusive is not None and value <= self.min_exclusive:
@@ -117,7 +117,7 @@ class MaxValue(Generic[T]):
         self.max_inclusive = max_inclusive
         self.max_exclusive = max_exclusive
 
-    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, Invalid]:
+    def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, IInvalid]:
         if self.max_inclusive is not None and value > self.max_inclusive:
             return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_HIGH, {'max_inclusive': self.max_inclusive}))
         if self.max_exclusive is not None and value >= self.max_exclusive:
@@ -166,7 +166,7 @@ class MinLength:
     def __init__(self, min_length: int):
         self.min_length = min_length
 
-    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, Invalid]:
+    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, IInvalid]:
         if len(value) < self.min_length:
             return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_SHORT, {'min_length': self.min_length}))
         return value
@@ -213,7 +213,7 @@ class MaxLength:
     def __init__(self, max_length: int):
         self.max_length = max_length
 
-    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, Invalid]:
+    def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, IInvalid]:
         if len(value) > self.max_length:
             return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LONG, {'max_length': self.max_length}))
         return value

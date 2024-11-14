@@ -1,6 +1,8 @@
 import dataclasses
 from typing import Any, Tuple
 
+from modelity.interface import IError
+
 from .error import Error
 
 
@@ -16,13 +18,13 @@ class Invalid:
     value: Any
 
     #: The errors caused by value given by :attr:`value`
-    errors: Tuple[Error, ...]
+    errors: Tuple[IError, ...]
 
     @property
     def error_codes(self) -> Tuple[str, ...]:
         return tuple(x.code for x in self.errors)
 
-    def __init__(self, value: Any, error: Error, *more_errors: Error):
+    def __init__(self, value: Any, error: IError, *more_errors: IError):
         self.value = value
         self.errors = (error,) + more_errors
 

@@ -1,8 +1,8 @@
 from typing import List, Mapping, Type
 
-from modelity.error import Error, ErrorCode
+from modelity.error import ErrorCode
 from modelity.exc import ParsingError
-from modelity.interface import IConfig, IModel
+from modelity.interface import IConfig, IError, IModel
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
 
@@ -20,7 +20,7 @@ def make_model_parser(tp: Type[IModel]):
         obj = tp()
         obj.set_config(config)
         obj.set_loc(loc)
-        errors: List[Error] = []
+        errors: List[IError] = []
         for k, v in value.items():
             try:
                 setattr(obj, k, v)

@@ -1,7 +1,7 @@
 import dataclasses
-import enum
-from typing import Any, Optional, Protocol, Tuple, Type, cast
+from typing import Optional, Tuple, cast
 
+from modelity.interface import IErrorCreator
 from modelity.loc import Loc
 
 
@@ -48,25 +48,6 @@ class Error:
 
     #: Formatted error message.
     msg: Optional[str] = None
-
-
-class IErrorCreator(Protocol):
-    """Protocol representing error creator function."""
-
-    def __call__(self, loc: Loc, code: str, data: Optional[dict]=None) -> Error:
-        """Create error object.
-
-        :param loc:
-            Location of the error.
-
-        :param code:
-            Error code.
-
-        :param data:
-            Error data.
-
-            This is code-specific.
-        """
 
 
 def get_builtin_error_creator() -> IErrorCreator:

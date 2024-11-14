@@ -1,8 +1,6 @@
 import abc
 from typing import Any, Iterator, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
-from modelity.error import IErrorCreator
-from modelity.invalid import Invalid
 from modelity.loc import Loc
 
 T_co = TypeVar("T_co", covariant=True)
@@ -42,11 +40,44 @@ class IDumpFilter(Protocol):
         """
 
 
+class IError(Protocol):
+    """Protocol specifying error object."""
+
+    #: Location of the error.
+    loc: Loc
+
+    #: Error code.
+    code: str
+
+    #: Error data.
+    #:
+    #: This contains code-specific data and can be used to render parametric
+    #: error messages.
+    data: Optional[dict] = None
+
+    #: Formatted error message.
+    #:
+    #: This is what will be printed by default when error happens. Custom error
+    #: creators can be used to render messages for custom error, or to change
+    #: messages for built-in errors.
+    msg: Optional[str] = None
+
+
+class IInvalid(Protocol):
+    """Protocol specifying invalid value."""
+
+    #: The value that is invalid.
+    value: Any
+
+    #: Tuple of errors found for the value.
+    errors: Tuple[IError, ...]
+
+
 class IParser(Protocol, Generic[T_co]):
     """Interface for type parsers."""
 
     @abc.abstractmethod
-    def __call__(self, value: Any, loc: Loc, config: "IConfig") -> Union[T_co, Invalid]:
+    def __call__(self, value: Any, loc: Loc, config: "IConfig") -> Union[T_co, IInvalid]:
         """Try to parse given *value* of any type into instance of type *T*.
 
         On success, object of type *T* is returned. On failure, :class:`Invalid`
@@ -112,6 +143,25 @@ class ITypeParserFactory(Protocol, Generic[T]):
 
         :param model_config:
             Reference to the model configuration object.
+        """
+
+
+class IErrorCreator(Protocol):
+    """Protocol specifying error factory function."""
+
+    def __call__(self, loc: Loc, code: str, data: Optional[dict]=None) -> IError:
+        """Create error object.
+
+        :param loc:
+            Location of the error.
+
+        :param code:
+            Error code.
+
+        :param data:
+            Error data.
+
+            The structure of this argument depends on the error code.
         """
 
 
