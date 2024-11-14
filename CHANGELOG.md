@@ -1,3 +1,17 @@
+## 0.7.0 (2024-11-14)
+
+### BREAKING CHANGES
+
+- type parser factories now receive `model_config` instead of `provider`
+- add `config` argument to parsers, processors and validators to render human-readable error messages
+- use `IError` and `IInvalid` protocols in interface to get rid of dependency towards errors module
+
+### Feat
+
+- type parser factories now receive `model_config` instead of `provider`
+- add `config` argument to parsers, processors and validators to render human-readable error messages
+- use `IError` and `IInvalid` protocols in interface to get rid of dependency towards errors module
+
 ## 0.6.0 (2024-10-29)
 
 ### Feat
