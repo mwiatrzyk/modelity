@@ -35,8 +35,7 @@ jobs:
       - checkout
       - install-deps:
           python_version: <<parameters.python_version>>
-      - run: poetry run inv lint
-      - run: poetry run inv test
+      - run: poetry run inv check
 
   bump:
     docker:
