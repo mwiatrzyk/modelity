@@ -1483,14 +1483,14 @@ class TestModelValidator:
 
                 @model_validator()
                 def _validate_model(errors: List[Error]):
-                    errors.append(Error(Loc("foo"), "CUSTOM_ERROR"))
+                    errors.append(Error(Loc("foo"), "CUSTOM_ERROR", "custom error message"))
 
             dummy = Dummy(foo=123)
             with pytest.raises(ValidationError) as excinfo:
                 dummy.validate()
             assert excinfo.value.errors == tuple(
                 [
-                    Error(Loc("foo"), "CUSTOM_ERROR"),
+                    Error(Loc("foo"), "CUSTOM_ERROR", "custom error message"),
                 ]
             )
 
@@ -1706,7 +1706,9 @@ class TestPreprocessor:
         assert model.bar == 456
 
     def test_when_invalid_is_return_then_parsing_error_is_raised(self, model_type: Type[Model], mock):
-        mock.expect_call("foo", "spam").will_once(Return(Invalid("spam", Error(Loc(), ErrorCode.VALUE_ERROR, msg="an error"))))
+        mock.expect_call("foo", "spam").will_once(
+            Return(Invalid("spam", Error(Loc(), ErrorCode.VALUE_ERROR, msg="an error")))
+        )
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo="spam")
         assert excinfo.value.errors == tuple([ErrorFactoryHelper.value_error(Loc("foo"), "an error")])

@@ -1,6 +1,6 @@
 from typing import List, Mapping, Type
 
-from modelity.error import ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IConfig, IError, IModel
 from modelity.invalid import Invalid
@@ -16,7 +16,7 @@ def make_model_parser(tp: Type[IModel]):
         if isinstance(value, tp):
             return value
         if not isinstance(value, Mapping):
-            return Invalid(value, config.create_error(loc, ErrorCode.INVALID_MODEL, {"model_type": tp}))
+            return Invalid(value, ErrorFactory.invalid_model(loc, tp))
         obj = tp()
         obj.set_config(config)
         obj.set_loc(loc)

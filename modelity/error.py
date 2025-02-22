@@ -1,12 +1,14 @@
 import dataclasses
-from typing import Optional, Tuple, cast
+from enum import Enum
+from typing import Any, Iterable, Sequence, cast
 
-from modelity.interface import IErrorCreator
 from modelity.loc import Loc
+from modelity.unset import Unset
 
 
 class ErrorCode:
     """Class containing constants with all built-in error codes."""
+
     NONE_REQUIRED = "modelity.NoneRequired"
     INTEGER_REQUIRED = "modelity.IntegerRequired"
     STRING_REQUIRED = "modelity.StringRequired"
@@ -17,7 +19,7 @@ class ErrorCode:
     HASHABLE_REQUIRED = "modelity.HashableRequired"
     MAPPING_REQUIRED = "modelity.MappingRequired"
     DATETIME_REQUIRED = "modelity.DatetimeRequired"
-    UNKNOWN_DATETIME_FORMAT = "modelity.UnknownDatetimeFormat"
+    UNSUPPORTED_DATETIME_FORMAT = "modelity.UnknownDatetimeFormat"
     UNSUPPORTED_TYPE = "modelity.UnsupportedType"
     INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
     INVALID_ENUM = "modelity.InvalidEnum"
@@ -35,141 +37,171 @@ class ErrorCode:
 
 @dataclasses.dataclass
 class Error:
-    """Object describing error."""
+    """Object containing details of the single error.
 
-    #: Location of the error.
+    It is used for both parsing and validation stages of the model
+    processing.
+    """
+
+    #: Location of the value in the model tree.
     loc: Loc
 
     #: Error code.
+    #:
+    #: This is a short string that precisely identifies the problem. It does
+    #: not depend on the model or the field that is being processed.
     code: str
 
-    #: Optional error data, with format depending on the :attr:`code`.
-    data: Optional[dict] = None
-
     #: Formatted error message.
-    msg: Optional[str] = None
+    #:
+    #: Contains human-readable error description based on :attr:`code` and
+    #: :attr:`data`.
+    msg: str
+
+    #: Value for which this error is reported.
+    value: Any = Unset
+
+    #: Additional error data.
+    #:
+    #: This is closely related to the :attr:`code` and along with it can be
+    #: used to render custom error messages.
+    data: dict = dataclasses.field(default_factory=dict)
 
 
-def get_builtin_error_creator() -> IErrorCreator:
-    """Get error creator function for built-in types."""
+class ErrorFactory:
+    """Factory class for creating built-in errors."""
 
-    def create_unknown_datetime_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        supported_formats = cast(Tuple[str], data["supported_formats"])
-        return Error(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, data, f"unknown datetime format; supported formats are: {', '.join(supported_formats)}")
+    @staticmethod
+    def invalid_literal(loc: Loc, allowed_values: Sequence):
+        return Error(loc, ErrorCode.INVALID_LITERAL, "", data={"allowed_values": tuple(allowed_values)})
 
-    def create_invalid_enum(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        allowed_values = cast(tuple, data["allowed_values"])
-        msg = f"not a valid enum; allowed values are: {', '.join(repr(x) for x in allowed_values)}"
-        return Error(loc, ErrorCode.INVALID_ENUM, data, msg)
+    @staticmethod
+    def unsupported_type(loc: Loc, supported_types: Sequence[type]):
+        return Error(loc, ErrorCode.UNSUPPORTED_TYPE, "", data={"supported_types": tuple(supported_types)})
 
-    def create_invalid_literal(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        allowed_values = cast(tuple, data["allowed_values"])
-        msg = f"not a valid literal; allowed values are: {', '.join(repr(x) for x in allowed_values)}"
-        return Error(loc, ErrorCode.INVALID_LITERAL, data, msg)
+    @staticmethod
+    def required_missing(loc: Loc):
+        return Error(loc, ErrorCode.REQUIRED_MISSING, "this field is required")
 
-    def create_invalid_model(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        model_type = cast(type, data["model_type"])
-        msg = f"not a valid {model_type.__name__!r} model value; need either a mapping, or an instance of {model_type.__name__!r} model"
-        return Error(loc, ErrorCode.INVALID_MODEL, data, msg)
+    @staticmethod
+    def value_error(loc: Loc, msg: str):
+        return Error(loc, ErrorCode.VALUE_ERROR, msg)
 
-    def create_unicode_decode_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        codec = cast(str, data["codec"])
-        return Error(loc, ErrorCode.UNICODE_DECODE_ERROR, data, f"could not decode value using {codec!r} codec")
+    @staticmethod
+    def integer_required(loc: Loc):
+        return Error(loc, ErrorCode.INTEGER_REQUIRED, "not a valid integer number")
 
-    def create_unsupported_type_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        supported_types = cast(Tuple[type], data["supported_types"])
-        msg = f"value of unsupported type given; supported types are: {', '.join(repr(x) for x in supported_types)}"
-        return Error(loc, ErrorCode.UNSUPPORTED_TYPE, data, msg)
-
-    def create_invalid_tuple_format_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        expected_format = cast(tuple, data["expected_format"])
-        msg = f"invalid format of a tuple value; expected format is: {expected_format!r}"
-        return Error(loc, ErrorCode.INVALID_TUPLE_FORMAT, data, msg)
-
-    def create_value_too_low_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        min_inclusive = data.get("min_inclusive")
-        min_exclusive = data.get("min_exclusive")
-        msg = "value must be"
+    @staticmethod
+    def value_too_low(loc: Loc, min_inclusive=None, min_exclusive=None):
         if min_inclusive is not None:
-            msg = f"{msg} >= {min_inclusive}"
+            msg, data = f"value must be >= {min_inclusive}", {"min_inclusive": min_inclusive}
         elif min_exclusive is not None:
-            msg = f"{msg} > {min_exclusive}"
-        return Error(loc, ErrorCode.VALUE_TOO_LOW, data, msg)
+            msg, data = f"value must be > {min_exclusive}", {"min_exclusive": min_exclusive}
+        else:
+            raise TypeError("one of the following arguments is required: min_inclusive, min_exclusive")
+        return Error(loc, ErrorCode.VALUE_TOO_LOW, msg, data=data)
 
-    def create_value_too_high_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        max_inclusive = data.get("max_inclusive")
-        max_exclusive = data.get("max_exclusive")
-        msg = "value must be"
+    @staticmethod
+    def value_too_high(loc: Loc, max_inclusive=None, max_exclusive=None):
         if max_inclusive is not None:
-            msg = f"{msg} <= {max_inclusive}"
+            msg, data = f"value must be <= {max_inclusive}", {"max_inclusive": max_inclusive}
         elif max_exclusive is not None:
-            msg = f"{msg} < {max_exclusive}"
-        return Error(loc, ErrorCode.VALUE_TOO_HIGH, data, msg)
+            msg, data = f"value must be < {max_exclusive}", {"max_exclusive": max_exclusive}
+        else:
+            raise TypeError("one of the following arguments is required: max_inclusive, max_exclusive")
+        return Error(loc, ErrorCode.VALUE_TOO_HIGH, msg, data=data)
 
-    def create_value_too_short_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        min_length = data["min_length"]
-        return Error(loc, ErrorCode.VALUE_TOO_SHORT, data, f"value too short; minimum length is {min_length}")
+    @staticmethod
+    def invalid_tuple_format(loc: Loc, expected_format: Sequence[type]) -> Error:
+        return Error(loc, ErrorCode.INVALID_TUPLE_FORMAT, "", data={"expected_format": tuple(expected_format)})
 
-    def create_value_too_long_error(loc: Loc, data: Optional[dict]) -> Error:
-        assert data is not None
-        max_length = data["max_length"]
-        return Error(loc, ErrorCode.VALUE_TOO_LONG, data, f"value too long; maximum length is {max_length}")
+    @staticmethod
+    def float_required(loc: Loc):
+        return Error(loc, ErrorCode.FLOAT_REQUIRED, "not a valid float number")
 
-    def create_error(loc: Loc, code: str, data: Optional[dict]=None) -> Error:
-        if code == ErrorCode.REQUIRED_MISSING:
-            return Error(loc, code, data, "this field is required")
-        if code == ErrorCode.NONE_REQUIRED:
-            return Error(loc, code, data, "not a None value")
-        if code == ErrorCode.INTEGER_REQUIRED:
-            return Error(loc, code, data, "not a valid integer number")
-        if code == ErrorCode.FLOAT_REQUIRED:
-            return Error(loc, code, data, "not a valid float number")
-        if code == ErrorCode.STRING_REQUIRED:
-            return Error(loc, code, data, "not a valid string value")
-        if code == ErrorCode.BYTES_REQUIRED:
-            return Error(loc, code, data, "not a valid bytes value")
-        if code == ErrorCode.BOOLEAN_REQUIRED:
-            return Error(loc, code, data, "not a valid boolean value")
-        if code == ErrorCode.DATETIME_REQUIRED:
-            return Error(loc, code, data, "not a valid datetime value")
-        if code == ErrorCode.MAPPING_REQUIRED:
-            return Error(loc, code, data, "not a valid mapping value")
-        if code == ErrorCode.ITERABLE_REQUIRED:
-            return Error(loc, code, data, "not a valid iterable value")
-        if code == ErrorCode.HASHABLE_REQUIRED:
-            return Error(loc, code, data, "not a valid hashable value")
-        if code == ErrorCode.UNKNOWN_DATETIME_FORMAT:
-            return create_unknown_datetime_error(loc, data)
-        if code == ErrorCode.INVALID_ENUM:
-            return create_invalid_enum(loc, data)
-        if code == ErrorCode.INVALID_LITERAL:
-            return create_invalid_literal(loc, data)
-        if code == ErrorCode.INVALID_MODEL:
-            return create_invalid_model(loc, data)
-        if code == ErrorCode.UNICODE_DECODE_ERROR:
-            return create_unicode_decode_error(loc, data)
-        if code == ErrorCode.UNSUPPORTED_TYPE:
-            return create_unsupported_type_error(loc, data)
-        if code == ErrorCode.INVALID_TUPLE_FORMAT:
-            return create_invalid_tuple_format_error(loc, data)
-        if code == ErrorCode.VALUE_TOO_LOW:
-            return create_value_too_low_error(loc, data)
-        if code == ErrorCode.VALUE_TOO_HIGH:
-            return create_value_too_high_error(loc, data)
-        if code == ErrorCode.VALUE_TOO_SHORT:
-            return create_value_too_short_error(loc, data)
-        if code == ErrorCode.VALUE_TOO_LONG:
-            return create_value_too_long_error(loc, data)
-        return Error(loc, code, data)
+    @staticmethod
+    def string_required(loc: Loc):
+        return Error(loc, ErrorCode.STRING_REQUIRED, "not a valid string value")
 
-    return create_error
+    @staticmethod
+    def mapping_required(loc: Loc):
+        return Error(loc, ErrorCode.MAPPING_REQUIRED, "not a valid mapping value")
+
+    @staticmethod
+    def hashable_required(loc: Loc):
+        return Error(loc, ErrorCode.HASHABLE_REQUIRED, "not a valid hashable value")
+
+    @staticmethod
+    def invalid_model(loc: Loc, model: Any):
+        return Error(loc, ErrorCode.INVALID_MODEL, "")
+
+    @staticmethod
+    def value_too_short(loc: Loc, min_length: int):
+        return Error(
+            loc,
+            ErrorCode.VALUE_TOO_SHORT,
+            f"value too short; minimum length is {min_length}",
+            data={"min_length": min_length},
+        )
+
+    @staticmethod
+    def value_too_long(loc: Loc, max_length: int):
+        return Error(
+            loc,
+            ErrorCode.VALUE_TOO_LONG,
+            f"value too long; maximum length is {max_length}",
+            data={"max_length": max_length},
+        )
+
+    @staticmethod
+    def type_error(loc: Loc, msg: str):
+        return Error(loc, ErrorCode.TYPE_ERROR, msg)
+
+    @staticmethod
+    def none_required(loc: Loc):
+        return Error(loc, ErrorCode.NONE_REQUIRED, "this field can only be set to None")
+
+    @staticmethod
+    def bytes_required(loc: Loc):
+        return Error(loc, ErrorCode.BYTES_REQUIRED, "this field can only be assigned with bytes")
+
+    @staticmethod
+    def unicode_decode_error(loc: Loc, codec: str):
+        return Error(loc, ErrorCode.UNICODE_DECODE_ERROR, "", data={"codec": codec})
+
+    @staticmethod
+    def boolean_required(loc: Loc):
+        return Error(loc, ErrorCode.BOOLEAN_REQUIRED, "not a valid boolean value")
+
+    @staticmethod
+    def datetime_required(loc: Loc):
+        return Error(loc, ErrorCode.DATETIME_REQUIRED, "not a valid datetime value")
+
+    @staticmethod
+    def unsupported_datetime_format(loc: Loc, supported_formats: Sequence[str]):
+        supported_formats_str = ", ".join(supported_formats)
+        return Error(
+            loc,
+            ErrorCode.UNSUPPORTED_DATETIME_FORMAT,
+            f"unsupported datetime format; supported formats are: {supported_formats_str}",
+            data={"supported_formats": tuple(supported_formats)},
+        )
+
+    @staticmethod
+    def invalid_enum(loc: Loc, typ: type[Enum]):
+        typ_str = ", ".join(repr(x) for x in cast(Iterable, typ))
+        return Error(
+            loc,
+            ErrorCode.INVALID_ENUM,
+            f"unsupported enumerated value; supported ones are: {typ_str}",
+            data={"typ": typ},
+        )
+
+    @staticmethod
+    def iterable_required(loc: Loc) -> Error:
+        """Create error signalling that iterable value is required.
+
+        :param loc:
+            The location of the error.
+        """
+        return Error(loc, ErrorCode.ITERABLE_REQUIRED, "not a valid iterable value")

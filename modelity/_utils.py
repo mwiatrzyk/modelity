@@ -1,15 +1,15 @@
-from typing import Any, Callable, Iterable, Optional, Type, TypeVar
+from typing import Callable, Optional, Sequence, TypeVar
 
 T = TypeVar("T")
 
 
-def is_subsequence(candidate: Iterable, seq: Iterable) -> bool:
+def is_subsequence(candidate: Sequence, seq: Sequence) -> bool:
     """Check if ``candidate`` is a subsequence of sequence ``seq``."""
     it = iter(seq)
     return all(element in it for element in candidate)
 
 
-def format_signature(sig: Iterable[str]) -> str:
+def format_signature(sig: Sequence[str]) -> str:
     """Format function's signature to string."""
     return f"({', '.join(sig)})"
 

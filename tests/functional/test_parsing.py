@@ -273,7 +273,7 @@ class TestDateTimeParser:
         assert result.value == given
         assert result.errors == tuple(
             [
-                ErrorFactoryHelper.unknown_datetime_format(
+                ErrorFactoryHelper.unsupported_datetime_format(
                     loc,
                     supported_formats=(
                         "Y-m-dTH:M:S",
@@ -320,14 +320,7 @@ class TestEnumParser:
         result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == tuple(
-            [
-                ErrorFactoryHelper.invalid_enum(
-                    loc,
-                    allowed_values=(self.Dummy.FOO, self.Dummy.BAR, self.Dummy.BAZ),
-                )
-            ]
-        )
+        assert result.errors == tuple([ErrorFactoryHelper.invalid_enum(loc, self.Dummy)])
 
 
 class TestLiteralParser:
@@ -347,13 +340,13 @@ class TestLiteralParser:
             (Literal["foo"], "bar", ["foo"]),
         ],
     )
-    def test_parsing_fails_if_input_value_is_out_of_literal_range(self, parser: IParser, loc, config, given, supported_values):
+    def test_parsing_fails_if_input_value_is_out_of_literal_range(
+        self, parser: IParser, loc, config, given, supported_values
+    ):
         result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == given
-        assert result.errors == tuple(
-            [ErrorFactoryHelper.invalid_literal(loc, allowed_values=tuple(supported_values))]
-        )
+        assert result.errors == tuple([ErrorFactoryHelper.invalid_literal(loc, allowed_values=tuple(supported_values))])
 
 
 class TestAnnotated:
@@ -405,7 +398,9 @@ class TestAnnotated:
             ),
         ],
     )
-    def test_parsing_fails_if_input_value_is_invalid(self, parser: IParser, given, invalid_value, loc, config, expected_error):
+    def test_parsing_fails_if_input_value_is_invalid(
+        self, parser: IParser, given, invalid_value, loc, config, expected_error
+    ):
         result = parser(given, loc, config)
         assert isinstance(result, Invalid)
         assert result.value == invalid_value

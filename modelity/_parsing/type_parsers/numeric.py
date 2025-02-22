@@ -1,7 +1,7 @@
 from numbers import Number
 from typing import Any, Type, Union, cast
 
-from modelity.error import ErrorCode
+from modelity.error import Error, ErrorCode
 from modelity.invalid import Invalid
 from modelity.interface import IConfig, IConfig
 from modelity.providers import TypeParserProvider
@@ -16,7 +16,7 @@ def make_int_parser():
         try:
             return int(value)
         except (ValueError, TypeError):
-            return Invalid(value, config.create_error(loc, ErrorCode.INTEGER_REQUIRED))
+            return Invalid(value, Error(loc, ErrorCode.INTEGER_REQUIRED, "not a valid integer number"))
 
     return parse_int
 
@@ -28,7 +28,7 @@ def make_float_parser():
         try:
             return float(value)
         except (ValueError, TypeError):
-            return Invalid(value, config.create_error(loc, ErrorCode.FLOAT_REQUIRED))
+            return Invalid(value, Error(loc, ErrorCode.FLOAT_REQUIRED, "not a valid float number"))
 
     return parse_float
 

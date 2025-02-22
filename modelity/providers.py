@@ -112,6 +112,7 @@ class CachingTypeParserProviderProxy:
     :param target:
         The target provider.
     """
+
     __slots__ = ("_target", "_cache")
 
     def __init__(self, target: ITypeParserProvider):

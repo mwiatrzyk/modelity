@@ -1,6 +1,6 @@
 from typing import Generic, Optional, Sized, Union, TypeVar
 
-from modelity.error import ErrorCode
+from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IConfig, IInvalid, ISupportsLessEqual
@@ -60,9 +60,25 @@ class MinValue(Generic[T]):
 
     def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, IInvalid]:
         if self.min_inclusive is not None and value < self.min_inclusive:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LOW, {"min_inclusive": self.min_inclusive}))
+            return Invalid(
+                value,
+                Error(
+                    loc,
+                    ErrorCode.VALUE_TOO_LOW,
+                    f"value must be >= {self.min_inclusive}",
+                    data={"min_inclusive": self.min_inclusive},
+                ),
+            )
         if self.min_exclusive is not None and value <= self.min_exclusive:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LOW, {"min_exclusive": self.min_exclusive}))
+            return Invalid(
+                value,
+                Error(
+                    loc,
+                    ErrorCode.VALUE_TOO_LOW,
+                    f"value must be > {self.min_exclusive}",
+                    data={"min_exclusive": self.min_exclusive},
+                ),
+            )
         return value
 
 
@@ -119,9 +135,25 @@ class MaxValue(Generic[T]):
 
     def __call__(self, value: T, loc: Loc, config: IConfig) -> Union[T, IInvalid]:
         if self.max_inclusive is not None and value > self.max_inclusive:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_HIGH, {'max_inclusive': self.max_inclusive}))
+            return Invalid(
+                value,
+                Error(
+                    loc,
+                    ErrorCode.VALUE_TOO_HIGH,
+                    f"value must be <= {self.max_inclusive}",
+                    data={"max_inclusive": self.max_inclusive},
+                ),
+            )
         if self.max_exclusive is not None and value >= self.max_exclusive:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_HIGH, {'max_exclusive': self.max_exclusive}))
+            return Invalid(
+                value,
+                Error(
+                    loc,
+                    ErrorCode.VALUE_TOO_HIGH,
+                    f"value must be < {self.max_exclusive}",
+                    data={"max_exclusive": self.max_exclusive},
+                ),
+            )
         return value
 
 
@@ -168,7 +200,7 @@ class MinLength:
 
     def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, IInvalid]:
         if len(value) < self.min_length:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_SHORT, {'min_length': self.min_length}))
+            return Invalid(value, ErrorFactory.value_too_short(loc, self.min_length))
         return value
 
 
@@ -215,5 +247,5 @@ class MaxLength:
 
     def __call__(self, value: Sized, loc: Loc, config: IConfig) -> Union[Sized, IInvalid]:
         if len(value) > self.max_length:
-            return Invalid(value, config.create_error(loc, ErrorCode.VALUE_TOO_LONG, {'max_length': self.max_length}))
+            return Invalid(value, ErrorFactory.value_too_long(loc, self.max_length))
         return value

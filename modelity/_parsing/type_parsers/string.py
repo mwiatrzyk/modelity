@@ -1,4 +1,4 @@
-from modelity.error import ErrorCode
+from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.interface import IConfig
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
@@ -16,8 +16,8 @@ def make_string_parser():
             try:
                 return value.decode()
             except UnicodeDecodeError:
-                return Invalid(value, config.create_error(loc, ErrorCode.UNICODE_DECODE_ERROR, {"codec": "utf-8"}))
-        return Invalid(value, config.create_error(loc, ErrorCode.STRING_REQUIRED))
+                return Invalid(value, ErrorFactory.unicode_decode_error(loc, "utf-8"))
+        return Invalid(value, ErrorFactory.string_required(loc))
 
     return parse_string
 
@@ -30,6 +30,6 @@ def make_bytes_parser():
             return value
         if isinstance(value, str):
             return value.encode()
-        return Invalid(value, config.create_error(loc, ErrorCode.BYTES_REQUIRED))
+        return Invalid(value, ErrorFactory.bytes_required(loc))
 
     return parse_bytes

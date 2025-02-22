@@ -1,11 +1,11 @@
 class UnsetType:
-    """Type for representing unset values.
+    """Singleton type for representing unset or undefined values.
 
-    Modelity keeps clean separation between values that are not set, and values
-    that are f.e. set to ``None`` and this type is used to enforce that.
+    It has only one global instance to allow fast is-a tests in the code and
+    always evaluates to ``False``.
     """
 
-    __slots__: tuple = tuple()
+    __slots__ = tuple()
 
     _instance = None
 
@@ -21,5 +21,5 @@ class UnsetType:
         return False
 
 
-#: Singleton instance of the UnsetType
+#: Singleton instance of the UnsetType.
 Unset = UnsetType()

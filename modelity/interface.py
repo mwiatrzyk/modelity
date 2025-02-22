@@ -40,7 +40,7 @@ class IDumpFilter(Protocol):
         """
 
 
-class IError(Protocol):
+class IError(Protocol):  # XXX: To be removed...
     """Protocol specifying error object."""
 
     #: Location of the error.
@@ -149,7 +149,7 @@ class ITypeParserFactory(Protocol, Generic[T]):
 class IErrorCreator(Protocol):
     """Protocol specifying error factory function."""
 
-    def __call__(self, loc: Loc, code: str, data: Optional[dict]=None) -> IError:
+    def __call__(self, loc: Loc, code: str, data: Optional[dict] = None) -> IError:
         """Create error object.
 
         :param loc:

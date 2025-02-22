@@ -1,4 +1,4 @@
-from modelity.error import ErrorCode
+from modelity.error import Error, ErrorCode
 from modelity.interface import IConfig
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
@@ -17,6 +17,6 @@ def make_bool_parser():
             return True
         if value in _FALSE_VALUES:
             return False
-        return Invalid(value, config.create_error(loc, ErrorCode.BOOLEAN_REQUIRED))
+        return Invalid(value, Error(loc, ErrorCode.BOOLEAN_REQUIRED, "not a valid boolean value"))
 
     return parse_bool

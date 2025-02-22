@@ -135,13 +135,13 @@ required fields are missing:
         ...
     modelity.exc.ValidationError: validation of model 'Book' failed with 4 error(-s):
       author:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
       publisher:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
       title:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
       year:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
 
 Setting and getting fields
 --------------------------
@@ -177,7 +177,7 @@ complain about it by raising :exc:`modelity.exc.ParsingError` exception:
         ...
     modelity.exc.ParsingError: parsing failed with 1 error(-s):
       author:
-        not a valid string value [code=modelity.StringRequired, data=None]
+        not a valid string value [code=modelity.StringRequired, data={}]
 
 And the field will still have previous value set:
 
@@ -375,9 +375,9 @@ to be accepted:
         ...
     modelity.exc.ValidationError: validation of model 'Book' failed with 2 error(-s):
       publisher:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
       year:
-        this field is required [code=modelity.RequiredMissing, data=None]
+        this field is required [code=modelity.RequiredMissing, data={}]
 
 Now, thanks to the :exc:`modelity.exc.ValidationError` exception being raised,
 the user will be informed that the form is still missing 2 required fields:

@@ -175,11 +175,15 @@ class TestCachingTypeParserProvider:
     def model_config(self, uut: ITypeParserProvider):
         return Config(type_parser_provider=uut)
 
-    def test_when_parser_created_for_the_first_time_then_use_target_to_find_provider(self, uut: UUT, mock, model_config):
+    def test_when_parser_created_for_the_first_time_then_use_target_to_find_provider(
+        self, uut: UUT, mock, model_config
+    ):
         mock.provide_type_parser.expect_call(int, model_config).will_once(Return(mock.parse_int))
         assert uut.provide_type_parser(int, model_config) is mock.parse_int
 
-    def test_when_parser_created_for_the_second_time_then_reuse_parser_created_earlier(self, uut: UUT, mock, model_config):
+    def test_when_parser_created_for_the_second_time_then_reuse_parser_created_earlier(
+        self, uut: UUT, mock, model_config
+    ):
         mock.provide_type_parser.expect_call(int, model_config).will_once(Return(mock.parse_int))
         assert uut.provide_type_parser(int, model_config) is mock.parse_int
         assert uut.provide_type_parser(int, model_config) is mock.parse_int

@@ -1,6 +1,6 @@
 import typing
 
-from modelity.error import ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.interface import IConfig, IConfig
 from modelity.providers import TypeParserProvider
@@ -19,7 +19,7 @@ def make_union_parser(tp: typing.Any, model_config: IConfig):
             result = parser(value, loc, config)
             if not isinstance(result, Invalid):
                 return result
-        return Invalid(value, config.create_error(loc, ErrorCode.UNSUPPORTED_TYPE, {"supported_types": supported_types}))
+        return Invalid(value, ErrorFactory.unsupported_type(loc, supported_types))
 
     supported_types = typing.get_args(tp)
     provide_type_parser = model_config.type_parser_provider.provide_type_parser

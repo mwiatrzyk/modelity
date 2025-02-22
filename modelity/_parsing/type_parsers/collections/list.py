@@ -1,7 +1,7 @@
 import itertools
 from typing import Iterable, Type, get_args
 
-from modelity.error import ErrorCode
+from modelity.error import ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IConfig, IConfig
@@ -16,12 +16,12 @@ def make_list_parser(tp: Type[list], model_config: IConfig):
 
     def parse_any_list(value, loc, config: IConfig):
         if not isinstance(value, Iterable):
-            return Invalid(value, config.create_error(loc, ErrorCode.ITERABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.iterable_required(loc))
         return list(value)
 
     def parse_typed_list(value, loc, config: IConfig):
         if not isinstance(value, Iterable):
-            return Invalid(value, config.create_error(loc, ErrorCode.ITERABLE_REQUIRED))
+            return Invalid(value, ErrorFactory.iterable_required(loc))
         result = list(item_parser(x, loc + Loc(i), config) for i, x in enumerate(value))
         errors = tuple(itertools.chain(*(x.errors for x in result if isinstance(x, Invalid))))
         if len(errors) > 0:

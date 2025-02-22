@@ -1,6 +1,6 @@
 import datetime
 
-from modelity.error import ErrorCode
+from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.interface import IConfig
 from modelity.invalid import Invalid
 from modelity.providers import TypeParserProvider
@@ -15,15 +15,13 @@ def make_datetime_parser():
         if isinstance(value, datetime.datetime):
             return value
         if not isinstance(value, str):
-            return Invalid(value, config.create_error(loc, ErrorCode.DATETIME_REQUIRED))
+            return Invalid(value, ErrorFactory.datetime_required(loc))
         for format_ in supported_formats:
             try:
                 return datetime.datetime.strptime(value, format_)
             except ValueError:
                 pass
-        return Invalid(
-            value, config.create_error(loc, ErrorCode.UNKNOWN_DATETIME_FORMAT, {"supported_formats": supported_formats_human_readable})
-        )
+        return Invalid(value, ErrorFactory.unsupported_datetime_format(loc, supported_formats_human_readable))
 
     supported_formats = (
         "%Y-%m-%dT%H:%M:%S",

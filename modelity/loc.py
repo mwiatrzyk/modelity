@@ -1,38 +1,56 @@
-import collections.abc
-
-from typing import Any, Union
+from typing import Any, Sequence, Union, cast
 
 
-class Loc(collections.abc.Iterable):
-    """Object used to keep error location."""
+class Loc(Sequence):
+    """Class for storing location of the field in the model tree.
+
+    This is basically a :class:`tuple`-like type but with some addons and
+    customizations.
+
+    Examples:
+
+    >>> from modelity.loc import Loc
+    >>> root = Loc("root")
+    >>> nested = root + Loc("nested")
+    >>> nested
+    Loc('root', 'nested')
+    >>> nested += Loc(0)
+    >>> nested
+    Loc('root', 'nested', 0)
+    >>> str(nested)
+    'root.nested.0'
+    >>> nested[0]
+    'root'
+    >>> nested[-1]
+    0
+    """
 
     __slots__ = ("_path",)
 
     def __init__(self, *path: Any):
         self._path = path
 
-    def __iter__(self) -> collections.abc.Iterator:
-        return iter(self._path)
-
-    def __getitem__(self, index: Union[int, slice]) -> Any:
-        return self._path[index]
-
     def __repr__(self) -> str:
-        return f"Loc({', '.join(repr(x) for x in self._path)})"
+        return f"{self.__class__.__qualname__}({', '.join(repr(x) for x in self._path)})"
 
     def __str__(self) -> str:
         return ".".join(str(x) for x in self)
 
+    def __getitem__(self, index):
+        return self._path[index]
+
+    def __len__(self) -> int:
+        return len(self._path)
+
     def __lt__(self, value: object) -> bool:
-        if not isinstance(value, Loc):
-            return False
-        return self._path < value._path
+        if self.__class__ is not value.__class__:
+            return NotImplemented
+        return self._path < cast(Loc, value)._path
 
     def __eq__(self, value: object) -> bool:
-        return isinstance(value, Loc) and self._path == value._path
-
-    def __ne__(self, value: object) -> bool:
-        return not self.__eq__(value)
+        if self.__class__ is not value.__class__:
+            return NotImplemented
+        return self._path == cast(Loc, value)._path
 
     def __add__(self, other: "Loc") -> "Loc":
         return Loc(*(self._path + other._path))

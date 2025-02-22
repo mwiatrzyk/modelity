@@ -22,7 +22,7 @@ from typing import (
 from typing_extensions import dataclass_transform
 
 from modelity import _utils
-from modelity.error import ErrorCode, Error, IErrorCreator, get_builtin_error_creator
+from modelity.error import ErrorCode, Error, ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.field import BoundField, Field
 from modelity.invalid import Invalid
@@ -100,11 +100,12 @@ def _wrap_field_processor(func: Callable):
         try:
             result = func(**kw)
         except ValueError as e:
-            return Invalid(value, Error(loc, ErrorCode.VALUE_ERROR, msg=str(e)))  # TODO: config.create_error
+            return Invalid(value, ErrorFactory.value_error(loc, str(e)))
         except TypeError as e:
-            return Invalid(value, Error(loc, ErrorCode.TYPE_ERROR, msg=str(e)))
+            print(e)
+            return Invalid(value, ErrorFactory.type_error(loc, str(e)))
         if isinstance(result, Invalid):
-            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.data, e.msg) for e in result.errors))
+            return Invalid(result.value, *(Error(loc + e.loc, e.code, e.msg, data=e.data) for e in result.errors))
         return result
 
     sig = inspect.signature(func)
@@ -168,7 +169,7 @@ def _validate_model(obj: "Model", loc: Loc, errors: List[IError], root: "Model",
         value = getattr(obj, name)
         if value is Unset:
             if field_info.is_required():
-                errors.append(config.create_error(field_loc, ErrorCode.REQUIRED_MISSING))
+                errors.append(Error(field_loc, ErrorCode.REQUIRED_MISSING, "this field is required"))
             continue
         for constraint in field_info.constraints:
             check_result = constraint(value, field_loc, config)
@@ -512,9 +513,6 @@ class Config:
     type_parser_provider: ITypeParserProvider = dataclasses.field(
         default_factory=lambda: CachingTypeParserProviderProxy(get_builtin_type_parser_provider())
     )
-
-    #: Error creating function.
-    create_error: IErrorCreator = dataclasses.field(default_factory=lambda: get_builtin_error_creator())
 
     #: Placeholder for user-defined data.
     user_data: Optional[dict] = None

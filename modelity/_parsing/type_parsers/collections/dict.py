@@ -1,7 +1,7 @@
 import itertools
 from typing import Type, get_args
 
-from modelity.error import ErrorCode
+from modelity.error import ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IConfig, IConfig
@@ -18,7 +18,7 @@ def make_dict_parser(tp: Type[dict], model_config: IConfig):
         try:
             return dict(value)
         except TypeError:
-            return Invalid(value, config.create_error(loc, ErrorCode.MAPPING_REQUIRED))
+            return Invalid(value, ErrorFactory.mapping_required(loc))
 
     def parse_typed_dict(value, loc, config):
         result = parse_dict(value, loc, config)
