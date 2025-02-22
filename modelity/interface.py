@@ -1,7 +1,10 @@
 import abc
 from typing import Any, Iterator, Optional, Protocol, Tuple, Type, Union, TypeVar, Generic
 
+from modelity.error import Error
 from modelity.loc import Loc
+from modelity.unset import Unset, UnsetType
+
 
 T_co = TypeVar("T_co", covariant=True)
 T = TypeVar("T")
@@ -74,24 +77,26 @@ class IInvalid(Protocol):
 
 
 class IParser(Protocol, Generic[T_co]):
-    """Interface for type parsers."""
+    """Protocol specifying parsing function."""
 
     @abc.abstractmethod
-    def __call__(self, value: Any, loc: Loc, config: "IConfig") -> Union[T_co, IInvalid]:
-        """Try to parse given *value* of any type into instance of type *T*.
+    def __call__(self, errors: list[Error], loc: Loc, value: Any) -> Union[T_co, UnsetType]:
+        """Convert value of any type into instance of type *T_co*.
 
-        On success, object of type *T* is returned. On failure, :class:`Invalid`
-        object is returned.
+        When conversion is successful, then return converted value. Otherwise
+        return ``Unset`` value and fill *errors* list with the errors,
+        signalling that value processing has failed.
+
+        :param errors:
+            List of errors to populate if parsing fails.
+
+        :param loc:
+            The location of the value in the model.
 
         :param value:
             The value to be parsed.
-
-        :param loc:
-            The location of the value inside a model.
-
-        :param config:
-            Model config object.
         """
+        ...
 
 
 class ITypeParserProvider(Protocol):
@@ -220,3 +225,64 @@ class IModel(abc.ABC):
         :param loc:
             New root location.
         """
+
+
+### NEW STUFF
+
+
+class ITypeDescriptor(Protocol, Generic[T]):
+    """Protocol describing type.
+
+    This interface is used by Modelity internals to parse type, dump it and
+    validate.
+    """
+
+    def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[T, UnsetType]:
+        """Parse instance of type *T* from provided *value*.
+
+        If parsing is successful, then instance of type *T* is returned, with
+        value parsed from *value*.
+
+        If parsing failed, then ``Unset`` is returned and *errors* list is
+        populated with one or more error objects.
+
+        :param errors:
+            List of errors.
+
+            Can be modified by parser implementation.
+
+        :param loc:
+            The location of the *value* inside the model.
+
+        :param value:
+            The value to parse.
+        """
+        ...
+
+    def dump(self, loc: Loc, value: T) -> Any:
+        """Dump value of type *T* into closest JSON type: string, number,
+        boolean, boolean, array or object.
+
+        :param loc:
+            The location of the value inside the model.
+
+        :param value:
+            The value to be dumped.
+        """
+        ...
+
+    def validate(self, errors: list[Error], loc: Loc, value: T):
+        """Validate instance of this type inside a model.
+
+        :param errors:
+            List of errors to populate with validation errors (if any).
+
+        :param loc:
+            The location of the *value* inside the model.
+
+        :param value:
+            The value to validate.
+
+            It is guaranteed to be of type *T*.
+        """
+        ...

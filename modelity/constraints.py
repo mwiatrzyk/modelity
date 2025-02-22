@@ -1,11 +1,160 @@
-from typing import Generic, Optional, Sized, Union, TypeVar
+import re
+from typing import Any, Generic, Optional, Sized, Union, TypeVar
 
 from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.invalid import Invalid
 from modelity.loc import Loc
 from modelity.interface import IConfig, IInvalid, ISupportsLessEqual
+from modelity.unset import Unset
 
 T = TypeVar("T", bound=ISupportsLessEqual)
+
+
+class Ge:
+    """Minimum inclusive value constraint.
+
+    :param min_inclusive:
+        The minimum inclusive value.
+    """
+
+    #: The minimum inclusive value set for this constraint.
+    min_inclusive: Any
+
+    def __init__(self, min_inclusive):
+        self.min_inclusive = min_inclusive
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if value >= self.min_inclusive:
+            return value
+        errors.append(ErrorFactory.ge_failed(loc, value, self.min_inclusive))
+        return Unset
+
+
+class Gt:
+    """Minimum exclusive value constraint.
+
+    :param min_exclusive:
+        The minimum exclusive value.
+    """
+
+    #: The minimum exclusive value set for this constraint.
+    min_exclusive: Any
+
+    def __init__(self, min_exclusive):
+        self.min_exclusive = min_exclusive
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if value > self.min_exclusive:
+            return value
+        errors.append(ErrorFactory.gt_failed(loc, value, self.min_exclusive))
+        return Unset
+
+
+class Le:
+    """Maximum inclusive value constraint.
+
+    :param max_inclusive:
+        The maximum inclusive value.
+    """
+
+    #: The maximum inclusive value set for this constraint.
+    max_inclusive: Any
+
+    def __init__(self, max_inclusive):
+        self.max_inclusive = max_inclusive
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if value <= self.max_inclusive:
+            return value
+        errors.append(ErrorFactory.le_failed(loc, value, self.max_inclusive))
+        return Unset
+
+
+class Lt:
+    """Maximum exclusive value constraint.
+
+    :param max_exclusive:
+        The maximum exclusive value.
+    """
+
+    #: The maximum exclusive value set for this constraint.
+    max_exclusive: Any
+
+    def __init__(self, max_exclusive):
+        self.max_exclusive = max_exclusive
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if value < self.max_exclusive:
+            return value
+        errors.append(ErrorFactory.lt_failed(loc, value, self.max_exclusive))
+        return Unset
+
+
+class MinLen:
+    """Minimum length constraint.
+
+    :param min_len:
+        The minimum value length.
+    """
+
+    #: The minimum length.
+    min_len: int
+
+    def __init__(self, min_len: int):
+        self.min_len = min_len
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if len(value) >= self.min_len:
+            return value
+        errors.append(ErrorFactory.min_len_failed(loc, value, self.min_len))
+        return Unset
+
+
+class MaxLen:
+    """Maximum length constraint.
+
+    :param max_len:
+        The maximum value length.
+    """
+
+    #: The minimum length.
+    max_len: int
+
+    def __init__(self, max_len: int):
+        self.max_len = max_len
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        if len(value) <= self.max_len:
+            return value
+        errors.append(ErrorFactory.max_len_failed(loc, value, self.max_len))
+        return Unset
+
+
+class Regex:
+    """Regular expression constraint.
+
+    Allows values matching given regular expression and reject all other. Can
+    only operate on strings.
+
+    :param pattern:
+        Regular expression pattern.
+    """
+
+    def __init__(self, pattern: str):
+        self._compiled_pattern = re.compile(pattern)
+
+    @property
+    def pattern(self) -> str:
+        return self._compiled_pattern.pattern
+
+    def __call__(self, errors: list[Error], loc: Loc, value: str):
+        if self._compiled_pattern.match(value):
+            return value
+        errors.append(ErrorFactory.regex_failed(loc, value, self.pattern))
+        return Unset
+
+
+### XXX: Remaining to be removed...
 
 
 class MinValue(Generic[T]):

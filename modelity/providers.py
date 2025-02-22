@@ -3,7 +3,7 @@ import inspect
 from typing import Any, Callable, Dict, Iterator, Optional, Type, get_origin
 
 from modelity import _utils
-from modelity.exc import UnsupportedType
+from modelity.exc import UnsupportedTypeError
 from modelity.interface import T, IConfig, IParser, ITypeParserFactory, ITypeParserProvider
 
 
@@ -103,7 +103,7 @@ class TypeParserProvider:
         for maybe_base, make_parser in self._type_parser_factories.items():
             if isinstance(maybe_base, type) and issubclass(tp, maybe_base):
                 return make_parser(tp, model_config)
-        raise UnsupportedType(tp)
+        raise UnsupportedTypeError(tp)
 
 
 class CachingTypeParserProviderProxy:

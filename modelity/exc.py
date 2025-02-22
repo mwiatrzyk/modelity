@@ -74,19 +74,15 @@ class ValidationError(ModelError):
         return "\n".join(out)
 
 
-class UnsupportedType(ModelityError):
-    """Raised when model is declared with field of unsupported type.
+class UnsupportedTypeError(ModelityError):
+    """Raised when model is declared with a field of a type that is not
+    supported by the current version of Modelity library."""
 
-    Since Modelity uses lazy evaluation when it comes to type parser factory
-    lookup, this error may be raised in the runtime, not during model class
-    declaration.
-    """
-
-    __message_template__ = "unsupported type used: {self.tp!r}"
+    __message_template__ = "unsupported type used: {self.typ!r}"
 
     #: The type that is not supported.
-    tp: Type
+    typ: Type
 
-    def __init__(self, tp: Type):
+    def __init__(self, typ: Type):
         super().__init__()
-        self.tp = tp
+        self.typ = typ

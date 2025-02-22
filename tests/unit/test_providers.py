@@ -4,7 +4,7 @@ import pytest
 
 from mockify.api import Return
 
-from modelity.exc import UnsupportedType
+from modelity.exc import UnsupportedTypeError
 from modelity.interface import ITypeParserProvider
 from modelity.loc import Loc
 from modelity.model import Config
@@ -141,9 +141,9 @@ class TestTypeParserProvider:
         assert parser(child, Loc()) == child
 
     def test_provide_type_parser_fails_if_no_type_parser_factory_was_found(self, uut: TypeParserProvider, model_config):
-        with pytest.raises(UnsupportedType) as excinfo:
+        with pytest.raises(UnsupportedTypeError) as excinfo:
             uut.provide_type_parser(int, model_config)
-        assert excinfo.value.tp == int
+        assert excinfo.value.typ == int
 
     # def test_when_no_root_given_then_uut_is_passed_as_provider(self, uut: TypeParserProvider, mock):
 
