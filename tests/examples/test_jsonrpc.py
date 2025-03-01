@@ -1,20 +1,18 @@
 # Example models for the JSONRPC 2.0 protocol
 
-from numbers import Number
 from typing import Literal, Union
 
 import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, field, model_validator
+from modelity.model import Model, FieldInfo, model_validator, validate, dump
 from modelity.unset import Unset
-
-from tests.helpers import ErrorFactoryHelper
+from modelity.error import ErrorFactory
 
 JSONRPC = Literal["2.0"]
 
-PrimitiveType = Union[str, Number, bool, type(None)]
+PrimitiveType = Union[str, int, float, bool, type(None)]
 
 StructuredType = Union[list, dict]
 
@@ -26,7 +24,7 @@ ID = Union[str, int]
 class Notification(Model):
     jsonrpc: JSONRPC
     method: str
-    params: StructuredType = field(optional=True)
+    params: StructuredType = FieldInfo(optional=True)
 
 
 class Request(Notification):
@@ -36,19 +34,19 @@ class Request(Notification):
 class Error(Model):
     code: int
     message: str
-    data: AnyType = field(optional=True)
+    data: AnyType = FieldInfo(optional=True)
 
 
 class Response(Model):
     jsonrpc: JSONRPC
-    result: AnyType = field(optional=True)
-    error: Error = field(optional=True)
+    result: AnyType = FieldInfo(optional=True)
+    error: Error = FieldInfo(optional=True)
     id: ID
 
     @model_validator()
     def _validate_response(self):
         if self.result is Unset and self.error is Unset:
-            raise ValueError("neither 'error' nor 'result' field set")
+            raise ValueError("neither 'error' nor 'result' Field set")
         if self.result is not Unset and self.error is not Unset:
             raise ValueError("cannot set both 'error' and 'result' fields")
 
@@ -70,10 +68,10 @@ class TestNotification:
         ],
     )
     def test_load_and_dump(self, given_data: dict, expected_dump: dict):
-        notif = Notification.load(given_data)
-        notif.validate()
-        assert notif.dump() == expected_dump
-        assert Notification.load(notif.dump()) == notif
+        notif = Notification(**given_data)
+        validate(notif)
+        assert dump(notif) == expected_dump
+        assert Notification(**dump(notif)) == notif
 
     class TestFields:
 
@@ -90,7 +88,7 @@ class TestNotification:
         @pytest.mark.parametrize(
             "value, expected_errors",
             [
-                ("3.0", [ErrorFactoryHelper.invalid_literal(Loc("jsonrpc"), ("2.0",))]),
+                ("3.0", [ErrorFactory.value_out_of_range(Loc("jsonrpc"), "3.0", ("2.0",))]),
             ],
         )
         def test_jsonrpc_invalid(self, value, expected_errors):
@@ -124,8 +122,20 @@ class TestNotification:
         @pytest.mark.parametrize(
             "value, expected_errors",
             [
-                (123, [ErrorFactoryHelper.unsupported_type(Loc("params"), (list, dict))]),
-                (None, [ErrorFactoryHelper.unsupported_type(Loc("params"), (list, dict))]),
+                (
+                    123,
+                    [
+                        ErrorFactory.invalid_list(Loc("params"), 123),
+                        ErrorFactory.invalid_dict(Loc("params"), 123),
+                    ],
+                ),
+                (
+                    None,
+                    [
+                        ErrorFactory.invalid_list(Loc("params"), None),
+                        ErrorFactory.invalid_dict(Loc("params"), None),
+                    ],
+                ),
             ],
         )
         def test_params_invalid(self, value, expected_errors):
@@ -144,7 +154,7 @@ class TestNotification:
         ],
     )
     def test_create_valid_request_object(self, notif: Notification, expected_notif):
-        notif.validate()
+        validate(notif)
         assert notif == expected_notif
 
     @pytest.mark.parametrize(
@@ -153,15 +163,15 @@ class TestNotification:
             (
                 {},
                 [
-                    ErrorFactoryHelper.required_missing(Loc("jsonrpc")),
-                    ErrorFactoryHelper.required_missing(Loc("method")),
+                    ErrorFactory.required_missing(Loc("jsonrpc")),
+                    ErrorFactory.required_missing(Loc("method")),
                 ],
             ),
         ],
     )
     def test_create_invalid_request_object(self, notif: Notification, expected_errors):
         with pytest.raises(ValidationError) as excinfo:
-            notif.validate()
+            validate(notif)
         assert excinfo.value.model is notif
         assert excinfo.value.errors == tuple(expected_errors)
 
@@ -186,10 +196,10 @@ class TestRequest:
         ],
     )
     def test_load_and_dump(self, given_data: dict, expected_dump: dict):
-        request = Request.load(given_data)
-        request.validate()
-        assert request.dump() == expected_dump
-        assert Request.load(request.dump()) == request
+        request = Request(**given_data)
+        validate(request)
+        assert dump(request) == expected_dump
+        assert Request(**dump(request)) == request
 
     class TestFields:
 
@@ -216,7 +226,7 @@ class TestRequest:
         ],
     )
     def test_create_valid_request_object(self, req: Request, expected_req):
-        req.validate()
+        validate(req)
         assert req == expected_req
 
     @pytest.mark.parametrize(
@@ -225,16 +235,16 @@ class TestRequest:
             (
                 {},
                 [
-                    ErrorFactoryHelper.required_missing(Loc("jsonrpc")),
-                    ErrorFactoryHelper.required_missing(Loc("method")),
-                    ErrorFactoryHelper.required_missing(Loc("id")),
+                    ErrorFactory.required_missing(Loc("jsonrpc")),
+                    ErrorFactory.required_missing(Loc("method")),
+                    ErrorFactory.required_missing(Loc("id")),
                 ],
             ),
         ],
     )
     def test_create_invalid_request_object(self, req: Request, expected_errors):
         with pytest.raises(ValidationError) as excinfo:
-            req.validate()
+            validate(req)
         assert excinfo.value.model is req
         assert excinfo.value.errors == tuple(expected_errors)
 
@@ -272,7 +282,7 @@ class TestError:
         ],
     )
     def test_create_valid_object(self, obj: Error, expected_obj):
-        obj.validate()
+        validate(obj)
         assert obj == expected_obj
 
     @pytest.mark.parametrize(
@@ -281,15 +291,15 @@ class TestError:
             (
                 {},
                 [
-                    ErrorFactoryHelper.required_missing(Loc("code")),
-                    ErrorFactoryHelper.required_missing(Loc("message")),
+                    ErrorFactory.required_missing(Loc("code")),
+                    ErrorFactory.required_missing(Loc("message")),
                 ],
             ),
         ],
     )
     def test_create_invalid_object(self, obj: Error, expected_errors):
         with pytest.raises(ValidationError) as excinfo:
-            obj.validate()
+            validate(obj)
         assert excinfo.value.model is obj
         assert excinfo.value.errors == tuple(expected_errors)
 
@@ -311,7 +321,7 @@ class TestResponse:
         ],
     )
     def test_create_valid_object(self, obj: Response, expected_obj):
-        obj.validate()
+        validate(obj)
         assert obj == expected_obj
 
     @pytest.mark.parametrize(
@@ -320,32 +330,32 @@ class TestResponse:
             (
                 {},
                 [
-                    ErrorFactoryHelper.required_missing(Loc("jsonrpc")),
-                    ErrorFactoryHelper.required_missing(Loc("id")),
-                    ErrorFactoryHelper.value_error(Loc(), "neither 'error' nor 'result' field set"),
+                    ErrorFactory.required_missing(Loc("jsonrpc")),
+                    ErrorFactory.required_missing(Loc("id")),
+                    ErrorFactory.exception(Loc(), "neither 'error' nor 'result' Field set", ValueError),
                 ],
             ),
             (
                 {"jsonrpc": "2.0", "id": 1},
-                [ErrorFactoryHelper.value_error(Loc(), "neither 'error' nor 'result' field set")],
+                [ErrorFactory.exception(Loc(), "neither 'error' nor 'result' Field set", ValueError)],
             ),
             (
                 {"jsonrpc": "2.0", "id": 1, "error": {}},
                 [
-                    ErrorFactoryHelper.required_missing(Loc("error", "code")),
-                    ErrorFactoryHelper.required_missing(Loc("error", "message")),
+                    ErrorFactory.required_missing(Loc("error", "code")),
+                    ErrorFactory.required_missing(Loc("error", "message")),
                 ],
             ),
             (
                 {"jsonrpc": "2.0", "id": 1, "error": {"code": 1, "message": "a message"}, "result": None},
                 [
-                    ErrorFactoryHelper.value_error(Loc(), "cannot set both 'error' and 'result' fields"),
+                    ErrorFactory.exception(Loc(), "cannot set both 'error' and 'result' fields", ValueError),
                 ],
             ),
         ],
     )
     def test_create_invalid_object(self, obj: Response, expected_errors):
         with pytest.raises(ValidationError) as excinfo:
-            obj.validate()
+            validate(obj)
         assert excinfo.value.model is obj
         assert excinfo.value.errors == tuple(expected_errors)

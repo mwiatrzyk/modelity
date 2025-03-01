@@ -1,4 +1,5 @@
 import pytest
+
 from modelity.loc import Loc
 
 
@@ -28,22 +29,28 @@ class TestLoc:
     def test_str(self, uut, expected_str):
         assert str(uut) == expected_str
 
-    # @pytest.mark.parametrize("uut, index, expected", [
-    #     (Loc(1), 0, 1),
-    #     (Loc("spam"), 0, "spam"),
-    #     (Loc("spam", "bar", 1, "baz"), 2, 1),
-    # ])
-    # def test_getitem(self, uut, index, expected):
-    #     assert uut[index] == expected
+    @pytest.mark.parametrize(
+        "uut, index, expected",
+        [
+            (Loc(1), 0, 1),
+            (Loc("spam"), 0, "spam"),
+            (Loc("spam", "bar", 1, "baz"), 2, 1),
+        ],
+    )
+    def test_getitem(self, uut, index, expected):
+        assert uut[index] == expected
 
-    # @pytest.mark.parametrize("uut, expected", [
-    #     (Loc(), 0),
-    #     (Loc("foo"), 1),
-    #     (Loc("spam"), 1),
-    #     (Loc("foo", "bar", 2), 3),
-    # ])
-    # def test_len(self, uut, expected):
-    #     assert len(uut) == expected
+    @pytest.mark.parametrize(
+        "uut, expected",
+        [
+            (Loc(), 0),
+            (Loc("foo"), 1),
+            (Loc("spam"), 1),
+            (Loc("foo", "bar", 2), 3),
+        ],
+    )
+    def test_len(self, uut, expected):
+        assert len(uut) == expected
 
     @pytest.mark.parametrize(
         "left, right, is_equal",

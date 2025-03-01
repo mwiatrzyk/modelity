@@ -9,6 +9,16 @@ def is_subsequence(candidate: Sequence, seq: Sequence) -> bool:
     return all(element in it for element in candidate)
 
 
+def is_neither_str_nor_bytes_sequence(obj: object) -> bool:
+    """Check if the object is a sequence that is neither string, nor bytes
+    instance.
+
+    :param obj:
+        The object to check.
+    """
+    return isinstance(obj, Sequence) and not isinstance(obj, (str, bytes))
+
+
 def format_signature(sig: Sequence[str]) -> str:
     """Format function's signature to string."""
     return f"({', '.join(sig)})"

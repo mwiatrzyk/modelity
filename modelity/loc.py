@@ -54,3 +54,8 @@ class Loc(Sequence):
 
     def __add__(self, other: "Loc") -> "Loc":
         return Loc(*(self._path + other._path))
+
+    @property
+    def last(self) -> Any:
+        """Return last component of the location."""
+        return self._path[-1]

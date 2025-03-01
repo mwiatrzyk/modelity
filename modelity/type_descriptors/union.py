@@ -1,0 +1,57 @@
+from typing import Any, get_args
+
+from modelity.error import Error
+from modelity.interface import ITypeDescriptor, IModelVisitor
+from modelity.loc import Loc
+from modelity.unset import Unset
+
+
+def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
+    """Make descriptor for the given :class:`typing.Union` type.
+
+    :param typ:
+        The union types to create parser for.
+    """
+
+    class OptionalTypeDescriptor:
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            if value is None:
+                return value
+            return type_descriptor.parse(errors, loc, value)
+
+        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
+            if value is None:
+                return visitor.visit_none(loc, value)
+            type_descriptor.accept(loc, value, visitor)
+
+    class UnionTypeDescriptor:
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            for t in types:
+                if isinstance(value, t):
+                    return value
+            inner_errors = []
+            for parser in type_descriptors:
+                result = parser.parse(inner_errors, loc, value)
+                if result is not Unset:
+                    return result
+            errors.extend(inner_errors)
+            return Unset
+
+        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
+            for typ, descriptor in zip(types, type_descriptors):
+                if isinstance(value, typ):
+                    return descriptor.accept(loc, value, visitor)
+
+        def validate(self, errors: list[Error], loc: Loc, value: Any):
+            for typ, descriptor in zip(types, type_descriptors):
+                if isinstance(value, typ):
+                    return descriptor.validate(errors, loc, value)
+
+    from modelity.type_descriptors.main import make_type_descriptor
+
+    types = get_args(typ)
+    if len(types) == 2 and types[-1] is type(None):
+        type_descriptor = make_type_descriptor(types[0], **opts)
+        return OptionalTypeDescriptor()
+    type_descriptors = [make_type_descriptor(typ, **opts) for typ in types]
+    return UnionTypeDescriptor()

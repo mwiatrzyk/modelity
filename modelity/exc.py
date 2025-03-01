@@ -1,6 +1,7 @@
-from typing import Any, Optional, Tuple, Type
+from typing import Any, Optional, Type
 
-from modelity.interface import IError
+from modelity.error import Error
+from modelity.loc import Loc
 
 
 class ModelityError(Exception):
@@ -28,22 +29,43 @@ class ModelError(ModelityError):
     """
 
     #: Tuple with either parsing, or validation errors.
-    errors: Tuple[IError, ...]
+    errors: tuple[Error, ...]
 
-    def __init__(self, errors: Tuple[IError, ...]):
+    def __init__(self, errors: tuple[Error, ...]):
         super().__init__()
         self.errors = errors
 
 
 class ParsingError(ModelError):
-    """Exception raised when model failed to parse input data."""
+    """Exception raised when type parser fails to parse input value into
+    instance of desired type."""
 
-    def __str__(self):
-        out = [f"parsing failed with {len(self.errors)} error(-s):"]
+    @property
+    def formatted_errors(self) -> str:
+        """The string containing formatted :attr:`errors` attribute."""
+        out = []
         for error in sorted(self.errors, key=lambda x: x.loc):
             out.append(f"  {error.loc}:")
-            out.append(f"    {error.msg} [code={error.code}, data={error.data}]")
+            out.append(f"    {error.msg} [code={error.code}, value={error.value!r}]")
         return "\n".join(out)
+
+    def __str__(self):
+        return f"parsing failed with {len(self.errors)} error(-s):\n{self.formatted_errors}"
+
+
+class ModelParsingError(ParsingError):
+    """Exception raised by model when it fails to parse input data to the valid
+    type."""
+
+    #: The model object for which the parsing has failed.
+    model: Any
+
+    def __init__(self, model: Any, errors: tuple[Error, ...]):
+        super().__init__(errors)
+        self.model = model
+
+    def __str__(self):
+        return f"parsing failed for model {self.model.__class__.__qualname__!r} with {len(self.errors)} error(-s):\n{self.formatted_errors}"
 
 
 class ValidationError(ModelError):
@@ -62,7 +84,7 @@ class ValidationError(ModelError):
     #: The model for which validation has failed.
     model: Any
 
-    def __init__(self, model: Any, errors: Tuple[IError, ...]):
+    def __init__(self, model: Any, errors: tuple[Error, ...]):
         super().__init__(errors)
         self.model = model
 
@@ -81,8 +103,8 @@ class UnsupportedTypeError(ModelityError):
     __message_template__ = "unsupported type used: {self.typ!r}"
 
     #: The type that is not supported.
-    typ: Type
+    typ: type
 
-    def __init__(self, typ: Type):
+    def __init__(self, typ: type):
         super().__init__()
         self.typ = typ

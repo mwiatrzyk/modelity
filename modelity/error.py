@@ -1,6 +1,7 @@
 import dataclasses
 from enum import Enum
-from typing import Any, Iterable, Sequence, cast
+from numbers import Number
+from typing import Any, Iterable, Optional, Sequence, cast
 
 from modelity.loc import Loc
 from modelity.unset import Unset
@@ -9,41 +10,27 @@ from modelity.unset import Unset
 class ErrorCode:
     """Class containing constants with all built-in error codes."""
 
-    NONE_REQUIRED = "modelity.NoneRequired"
-    INTEGER_REQUIRED = "modelity.IntegerRequired"
-    STRING_REQUIRED = "modelity.StringRequired"
-    BYTES_REQUIRED = "modelity.BytesRequired"
-    FLOAT_REQUIRED = "modelity.FloatRequired"
-    BOOLEAN_REQUIRED = "modelity.BooleanRequired"
-    ITERABLE_REQUIRED = "modelity.IterableRequired"
-    HASHABLE_REQUIRED = "modelity.HashableRequired"
-    MAPPING_REQUIRED = "modelity.MappingRequired"
-    DATETIME_REQUIRED = "modelity.DatetimeRequired"
-    UNSUPPORTED_DATETIME_FORMAT = "modelity.UnknownDatetimeFormat"
-    UNSUPPORTED_TYPE = "modelity.UnsupportedType"
-    INVALID_TUPLE_FORMAT = "modelity.InvalidTupleFormat"
-    INVALID_ENUM = "modelity.InvalidEnum"
-    INVALID_LITERAL = "modelity.InvalidLiteral"
-    INVALID_MODEL = "modelity.InvalidModel"
-    VALUE_TOO_LOW = "modelity.ValueTooLow"  # TODO: remove
-    VALUE_TOO_HIGH = "modelity.ValueTooHigh"  # TODO: remove
-    VALUE_TOO_SHORT = "modelity.ValueTooShort"  # TODO: remove
-    VALUE_TOO_LONG = "modelity.ValueTooLong"  # TODO: remove
-    REQUIRED_MISSING = "modelity.RequiredMissing"
-    VALUE_ERROR = "modelity.ValueError"
-    TYPE_ERROR = "modelity.TypeError"
-    UNICODE_DECODE_ERROR = "modelity.UnicodeDecodeError"
-    UNICODE_ENCODE_ERROR = "modelity.UnicodeEncodeError"
-    GE_FAILED = "modelity.GeFailed"
-    GT_FAILED = "modelity.GtFailed"
-    LE_FAILED = "modelity.LeFailed"
-    LT_FAILED = "modelity.LtFailed"
-    MIN_LEN_FAILED = "modelity.MinLenFailed"
-    MAX_LEN_FAILED = "modelity.MaxLenFailed"
-    REGEX_FAILED = "modelity.RegexFailed"
-    UNION_PARSING_FAILED = "modelity.UnionParsingFailed"
-    TUPLE_TOO_SHORT = "modelity.TUPLE_TOO_SHORT"
-    TUPLE_TOO_LONG = "modelity.TUPLE_TOO_LONG"
+    INVALID_DICT = "modelity.INVALID_DICT"
+    INVALID_LIST = "modelity.INVALID_LIST"
+    INVALID_SET = "modelity.INVALID_SET"
+    INVALID_TUPLE = "modelity.INVALID_TUPLE"
+    UNSUPPORTED_TUPLE_FORMAT = "modelity.UNSUPPORTED_TUPLE_FORMAT"
+    INVALID_MODEL = "modelity.INVALID_MODEL"
+    INVALID_BOOL = "modelity.INVALID_BOOL"
+    INVALID_DATETIME = "modelity.INVALID_DATETIME"
+    UNSUPPORTED_DATETIME_FORMAT = "modelity.UNSUPPORTED_DATETIME_FORMAT"
+    INVALID_NUMBER = "modelity.INVALID_NUMBER"
+    VALUE_OUT_OF_RANGE = "modelity.VALUE_OUT_OF_RANGE"
+    UNSUPPORTED_VALUE_TYPE = "modelity.UNSUPPORTED_VALUE_TYPE"
+    GE_CONSTRAINT_FAILED = "modelity.GE_CONSTRAINT_FAILED"
+    GT_CONSTRAINT_FAILED = "modelity.GT_CONSTRAINT_FAILED"
+    LE_CONSTRAINT_FAILED = "modelity.LE_CONSTRAINT_FAILED"
+    LT_CONSTRAINT_FAILED = "modelity.LT_CONSTRAINT_FAILED"
+    MIN_LEN_CONSTRAINT_FAILED = "modelity.MIN_LEN_CONSTRAINT_FAILED"
+    MAX_LEN_CONSTRAINT_FAILED = "modelity.MAX_LEN_CONSTRAINT_FAILED"
+    REGEX_CONSTRAINT_FAILED = "modelity.REGEX_CONSTRAINT_FAILED"
+    REQUIRED_MISSING = "modelity.REQUIRED_MISSING"
+    EXCEPTION = "modelity.EXCEPTION"
 
 
 @dataclasses.dataclass
@@ -54,7 +41,7 @@ class Error:
     processing.
     """
 
-    #: Location of the value in the model tree.
+    #: The location of the incorrect value.
     loc: Loc
 
     #: Error code.
@@ -69,7 +56,7 @@ class Error:
     #: :attr:`data`.
     msg: str
 
-    #: Value for which this error is reported.
+    #: The incorrect value (if applicable).
     value: Any = Unset
 
     #: Additional error data.
@@ -83,303 +70,466 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
     """Factory class for creating built-in errors."""
 
     @staticmethod
-    def invalid_literal(loc: Loc, allowed_values: Sequence, value: Any = Unset):  # TODO: make value required
-        return Error(
-            loc,
-            ErrorCode.INVALID_LITERAL,
-            "invalid literal",
-            value=value,
-            data={"allowed_values": tuple(allowed_values)},
-        )
-
-    @staticmethod
-    def unsupported_type(loc: Loc, supported_types: Sequence[type], value: Any = Unset):  # TODO: make value required
-        """Error reported when input value has unsupported type that cannot be
-        converted to a desired type.
-
-        For example, integers cannot be converted to lists.
+    def invalid_dict(loc: Loc, value: Any) -> Error:
+        """Error reported when value is not a dict object and cannot be parsed
+        to a dict object.
 
         :param loc:
-            Error location.
+            The location of the error.
 
         :param value:
-            Incorrect value.
-
-        :param supported_types:
-            Sequence of supported types.
+            The invalid value.
         """
-        supported_types = tuple(supported_types)
-        supported_types_str = ", ".join(repr(x) for x in supported_types)
+        return Error(loc, ErrorCode.INVALID_DICT, "not a valid dict object", value)
+
+    @staticmethod
+    def invalid_list(loc: Loc, value: Any) -> Error:
+        """Error reported when value is not a list object and cannot be parsed
+        to a list object.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+        """
+        return Error(loc, ErrorCode.INVALID_LIST, "not a valid list object", value)
+
+    @staticmethod
+    def invalid_set(loc: Loc, value: Any) -> Error:
+        """Error reported when value is not a set object and cannot be parsed
+        to a set object.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+        """
+        return Error(loc, ErrorCode.INVALID_SET, "not a valid set object", value)
+
+    @staticmethod
+    def invalid_tuple(loc: Loc, value: Any) -> Error:
+        """Error reported when value is not a tuple object and cannot be parsed
+        to a tuple object.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+        """
+        return Error(loc, ErrorCode.INVALID_TUPLE, "not a valid tuple object", value)
+
+    @staticmethod
+    def unsupported_tuple_format(loc: Loc, value: tuple, supported_format: tuple[type]) -> Error:
+        """Error reported when tuple object does not match types defined for a
+        fixed-size typed tuple.
+
+        For example, when tuple is defined like this::
+
+            tuple[int, float, str]
+
+        Then it must contain exactly 3 elements in this order: integer number,
+        float number and string.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+
+        :param supported_format:
+            The types declared for a typed fixed-size tuple that define allowed
+            tuple format.
+        """
+        supported_format_str = ", ".join(repr(x) for x in supported_format)
         return Error(
             loc,
-            ErrorCode.UNSUPPORTED_TYPE,
-            f"unsupported value type; supported types are: {supported_types_str}",
-            value=value,
-            data={"supported_types": supported_types},
-        )
-
-    @staticmethod
-    def required_missing(loc: Loc):
-        return Error(loc, ErrorCode.REQUIRED_MISSING, "this field is required")
-
-    @staticmethod
-    def value_error(loc: Loc, msg: str):
-        return Error(loc, ErrorCode.VALUE_ERROR, msg)
-
-    @staticmethod
-    def integer_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.INTEGER_REQUIRED, "not a valid integer number", value=value)
-
-    @staticmethod
-    def value_too_low(loc: Loc, min_inclusive=None, min_exclusive=None):
-        if min_inclusive is not None:
-            msg, data = f"value must be >= {min_inclusive}", {"min_inclusive": min_inclusive}
-        elif min_exclusive is not None:
-            msg, data = f"value must be > {min_exclusive}", {"min_exclusive": min_exclusive}
-        else:
-            raise TypeError("one of the following arguments is required: min_inclusive, min_exclusive")
-        return Error(loc, ErrorCode.VALUE_TOO_LOW, msg, data=data)
-
-    @staticmethod
-    def value_too_high(loc: Loc, max_inclusive=None, max_exclusive=None):
-        if max_inclusive is not None:
-            msg, data = f"value must be <= {max_inclusive}", {"max_inclusive": max_inclusive}
-        elif max_exclusive is not None:
-            msg, data = f"value must be < {max_exclusive}", {"max_exclusive": max_exclusive}
-        else:
-            raise TypeError("one of the following arguments is required: max_inclusive, max_exclusive")
-        return Error(loc, ErrorCode.VALUE_TOO_HIGH, msg, data=data)
-
-    @staticmethod
-    def invalid_tuple_format(
-        loc: Loc, expected_format: Sequence[type], value: Any = Unset
-    ) -> Error:  # TODO: make value required
-        expected_format = tuple(expected_format)
-        expected_format_str = ", ".join(repr(x) for x in expected_format)
-        return Error(
-            loc,
-            ErrorCode.INVALID_TUPLE_FORMAT,
-            f"invalid tuple format; accepted format is: {expected_format_str}",
-            value=value,
-            data={"expected_format": expected_format},
-        )
-
-    @staticmethod
-    def float_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.FLOAT_REQUIRED, "not a valid float number", value=value)
-
-    @staticmethod
-    def string_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.STRING_REQUIRED, "not a valid string value", value=value)
-
-    @staticmethod
-    def mapping_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.MAPPING_REQUIRED, "not a valid mapping value", value=value)
-
-    @staticmethod
-    def hashable_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.HASHABLE_REQUIRED, "input value must be hashable", value=value)
-
-    @staticmethod
-    def invalid_model(loc: Loc, model: Any):
-        return Error(loc, ErrorCode.INVALID_MODEL, "")
-
-    @staticmethod
-    def value_too_short(loc: Loc, min_length: int):
-        return Error(
-            loc,
-            ErrorCode.VALUE_TOO_SHORT,
-            f"value too short; minimum length is {min_length}",
-            data={"min_length": min_length},
-        )
-
-    @staticmethod
-    def value_too_long(loc: Loc, max_length: int):
-        return Error(
-            loc,
-            ErrorCode.VALUE_TOO_LONG,
-            f"value too long; maximum length is {max_length}",
-            data={"max_length": max_length},
-        )
-
-    @staticmethod
-    def type_error(loc: Loc, msg: str):
-        return Error(loc, ErrorCode.TYPE_ERROR, msg)
-
-    @staticmethod
-    def none_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.NONE_REQUIRED, "this field can only be set to None", value=value)
-
-    @staticmethod
-    def bytes_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.BYTES_REQUIRED, "this field can only be set to bytes", value=value)
-
-    @staticmethod
-    def unicode_decode_error(loc: Loc, codecs_tried: Sequence[str], value: Any = Unset):  # TODO: make value required
-        return Error(
-            loc,
-            ErrorCode.UNICODE_DECODE_ERROR,
-            "unable to decode bytes; codecs tried:",
-            data={"codecs_tried": tuple(codecs_tried)},
-        )
-
-    @staticmethod
-    def unicode_encode_error(loc: Loc, value: Any, encoding: str):
-        return Error(
-            loc,
-            ErrorCode.UNICODE_ENCODE_ERROR,
-            f"unable to encode string using {encoding} encoding",
+            ErrorCode.UNSUPPORTED_TUPLE_FORMAT,
+            f"unsupported tuple format; supported format: {supported_format_str}",
             value,
-            data={"encoding": encoding},
+            {"supported_format": supported_format},
         )
 
     @staticmethod
-    def boolean_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.BOOLEAN_REQUIRED, "not a valid boolean value", value=value)
+    def invalid_model(loc: Loc, value: Any, model_type: type):
+        """Error reported when value is not a :class:`modelity.model.Model`
+        subclass instance and cannot be parsed into it.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+
+        :param model_type:
+            The expected model type.
+        """
+        return Error(
+            loc,
+            ErrorCode.INVALID_MODEL,
+            f"not a valid {model_type.__qualname__} model instance",
+            value,
+            {"model_type": model_type},
+        )
 
     @staticmethod
-    def datetime_required(loc: Loc, value: Any = Unset):  # TODO: make value required
-        return Error(loc, ErrorCode.DATETIME_REQUIRED, "not a valid datetime value", value=value)
+    def invalid_bool(loc: Loc, value: Any, true_literals: Optional[set] = None, false_literals: Optional[set] = None):
+        """Create error signalling that the input value is not a valid boolean.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The failed value.
+
+        :param true_literals:
+            Set of literals evaluating to ``True``.
+
+        :param false_literals:
+            Set of literals evaluating to ``False``.
+        """
+        return Error(
+            loc,
+            ErrorCode.INVALID_BOOL,
+            "not a valid boolean value",
+            value,
+            {"true_literals": true_literals, "false_literals": false_literals},
+        )
 
     @staticmethod
-    def unsupported_datetime_format(
-        loc: Loc, supported_formats: Sequence[str], value: Any = Unset
-    ):  # TODO: make value required
+    def invalid_datetime(loc: Loc, value: Any):
+        """Create error signalling that the input value is not a datetime
+        object and cannot be parsed to a datetime object.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The failed value.
+        """
+        return Error(loc, ErrorCode.INVALID_DATETIME, "not a valid datetime value", value)
+
+    @staticmethod
+    def unsupported_datetime_format(loc: Loc, value: str, supported_formats: tuple[str]):
+        """Create error signalling that the input string does not match any
+        known datetime format.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The failed value.
+
+        :param supported_formats:
+            Tuple with supported datetime formats.
+        """
         supported_formats_str = ", ".join(supported_formats)
         return Error(
             loc,
             ErrorCode.UNSUPPORTED_DATETIME_FORMAT,
-            f"unsupported datetime format; supported formats are: {supported_formats_str}",
+            f"unsupported datetime format; supported formats: {supported_formats_str}",
             value=value,
             data={"supported_formats": tuple(supported_formats)},
         )
 
     @staticmethod
-    def invalid_enum(loc: Loc, typ: type[Enum], value: Any = Unset):  # TODO: make value required
-        typ_str = ", ".join(repr(x) for x in cast(Iterable, typ))
+    def value_out_of_range(loc: Loc, value: Any, allowed_values: tuple):
+        """Create error signalling that the value does not exist in the set of
+        allowed values.
+
+        :param loc:
+            The error location.
+
+        :param value:
+            The incorrect value.
+
+        :param allowed_values:
+            Tuple of allowed values.
+        """
+        allowed_values_str = ", ".join(repr(x) for x in allowed_values)
         return Error(
             loc,
-            ErrorCode.INVALID_ENUM,
-            f"invalid enumerated value; valid ones are: {typ_str}",
+            ErrorCode.VALUE_OUT_OF_RANGE,
+            f"value out of range; allowed values: {allowed_values_str}",
             value=value,
-            data={"typ": typ},
+            data={"allowed_values": allowed_values},
         )
 
     @staticmethod
-    def iterable_required(loc: Loc, value: Any = Unset) -> Error:  # TODO: make value required
-        """Create error signalling that iterable value is required.
+    def invalid_number(loc: Loc, value: Any, msg: str, expected_type: type[Number]) -> Error:
+        """Create error signalling that the value could not be parsed to a
+        valid number of given type.
+
+        This is a generic error common for all numeric types.
 
         :param loc:
             The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param msg:
+            The error message.
+
+        :param expected_type:
+            The expected numeric type.
         """
-        return Error(loc, ErrorCode.ITERABLE_REQUIRED, "not a valid iterable value", value=value)
+        return Error(loc, ErrorCode.INVALID_NUMBER, msg, value, {"expected_type": expected_type})
+
+    @classmethod
+    def invalid_integer(cls, loc: Loc, value: Any) -> Error:
+        """Create error signalling that the input value could not be parsed
+        into valid integer number.
+
+        :param loc:
+            The error location.
+
+        :param value:
+            The incorrect value.
+        """
+        return cls.invalid_number(loc, value, "not a valid integer number", int)
+
+    @classmethod
+    def invalid_float(cls, loc: Loc, value: Any):
+        """Create error signalling that the input value could not be parsed
+        into valid floating point number.
+
+        :param loc:
+            The error location.
+
+        :param value:
+            The incorrect value.
+        """
+        return cls.invalid_number(loc, value, "not a valid floating point number", float)
 
     @staticmethod
-    def ge_failed(loc: Loc, value: Any, min_inclusive: Any) -> Error:
-        return Error(
-            loc, ErrorCode.GE_FAILED, f"the value must be >= {min_inclusive}", value, {"min_inclusive": min_inclusive}
-        )
+    def unsupported_value_type(loc: Loc, value: Any, msg: str, supported_types: tuple[type, ...]):
+        """Error reported when input value has unsupported type that cannot be
+        processed further.
 
-    @staticmethod
-    def gt_failed(loc: Loc, value: Any, min_exclusive: Any) -> Error:
-        return Error(
-            loc, ErrorCode.GT_FAILED, f"the value must be > {min_exclusive}", value, {"min_exclusive": min_exclusive}
-        )
+        It signals that the value cannot be parsed (for various reasons) and
+        must explicitly be instance of one of supported types to allow it.
 
-    @staticmethod
-    def le_failed(loc: Loc, value: Any, max_inclusive: Any) -> Error:
-        return Error(
-            loc, ErrorCode.LE_FAILED, f"the value must be <= {max_inclusive}", value, {"max_inclusive": max_inclusive}
-        )
+        :param loc:
+            The location of the error.
 
-    @staticmethod
-    def lt_failed(loc: Loc, value: Any, max_exclusive: Any) -> Error:
-        return Error(
-            loc, ErrorCode.LT_FAILED, f"the value must be < {max_exclusive}", value, {"max_exclusive": max_exclusive}
-        )
+        :param value:
+            The incorrect value.
 
-    @staticmethod
-    def min_len_failed(loc: Loc, value: Any, min_len: int) -> Error:
+        :param msg:
+            The error message.
+
+        :param supported_types:
+            Tuple with supported types.
+        """
         return Error(
             loc,
-            ErrorCode.MIN_LEN_FAILED,
+            ErrorCode.UNSUPPORTED_VALUE_TYPE,
+            msg,
+            value=value,
+            data={"supported_types": supported_types},
+        )
+
+    @classmethod
+    def string_value_required(cls, loc: Loc, value: Any) -> Error:
+        """Create error signalling that the value is not a string, but string
+        is required.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect (i.e. non-string) value.
+        """
+        return cls.unsupported_value_type(loc, value, "string value required", (str,))
+
+    @classmethod
+    def bytes_value_required(cls, loc: Loc, value: Any) -> Error:
+        """Create error signalling that the field requires :class:`bytes`
+        object, but value of another type was given.
+
+        :param loc:
+            Field's location.
+
+        :param value:
+            Field's incorrect value.
+        """
+        return cls.unsupported_value_type(loc, value, "bytes value required", (bytes,))
+
+    @staticmethod
+    def ge_constraint_failed(loc: Loc, value: Number, min_inclusive: Number) -> Error:
+        """Create error signalling that GE (greater or equal) value constraint
+        failed.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param min_inclusive:
+            The minimum inclusive value.
+        """
+        return Error(
+            loc,
+            ErrorCode.GE_CONSTRAINT_FAILED,
+            f"the value must be >= {min_inclusive}",
+            value,
+            {"min_inclusive": min_inclusive},
+        )
+
+    @staticmethod
+    def gt_constraint_failed(loc: Loc, value: Any, min_exclusive: Any) -> Error:
+        """Create error signalling that GT (greater than) value constraint
+        failed.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param min_exclusive:
+            The minimum exclusive value.
+        """
+        return Error(
+            loc,
+            ErrorCode.GT_CONSTRAINT_FAILED,
+            f"the value must be > {min_exclusive}",
+            value,
+            {"min_exclusive": min_exclusive},
+        )
+
+    @staticmethod
+    def le_constraint_failed(loc: Loc, value: Any, max_inclusive: Any) -> Error:
+        """Create error signalling that LE (less or equal) value constraint
+        failed.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param max_inclusive:
+            The maximum inclusive value.
+        """
+        return Error(
+            loc,
+            ErrorCode.LE_CONSTRAINT_FAILED,
+            f"the value must be <= {max_inclusive}",
+            value,
+            {"max_inclusive": max_inclusive},
+        )
+
+    @staticmethod
+    def lt_constraint_failed(loc: Loc, value: Any, max_exclusive: Any) -> Error:
+        """Create error signalling that LT (less than) value constraint
+        failed.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param max_exclusive:
+            The maximum exclusive value.
+        """
+        return Error(
+            loc,
+            ErrorCode.LT_CONSTRAINT_FAILED,
+            f"the value must be < {max_exclusive}",
+            value,
+            {"max_exclusive": max_exclusive},
+        )
+
+    @staticmethod
+    def min_len_constraint_failed(loc: Loc, value: Any, min_len: int) -> Error:
+        """Create error signalling that the value is too short.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param min_len:
+            The maximum value length.
+        """
+        return Error(
+            loc,
+            ErrorCode.MIN_LEN_CONSTRAINT_FAILED,
             f"the value is too short; minimum length is {min_len}",
             value,
             {"min_len": min_len},
         )
 
     @staticmethod
-    def max_len_failed(loc: Loc, value: Any, max_len: int) -> Error:
+    def max_len_constraint_failed(loc: Loc, value: Any, max_len: int) -> Error:
+        """Create error signalling that the value is too long.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param max_len:
+            The maximum value length.
+        """
         return Error(
             loc,
-            ErrorCode.MAX_LEN_FAILED,
+            ErrorCode.MAX_LEN_CONSTRAINT_FAILED,
             f"the value is too long; maximum length is {max_len}",
             value,
             {"max_len": max_len},
         )
 
     @staticmethod
-    def regex_failed(loc: Loc, value: Any, pattern: str) -> Error:
+    def regex_constraint_failed(loc: Loc, value: str, pattern: str) -> Error:
+        """Create error signalling that the regular expression constrain
+        failed.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The incorrect value.
+
+        :param pattern:
+            The regular expression pattern.
+        """
         return Error(
             loc,
-            ErrorCode.REGEX_FAILED,
+            ErrorCode.REGEX_CONSTRAINT_FAILED,
             f"the value does not match regex pattern: {pattern}",
             value,
             {"pattern": pattern},
         )
 
     @staticmethod
-    def union_parsing_failed(loc: Loc, value: Any, types_tried: Sequence[type]) -> Error:
-        types_tried = tuple(types_tried)
-        types_tried_str = ", ".join(repr(x) for x in types_tried)
-        return Error(
-            loc,
-            ErrorCode.UNION_PARSING_FAILED,
-            f"not a valid union value; types tried: {types_tried_str}",
-            value=value,
-            data={"types_tried": types_tried},
-        )
-
-    @staticmethod
-    def tuple_too_short(loc: Loc, value: Any, required_len: int) -> Error:
-        """Error reported when typed tuple with constrained size has too few
-        elements.
+    def required_missing(loc: Loc):
+        """Create error signalling that the required field is missing a value.
 
         :param loc:
-            Error location.
-
-        :param value:
-            Incorrect value.
-
-        :param required_len:
-            Expected tuple length.
+            The location of the error.
         """
-        return Error(
-            loc,
-            ErrorCode.TUPLE_TOO_SHORT,
-            f"tuple too short; required length is {required_len}",
-            value=value,
-            data={"required_len": required_len},
-        )
+        return Error(loc, ErrorCode.REQUIRED_MISSING, "this field is required")
 
     @staticmethod
-    def tuple_too_long(loc: Loc, value: Any, required_len: int) -> Error:
-        """Error reported when typed tuple with constrained size has too many
-        elements.
+    def exception(loc: Loc, msg: str, exc_type: type[Exception]) -> Error:
+        """Create error from a caught exception object.
 
         :param loc:
-            Error location.
+            The location of the error.
 
-        :param value:
-            Incorrect value.
+        :param msg:
+            The error message.
 
-        :param required_len:
-            Expected tuple length.
+        :param exc_type:
+            The type of the exception caught.
         """
-        return Error(
-            loc,
-            ErrorCode.TUPLE_TOO_LONG,
-            f"tuple too short; required length is {required_len}",
-            value=value,
-            data={"required_len": required_len},
-        )
+        return Error(loc, ErrorCode.EXCEPTION, msg, data={"exc_type": exc_type})
