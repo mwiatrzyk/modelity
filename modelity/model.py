@@ -1,17 +1,17 @@
 import dataclasses
 import functools
 import inspect
+import io
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, Union, get_args, get_origin
 import typing_extensions
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ModelParsingError, ParsingError, ValidationError
-from modelity.interface import IModelValidatorCallable, IModelVisitor, ITypeDescriptor
+from modelity.interface import IDumpFilter, IModelValidatorCallable, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.type_descriptors.main import make_type_descriptor
 from modelity.unset import Unset, UnsetType
-from modelity.visitors import DumpVisitor
 
 
 def model_validator(pre: bool = False):
@@ -204,27 +204,34 @@ class Model(metaclass=ModelMeta):
                 return False
         return True
 
-    def accept(self, loc: Loc, visitor: IModelVisitor):
-        """Accept model visitor.
-
-        This method will walk through entire model, calling adequate *visitor*
-        method for each node.
+    def dump(self, loc: Loc, filter: IDumpFilter) -> dict:
+        """Serialize model to dict.
 
         :param loc:
-            The location of this model inside some other model.
+            The location of this model.
 
-            For root model, the location will be empty.
+            Should be non-empty if this model is nested inside some outer
+            model, or empty if this is the root model.
 
-        :param visitor:
-            The visitor to apply.
+        :param filter:
+            The filter function.
+
+            Check :class:`IDumpFilter` class for more details.
         """
+
+        out = {}
         for name, field in self.__class__.__model_fields__.items():
             field_loc = loc + Loc(name)
-            field_value = getattr(self, name)
+            field_value = filter(field_loc, getattr(self, name))
+            if field_value is IDumpFilter.SKIP:
+                continue
             if field_value is Unset:
-                visitor.visit_unset(field_loc, field_value)
+                out[name] = field_value
             else:
-                field.type_descriptor.accept(field_loc, field_value, visitor)
+                dump_value = field.type_descriptor.dump(field_loc, field_value, filter)
+                if dump_value is not IDumpFilter.SKIP:
+                    out[name] = dump_value
+        return out
 
     def validate(self, root: "Model", errors: list[Error], loc: Loc):
         """Perform validation of this model.
@@ -246,8 +253,16 @@ class Model(metaclass=ModelMeta):
             validator(cls, self, root, errors, loc)
 
 
-def dump(model: Model, exclude_unset: bool=False, exclude_none: bool=False) -> dict:
-    """Dump model to dict.
+def dump(
+    model: Model,
+    exclude_unset: bool = False,
+    exclude_none: bool = False,
+    exclude_if: Optional[Callable[[Loc, Any], bool]] = None,
+) -> dict:
+    """Dump given *model* into dict.
+
+    This is a helper function that uses model's visitor API and provides most
+    common exclusion options.
 
     :param model:
         The model to dump.
@@ -257,11 +272,16 @@ def dump(model: Model, exclude_unset: bool=False, exclude_none: bool=False) -> d
 
     :param exclude_none:
         Exclude fields set to ``None`` from the resulting dict.
+
+    :param exclude_if:
+        Generic exclusion function.
+
+        Will be called with ``(loc, value)`` arguments, where *loc* is value
+        location, and *value* is visited value. Can be used to to perform more
+        advanced exclusion based on both location and a value. Should return
+        ``True`` to exclude value, or ``False`` to retain it.
     """
-    out = {}
-    visitor = DumpVisitor(out, exclude_unset, exclude_none)
-    model.accept(Loc(), visitor)
-    return out
+    return model.dump(Loc(), lambda l, v: v)
 
 
 def validate(model: Model):

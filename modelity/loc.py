@@ -59,3 +59,15 @@ class Loc(Sequence):
     def last(self) -> Any:
         """Return last component of the location."""
         return self._path[-1]
+
+    def is_parent_of(self, other: "Loc") -> bool:
+        """Check if this location is parent (prefix) of given *other*
+        location.
+
+        :param other:
+            The other location object.
+        """
+        self_len = len(self)
+        if self_len > len(other):
+            return False
+        return self._path == other._path[:self_len]

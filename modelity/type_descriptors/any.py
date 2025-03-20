@@ -1,5 +1,5 @@
 from typing import Any
-from modelity.interface import ITypeDescriptor, IModelVisitor
+from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 
 
@@ -14,8 +14,8 @@ def make_any_type_descriptor() -> ITypeDescriptor:
         def parse(self, errors, loc, value):
             return value
 
-        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors, loc, value):
             return None

@@ -1,5 +1,4 @@
-from numbers import Number
-from typing import Any, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Protocol, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
@@ -48,122 +47,30 @@ class IModelValidatorCallable(Protocol):
         """
 
 
-class IModelVisitor(Protocol):
-    """Visitor interface for walking through the model data."""
+class IDumpFilter(Protocol):
+    """Protocol describing model field filtering function used during model
+    serialization."""
 
-    def visit_sequence_begin(self, loc: Loc, value: Sequence):
-        """Begin visiting sequence value.
+    #: Special return value for field exclusion from the output.
+    SKIP = object()
 
-        :param loc:
-            The location of the value.
+    def __call__(self, loc: Loc, value: Any) -> Any:
+        """Apply the filter to a model's field.
 
-        :param value:
-            The visited value.
-        """
+        This method is invoked for each field in the model, regardless of whether
+        the field is set or unset. It determines the value to be included in the
+        serialized output.
 
-    def visit_sequence_end(self, loc: Loc, value: Sequence):
-        """End visiting sequence value.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_mapping_begin(self, loc: Loc, value: Mapping):
-        """Begin visiting mapping value.
+        To exclude a field from the output, return :obj:`IDumpFilter.SKIP`.
 
         :param loc:
-            The location of the value.
+            The location of the current field.
 
         :param value:
-            The visited value.
-        """
+            The current value of the field.
 
-    def visit_mapping_end(self, loc: Loc, value: Mapping):
-        """End visiting mapping value.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_set_begin(self, loc: Loc, value: Set):
-        """Begin visiting set value.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_set_end(self, loc: Loc, value: Set):
-        """End visiting set value.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_model_begin(self, loc: Loc, value: IModel):
-        """Begin visiting nested model object.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_model_end(self, loc: Loc, value: IModel):
-        """End visiting nested model object.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_scalar(self, loc: Loc, value: Any):
-        """Visit scalar value.
-
-        Scalars are basically model fields that use simple types, like ints,
-        strings, booleans etc.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_none(self, loc: Loc, value: None):
-        """Visit ``None`` value.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
-        """
-
-    def visit_unset(self, loc: Loc, value: UnsetType):
-        """Visit :class:`modelity.unset.UnsetType` value.
-
-        This is called for model fields that have no value assigned.
-
-        :param loc:
-            The location of the value.
-
-        :param value:
-            The visited value.
+        :return:
+            The processed value or :obj:`IDumpFilter.SKIP` to exclude it.
         """
 
 
@@ -224,17 +131,29 @@ class ITypeDescriptor(Protocol, Generic[T]):
             The value to parse.
         """
 
-    def accept(self, loc: Loc, value: T, visitor: IModelVisitor):
-        """Apply model visitor.
+    def dump(self, loc: Loc, value: T, filter: IDumpFilter) -> Any:
+        """Serialize value to a nearest JSON type.
+
+        This method should return any of the following:
+
+        * dict
+        * list
+        * number
+        * string
+        * boolean
+        * ``None``
+        * :obj:`IDumpFilter.SKIP`.
 
         :param loc:
-            The location of the *value* inside a model.
+            The location of current value inside a model.
 
         :param value:
-            The visited value.
+            The current value.
 
-        :param visitor:
-            The visitor to apply.
+        :param filter:
+            The value filtering function.
+
+            Check :class:`IDumpFilter` for more details.
         """
 
     def validate(self, errors: list[Error], loc: Loc, value: T):

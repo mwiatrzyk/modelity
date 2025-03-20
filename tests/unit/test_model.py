@@ -301,7 +301,7 @@ class TestModelType:
                 foo: tp
 
             uut = Dummy(**given)
-            assert uut.dump() == expected
+            assert uut.accept() == expected
 
         @pytest.mark.parametrize(
             "key_type, value_type, given, expected",
@@ -319,7 +319,7 @@ class TestModelType:
                 foo: Dict[key_type, value_type]
 
             uut = Dummy(**given)
-            assert uut.dump() == expected
+            assert uut.accept() == expected
 
         @pytest.mark.parametrize(
             "value_type, given, expected",
@@ -341,7 +341,7 @@ class TestModelType:
                 foo: List[value_type]
 
             uut = Dummy(**given)
-            assert uut.dump() == expected
+            assert uut.accept() == expected
 
         @pytest.mark.parametrize(
             "value_type, given, expected",
@@ -358,7 +358,7 @@ class TestModelType:
                 foo: Set[value_type]
 
             uut = Dummy(**given)
-            assert uut.dump() == expected
+            assert uut.accept() == expected
 
         @pytest.mark.parametrize(
             "given, expected",
@@ -375,7 +375,7 @@ class TestModelType:
                 foo: Nested
 
             uut = Dummy(**given)
-            assert uut.dump() == expected
+            assert uut.accept() == expected
 
         class TestDumpModelWithCustomFilter:
 
@@ -386,7 +386,7 @@ class TestModelType:
 
                 uut = Dummy()
                 mock.expect_call(Unset, Loc("a")).will_once(Return((Unset, True)))
-                assert uut.dump(mock) == {}
+                assert uut.accept(mock) == {}
 
             def test_return_another_value(self, mock):
 
@@ -395,7 +395,7 @@ class TestModelType:
 
                 uut = Dummy(a=1)
                 mock.expect_call(1, Loc("a")).will_once(Return((11, False)))
-                assert uut.dump(mock) == {"a": 11}
+                assert uut.accept(mock) == {"a": 11}
 
         class TestDumpMappingWithCustomFilter:
 
@@ -408,7 +408,7 @@ class TestModelType:
                 mock.expect_call({"one": 1, "two": 2}, Loc("foo")).will_once(Invoke(lambda v, l: (v, False)))
                 mock.expect_call(1, Loc("foo", "one")).will_once(Return((1, True)))
                 mock.expect_call(2, Loc("foo", "two")).will_once(Return((2, False)))
-                assert uut.dump(mock) == {"foo": {"two": 2}}
+                assert uut.accept(mock) == {"foo": {"two": 2}}
 
             def test_return_another_value(self, mock):
 
@@ -417,7 +417,7 @@ class TestModelType:
 
                 uut = Dummy(a=1)
                 mock.expect_call(1, Loc("a")).will_once(Return((11, False)))
-                assert uut.dump(mock) == {"a": 11}
+                assert uut.accept(mock) == {"a": 11}
 
         class TestDumpStrByteBytearraySubclasses:
 
@@ -444,7 +444,7 @@ class TestModelType:
 
                 dummy = Dummy()
                 dummy.foo.append(value)
-                assert dummy.dump() == expected_dump
+                assert dummy.accept() == expected_dump
 
         class TestDumpWithFunc:
 
@@ -469,7 +469,7 @@ class TestModelType:
                 uut = Dummy(foo=given)
                 mock.expect_call(expected, Loc("foo")).will_once(Invoke(func))
                 with ordered(mock):
-                    assert uut.dump(mock)["foo"] == expected
+                    assert uut.accept(mock)["foo"] == expected
 
             def test_visit_mapping_field(self, mock, func):
 
@@ -482,7 +482,7 @@ class TestModelType:
                 mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
                 mock.expect_call(2, Loc("foo", "b")).will_once(Invoke(func))
                 with ordered(mock):
-                    assert uut.dump(mock) == {"foo": foo}
+                    assert uut.accept(mock) == {"foo": foo}
 
             def test_visit_mapping_field_with_values_being_another_mapping(self, mock, func):
 
@@ -498,7 +498,7 @@ class TestModelType:
                 mock.expect_call(2, Loc("foo", "c", "d")).will_once(Invoke(func))
                 mock.expect_call(3, Loc("foo", "c", "e")).will_once(Invoke(func))
                 with ordered(mock):
-                    assert uut.dump(mock) == {"foo": foo}
+                    assert uut.accept(mock) == {"foo": foo}
 
             def test_visit_nested_model(self, mock, func):
 
@@ -513,7 +513,7 @@ class TestModelType:
                 mock.expect_call(Foo(a=1), Loc("foo")).will_once(Invoke(func))
                 mock.expect_call(1, Loc("foo", "a")).will_once(Invoke(func))
                 with ordered(mock):
-                    assert uut.dump(mock) == {"foo": foo}
+                    assert uut.accept(mock) == {"foo": foo}
 
             @pytest.mark.parametrize(
                 "tp, given, expected",
@@ -531,7 +531,7 @@ class TestModelType:
                 for i, val in enumerate(expected):
                     mock.expect_call(val, Loc("foo", i)).will_once(Invoke(func))
                 with ordered(mock):
-                    assert uut.dump(mock) == {"foo": expected}
+                    assert uut.accept(mock) == {"foo": expected}
 
     class TestCustomConfig:
 

@@ -1,7 +1,7 @@
 from typing import Any, get_args
 
 from modelity.error import Error
-from modelity.interface import ITypeDescriptor, IModelVisitor
+from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -19,10 +19,8 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return value
             return type_descriptor.parse(errors, loc, value)
 
-        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
-            if value is None:
-                return visitor.visit_none(loc, value)
-            type_descriptor.accept(loc, value, visitor)
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
+            return filter(loc, value)
 
     class UnionTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -37,10 +35,10 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
             errors.extend(inner_errors)
             return Unset
 
-        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
             for typ, descriptor in zip(types, type_descriptors):
                 if isinstance(value, typ):
-                    return descriptor.accept(loc, value, visitor)
+                    return descriptor.dump(loc, value, filter)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             for typ, descriptor in zip(types, type_descriptors):

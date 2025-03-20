@@ -6,7 +6,7 @@ from typing import Any, Optional, TypeVar, get_args
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UnsupportedTypeError
-from modelity.interface import IModelVisitor, ITypeDescriptor
+from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -56,8 +56,8 @@ def make_bool_type_descriptor(
             )
             return Unset
 
-        def accept(self, loc, value, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc, value, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors, loc, value):
             return None
@@ -109,8 +109,8 @@ def make_datetime_type_descriptor(
             errors.append(ErrorFactory.unsupported_datetime_format(loc, value, input_formats))
             return Unset
 
-        def accept(self, loc: Loc, value: datetime, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value.strftime(compiled_output_format))
+        def dump(self, loc: Loc, value: datetime, filter: IDumpFilter):
+            return filter(loc, value.strftime(compiled_output_format))
 
     def compile_format(fmt: str) -> str:
         return (
@@ -145,8 +145,8 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
                 errors.append(ErrorFactory.value_out_of_range(loc, value, allowed_values))
                 return Unset
 
-        def accept(self, loc: Loc, value: Enum, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value.value)
+        def dump(self, loc: Loc, value: Enum, filter: IDumpFilter):
+            return filter(loc, value.value)
 
     allowed_values = tuple(typ)
     return EnumTypeDescriptor()
@@ -166,8 +166,8 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
             errors.append(ErrorFactory.value_out_of_range(loc, value, allowed_values))
             return Unset
 
-        def accept(self, loc: Loc, value: Any, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             return None
@@ -191,8 +191,8 @@ def make_none_type_descriptor() -> ITypeDescriptor:
             errors.append(ErrorFactory.value_out_of_range(loc, value, (None,)))
             return Unset
 
-        def accept(self, loc: Loc, value: None, visitor: IModelVisitor):
-            visitor.visit_none(loc, value)
+        def dump(self, loc: Loc, value: None, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             return None
@@ -223,8 +223,8 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_integer(loc, value))
                 return Unset
 
-        def accept(self, loc: Loc, value: int, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: int, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             return None
@@ -237,8 +237,8 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_float(loc, value))
                 return Unset
 
-        def accept(self, loc: Loc, value: float, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: float, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             return None
@@ -260,8 +260,8 @@ def make_str_type_descriptor() -> ITypeDescriptor:
             errors.append(ErrorFactory.string_value_required(loc, value))
             return Unset
 
-        def accept(self, loc: Loc, value: str, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: str, filter: IDumpFilter):
+            return filter(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: str):
             return None
@@ -279,7 +279,7 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
             errors.append(ErrorFactory.bytes_value_required(loc, value))
             return Unset
 
-        def accept(self, loc: Loc, value: bytes, visitor: IModelVisitor):
-            visitor.visit_scalar(loc, value)
+        def dump(self, loc: Loc, value: bytes, filter: IDumpFilter):
+            return filter(loc, value.decode())
 
     return BytesTypeDescriptor()

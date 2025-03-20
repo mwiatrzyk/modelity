@@ -2,7 +2,7 @@ from typing import Any, Mapping
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ModelParsingError
-from modelity.interface import IModelVisitor, ITypeDescriptor
+from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -31,10 +31,8 @@ def make_model_type_descriptor(typ: type) -> ITypeDescriptor:
             else:
                 return obj
 
-        def accept(self, loc: Loc, value: Model, visitor: IModelVisitor):
-            visitor.visit_model_begin(loc, value)
-            value.accept(loc, visitor)
-            visitor.visit_model_end(loc, value)
+        def dump(self, loc: Loc, value: Model, filter: IDumpFilter):
+            return value.dump(loc, filter)
 
         def validate(self, errors: list[Error], loc: Loc, value: Model):
             return value.validate(None, errors, loc)

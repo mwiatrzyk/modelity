@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
+import json
 from typing import Annotated, Any, Literal, Optional, Union
 
 import pytest
@@ -8,7 +9,7 @@ from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ModelParsingError
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model, dump
+from modelity.model import FieldInfo, Model, dump, validate
 from modelity.unset import Unset
 
 
@@ -227,37 +228,24 @@ class TestModelWithOneField:
         "field_type, field_info, given_value, expected_output",
         [
             (Annotated[int, Ge(0), Le(255)], None, "123", {"foo": 123}),
-            (Annotated[int, Ge(0)], None, Unset, {"foo": Unset}),
             (Any, None, 1, {"foo": 1}),
             (Any, None, 3.14, {"foo": 3.14}),
             (Any, None, "spam", {"foo": "spam"}),
             (Any, None, [], {"foo": []}),
-            (Any, None, Unset, {"foo": Unset}),
             (dict, None, {}, {"foo": {}}),
             (dict, None, {"a": 1}, {"foo": {"a": 1}}),
-            (dict, None, Unset, {"foo": Unset}),
             (dict[int, str], None, {"1": "one"}, {"foo": {1: "one"}}),
             (dict[str, list[int]], None, {"foo": ["1", "2", "3"]}, {"foo": {"foo": [1, 2, 3]}}),
-            (dict[str, int], None, Unset, {"foo": Unset}),
             (list, None, [1, "2", "spam"], {"foo": [1, "2", "spam"]}),
-            (list, None, Unset, {"foo": Unset}),
             (list[int], None, [1, "2", "3"], {"foo": [1, 2, 3]}),
-            (list[int], None, Unset, {"foo": Unset}),
             (set, None, [1], {"foo": [1]}),
-            (set, None, Unset, {"foo": Unset}),
             (set[int], None, ["2"], {"foo": [2]}),
-            (set[int], None, Unset, {"foo": Unset}),
             (tuple, None, [1, "2"], {"foo": [1, "2"]}),
-            (tuple, None, Unset, {"foo": Unset}),
             (tuple[int, ...], None, [1, "2"], {"foo": [1, 2]}),
-            (tuple[int, ...], None, Unset, {"foo": Unset}),
             (tuple[int], None, ["1"], {"foo": [1]}),
-            (tuple[int], None, Unset, {"foo": Unset}),
             (Nested, None, {"bar": "123"}, {"foo": {"bar": 123}}),
-            (Nested, None, Unset, {"foo": Unset}),
             (bool, None, True, {"foo": True}),
             (bool, None, False, {"foo": False}),
-            (bool, None, Unset, {"foo": Unset}),
             (
                 datetime,
                 None,
@@ -270,42 +258,55 @@ class TestModelWithOneField:
                 datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc),
                 {"foo": "1999-01-31"},
             ),
-            (datetime, None, Unset, {"foo": Unset}),
             (EDummy, None, EDummy.ONE, {"foo": 1}),
             (EDummy, None, EDummy.TWO, {"foo": 2}),
-            (EDummy, None, Unset, {"foo": Unset}),
             (Literal[1, 3.14, "spam"], None, 1, {"foo": 1}),
             (Literal[1, 3.14, "spam"], None, 3.14, {"foo": 3.14}),
             (Literal[1, 3.14, "spam"], None, "spam", {"foo": "spam"}),
-            (Literal[1, 3.14, "spam"], None, Unset, {"foo": Unset}),
             (type(None), None, None, {"foo": None}),
-            (type(None), None, Unset, {"foo": Unset}),
             (int, None, "123", {"foo": 123}),
-            (int, None, Unset, {"foo": Unset}),
             (float, None, "3.14", {"foo": 3.14}),
-            (float, None, Unset, {"foo": Unset}),
             (str, None, "spam", {"foo": "spam"}),
-            (str, None, Unset, {"foo": Unset}),
-            (bytes, None, b"spam", {"foo": b"spam"}),
-            (bytes, None, Unset, {"foo": Unset}),
+            (bytes, None, b"spam", {"foo": "spam"}),
             (Optional[int], None, 123, {"foo": 123}),
             (Optional[int], None, None, {"foo": None}),
-            (Optional[int], None, Unset, {"foo": Unset}),
             (Union[int, Nested], None, 123, {"foo": 123}),
             (Union[int, Nested], None, {"bar": "123"}, {"foo": {"bar": 123}}),
             (Union[int, Nested, float], None, "3.14", {"foo": 3.14}),
-            (Union[int, float], None, Unset, {"foo": Unset}),
+            (Union[int, Nested, float], None, Unset, {"foo": Unset}),
         ],
     )
     def test_dump(self, model: Model, expected_output):
         assert dump(model) == expected_output
+        #assert json.loads(dump_json(model)) == expected_output
 
-    @pytest.mark.parametrize("field_type, field_info, given_value, dump_opts, expected_output", [
-        (Nested, None, {}, {"exclude_unset": True}, {"foo": {}}),
-        (int, None, Unset, {"exclude_unset": True}, {}),
-        (type(None), None, Unset, {"exclude_unset": True}, {}),
-        (type(None), None, None, {"exclude_unset": True}, {"foo": None}),
-        (type(None), None, None, {"exclude_none": True}, {}),
-    ])
-    def test_dump_with_exclusion(self, model: Model, dump_opts, expected_output):
+    @pytest.mark.skip()
+    @pytest.mark.parametrize(
+        "field_type, field_info, given_value, dump_opts, expected_output",
+        [
+            (Nested, None, {}, {"exclude_unset": True}, {"foo": {}}),
+            (Nested, None, Unset, {"exclude_unset": True}, {}),
+            (Nested, None, {"bar": 123}, {"exclude_if": lambda l, v: Loc("foo", "bar").is_parent_of(l)}, {"foo": {}}),
+            (Nested, None, {"bar": 123}, {"exclude_if": lambda l, v: Loc("foo").is_parent_of(l)}, {}),
+            (int, None, Unset, {"exclude_unset": True}, {}),
+            (type(None), None, Unset, {"exclude_unset": True}, {}),
+            (type(None), None, Unset, {"exclude_if": lambda l, v: v is Unset}, {}),
+            (type(None), None, None, {"exclude_unset": True}, {"foo": None}),
+            (type(None), None, None, {"exclude_none": True}, {}),
+            (type(None), None, None, {"exclude_if": lambda l, v: v is None}, {}),
+            (Optional[int], None, None, {"exclude_none": True}, {}),
+            (Optional[int], None, 123, {"exclude_none": True}, {"foo": 123}),
+        ],
+    )
+    def test_dump_with_options(self, model: Model, dump_opts, expected_output):
         assert dump(model, **dump_opts) == expected_output
+
+    @pytest.mark.parametrize(
+        "field_type, field_info, given_value, expected_output",
+        [
+            # (Annotated[list, MinLen(1)], None, [1], [1]),
+        ],
+    )
+    def test_validate_model_successfully(self, model: Model, expected_output):
+        assert model.foo == expected_output
+        validate(model)

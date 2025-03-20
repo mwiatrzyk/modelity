@@ -14,7 +14,7 @@ from typing import (
 from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import ITypeDescriptor, IModelVisitor
+from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
@@ -64,6 +64,14 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         errors.append(ErrorFactory.invalid_dict(loc, value))
         return Unset
 
+    def dump(loc: Loc, value: dict, filter: IDumpFilter) -> dict:
+        result = {}
+        for k, v in value.items():
+            v = filter(loc, v)
+            if v is not IDumpFilter.SKIP:
+                result[k] = v
+        return result
+
     class AnyDictTypeDescriptor:
         def parse(self, errors, loc, value):
             result = ensure_mapping(errors, loc, value)
@@ -71,11 +79,8 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
                 return result
             return dict(result)
 
-        def accept(self, loc: Loc, value: dict, visitor: IModelVisitor):
-            visitor.visit_mapping_begin(loc, value)
-            for k, v in value.items():
-                visitor.visit_scalar(loc + Loc(k), v)
-            visitor.visit_mapping_end(loc, value)
+        def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
+            return dump(loc, value, filter)
 
     class TypedDictTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -90,11 +95,8 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
                 return Unset
             return MutableMappingProxy(loc, result)
 
-        def accept(self, loc: Loc, value: dict, visitor: IModelVisitor):
-            visitor.visit_mapping_begin(loc, value)
-            for k, v in value.items():
-                value_type_descriptor.accept(loc + Loc(k), v, visitor)
-            visitor.visit_mapping_end(loc, value)
+        def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
+            return dump(loc, value, lambda l, v: value_type_descriptor.dump(l, v, filter))
 
     from modelity.type_descriptors.main import make_type_descriptor
 
@@ -157,6 +159,14 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
         errors.append(ErrorFactory.invalid_list(loc, value))
         return Unset
 
+    def dump(loc: Loc, value: list, filter: IDumpFilter) -> list:
+        result = []
+        for i, elem in enumerate(value):
+            dump_value = filter(loc + Loc(i), elem)
+            if dump_value is not IDumpFilter.SKIP:
+                result.append(dump_value)
+        return result
+
     class AnyListDescriptor:
 
         def parse(self, errors, loc, value):
@@ -165,11 +175,8 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return result
             return list(result)
 
-        def accept(self, loc: Loc, value: list, visitor: IModelVisitor):
-            visitor.visit_sequence_begin(loc, value)
-            for i, elem in enumerate(value):
-                visitor.visit_scalar(loc + Loc(i), elem)
-            visitor.visit_sequence_end(loc, value)
+        def dump(self, loc: Loc, value: list, filter: IDumpFilter):
+            return dump(loc, value, filter)
 
         def validate(self, errors: list[Error], loc: Loc, value: list):
             return None
@@ -184,11 +191,8 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return Unset
             return MutableSequenceProxy(loc, result)
 
-        def accept(self, loc: Loc, value: list, visitor: IModelVisitor):
-            visitor.visit_sequence_begin(loc, value)
-            for i, elem in enumerate(value):
-                type_descriptor.accept(loc + Loc(i), elem, visitor)
-            visitor.visit_sequence_end(loc, value)
+        def dump(self, loc: Loc, value: list, filter: IDumpFilter):
+            return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
     from modelity.type_descriptors.main import make_type_descriptor
 
@@ -246,15 +250,20 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
             errors.append(ErrorFactory.invalid_set(loc, value))
             return Unset
 
+    def dump(loc: Loc, value: set, filter: IDumpFilter) -> list:
+        result = []
+        for elem in value:
+            elem = filter(loc, elem)
+            if elem is not IDumpFilter.SKIP:
+                result.append(elem)
+        return result
+
     class AnySetDescriptor:
         def parse(self, errors, loc, value):
             return parse_any_set(errors, loc, value)
 
-        def accept(self, loc: Loc, value: set, visitor: IModelVisitor):
-            visitor.visit_set_begin(loc, value)
-            for elem in value:
-                visitor.visit_scalar(loc, elem)
-            visitor.visit_set_end(loc, value)
+        def dump(self, loc: Loc, value: set, filter: IDumpFilter):
+            return dump(loc, value, filter)
 
     class TypedSetDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -266,16 +275,15 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return Unset
             return MutableSetProxy(loc, result)
 
-        def accept(self, loc: Loc, value: set, visitor: IModelVisitor):
-            visitor.visit_set_begin(loc, value)
-            for elem in value:
-                type_descriptor.accept(loc, elem, visitor)
-            visitor.visit_set_end(loc, value)
+        def dump(self, loc: Loc, value: set, filter: IDumpFilter):
+            return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
     from modelity.type_descriptors.main import make_type_descriptor
 
     args = get_args(typ)
     if not args:
+        from modelity.type_descriptors.any import make_any_type_descriptor
+        type_descriptor = make_any_type_descriptor()
         return AnySetDescriptor()
     if not isinstance(args[0], type) or not issubclass(args[0], Hashable):
         raise TypeError("'T' must be hashable type to be used with 'set[T]' generic type")
@@ -298,6 +306,14 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
         errors.append(ErrorFactory.invalid_tuple(loc, value))
         return Unset
 
+    def dump(loc: Loc, value: tuple, filter: IDumpFilter) -> list:
+        result = []
+        for i, elem in enumerate(value):
+            elem = filter(loc + Loc(i), elem)
+            if elem is not IDumpFilter.SKIP:
+                result.append(elem)
+        return result
+
     class AnyTupleDescriptor:
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
@@ -305,11 +321,8 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return result
             return tuple(result)
 
-        def accept(self, loc: Loc, value: tuple, visitor: IModelVisitor):
-            visitor.visit_sequence_begin(loc, value)
-            for i, elem in enumerate(value):
-                visitor.visit_scalar(loc + Loc(i), elem)
-            visitor.visit_sequence_end(loc, value)
+        def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
+            return dump(loc, value, filter)
 
     class AnyLengthTypedTupleDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -321,11 +334,8 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return Unset
             return result
 
-        def accept(self, loc: Loc, value: tuple, visitor: IModelVisitor):
-            visitor.visit_sequence_begin(loc, value)
-            for i, elem in enumerate(value):
-                type_descriptor.accept(loc + Loc(i), elem, visitor)
-            visitor.visit_sequence_end(loc, value)
+        def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
+            return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
     class FixedLengthTypedTupleDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -343,11 +353,8 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 return Unset
             return result
 
-        def accept(self, loc: Loc, value: tuple, visitor: IModelVisitor):
-            visitor.visit_sequence_begin(loc, value)
-            for i, p in enumerate(zip(value, type_descriptors)):
-                p[1].accept(loc + Loc(i), p[0], visitor)
-            visitor.visit_sequence_end(loc, value)
+        def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
+            return dump(loc, value, lambda l, v: type_descriptors[l.last].dump(l, v, filter))
 
     from modelity.type_descriptors.main import make_type_descriptor
 
