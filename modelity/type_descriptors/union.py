@@ -22,6 +22,10 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
             return filter(loc, value)
 
+        def validate(self, root, ctx, errors, loc, value):
+            if value is not None:
+                type_descriptor.validate(root, ctx, errors, loc, value)
+
     class UnionTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             for t in types:
@@ -40,10 +44,10 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 if isinstance(value, typ):
                     return descriptor.dump(loc, value, filter)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            for typ, descriptor in zip(types, type_descriptors):
+        def validate(self, root, ctx, errors, loc, value):
+            for typ, desc in zip(types, type_descriptors):
                 if isinstance(value, typ):
-                    return descriptor.validate(errors, loc, value)
+                    desc.validate(root, ctx, errors, loc, value)
 
     from modelity.type_descriptors.main import make_type_descriptor
 

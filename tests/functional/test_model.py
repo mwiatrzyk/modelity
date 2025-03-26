@@ -7,7 +7,7 @@ import pytest
 
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import ErrorFactory
-from modelity.exc import ModelParsingError
+from modelity.exc import ModelParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import FieldInfo, Model, dump, validate
 from modelity.unset import Unset
@@ -52,6 +52,12 @@ class TestModelWithOneField:
             (Annotated[str, MinLen(1), MaxLen(3)], None, "a", "a"),
             (Annotated[str, MinLen(1), MaxLen(3)], None, "foo", "foo"),
             (Annotated[str, Regex(r"^[0-9]+$")], None, "0123456789", "0123456789"),
+            (
+                Annotated[datetime, Ge(datetime(2020, 1, 1))],
+                FieldInfo(type_opts={"input_datetime_formats": ["YYYY-MM-DD"]}),
+                "2020-01-01",
+                datetime(2020, 1, 1),
+            ),
             (Any, None, 1, 1),
             (Any, None, 3.14, 3.14),
             (Any, None, "spam", "spam"),
@@ -129,6 +135,12 @@ class TestModelWithOneField:
                 None,
                 "spam",
                 [ErrorFactory.regex_constraint_failed(Loc("foo"), "spam", r"^[0-9]+$")],
+            ),
+            (
+                Annotated[datetime, Ge(datetime(2020, 1, 1))],
+                FieldInfo(type_opts={"input_datetime_formats": ["YYYY-MM-DD"]}),
+                "2019-12-31",
+                [ErrorFactory.ge_constraint_failed(Loc("foo"), datetime(2019, 12, 31), datetime(2020, 1, 1))],
             ),
             (dict, None, 123, [ErrorFactory.invalid_dict(Loc("foo"), 123)]),
             (dict[str, int], None, {1: 1}, [ErrorFactory.string_value_required(Loc("foo"), 1)]),
@@ -278,9 +290,7 @@ class TestModelWithOneField:
     )
     def test_dump(self, model: Model, expected_output):
         assert dump(model) == expected_output
-        #assert json.loads(dump_json(model)) == expected_output
 
-    @pytest.mark.skip()
     @pytest.mark.parametrize(
         "field_type, field_info, given_value, dump_opts, expected_output",
         [
@@ -304,9 +314,71 @@ class TestModelWithOneField:
     @pytest.mark.parametrize(
         "field_type, field_info, given_value, expected_output",
         [
-            # (Annotated[list, MinLen(1)], None, [1], [1]),
+            (Annotated[list, MinLen(1)], None, [1], [1]),
+            (Any, None, 1, 1),
+            (dict, None, {"one": "1"}, {"one": "1"}),
+            (dict[str, int], None, {"one": "1"}, {"one": 1}),
+            (dict[str, Nested], None, {"one": {"bar": 123}}, {"one": Nested(bar=123)}),
+            (list, None, [], []),
+            (list[Nested], None, [{"bar": 123}], [Nested(bar=123)]),
+            (set, None, [], set()),
+            (set[int], None, [123], {123}),
+            (tuple, None, [1, 2, 3], (1, 2, 3)),
+            (tuple[int, ...], None, [1, 2, 3], (1, 2, 3)),
+            (tuple[Nested, ...], None, [{"bar": 1}, {"bar": 2}], (Nested(bar=1), Nested(bar=2))),
+            (tuple[int, float], None, [1, 3.14], (1, 3.14)),
+            (Nested, None, {"bar": 1}, Nested(bar=1)),
+            (bool, None, True, True),
+            (datetime, None, "1999-01-01T00:00:00", datetime(1999, 1, 1, 0, 0, 0)),
+            (EDummy, None, 1, EDummy.ONE),
+            (Literal[1, 3.14, "foo"], None, 1, 1),
+            (type(None), None, None, None),
+            (int, None, 1, 1),
+            (float, None, 3.14, 3.14),
+            (str, None, "foo", "foo"),
+            (bytes, None, b"foo", b"foo"),
+            (Optional[Nested], None, {"bar": 1}, Nested(bar=1)),
+            (Optional[Nested], None, None, None),
+            (Union[int, Nested], None, 1, 1),
+            (Union[int, Nested], None, {"bar": 2}, Nested(bar=2)),
         ],
     )
     def test_validate_model_successfully(self, model: Model, expected_output):
         assert model.foo == expected_output
         validate(model)
+
+    def clear_foo(model: Model):
+        model.foo.clear()
+
+    @pytest.mark.parametrize(
+        "field_type, field_info, given_value, modifier_func, expected_errors",
+        [
+            (
+                Annotated[list, MinLen(1)],
+                None,
+                [1],
+                clear_foo,
+                [ErrorFactory.min_len_constraint_failed(Loc("foo"), [], 1)],
+            ),
+            (dict[str, Nested], None, {"one": {}}, None, [ErrorFactory.required_missing(Loc("foo", "one", "bar"))]),
+            (list[Nested], None, [{}], None, [ErrorFactory.required_missing(Loc("foo", 0, "bar"))]),
+            (tuple[Nested, ...], None, [{}], None, [ErrorFactory.required_missing(Loc("foo", 0, "bar"))]),
+            (
+                tuple[int, str, Nested],
+                None,
+                [1, "foo", {}],
+                None,
+                [ErrorFactory.required_missing(Loc("foo", 2, "bar"))],
+            ),
+            (Nested, None, {}, None, [ErrorFactory.required_missing(Loc("foo", "bar"))]),
+            (Optional[Nested], None, {}, None, [ErrorFactory.required_missing(Loc("foo", "bar"))]),
+            (Union[int, Nested], None, {}, None, [ErrorFactory.required_missing(Loc("foo", "bar"))]),
+        ],
+    )
+    def test_validation_fails_if_model_is_not_valid(self, model: Model, modifier_func, expected_errors):
+        if modifier_func:
+            modifier_func(model)
+        with pytest.raises(ValidationError) as excinfo:
+            validate(model)
+        assert excinfo.value.model is model
+        assert excinfo.value.errors == tuple(expected_errors)

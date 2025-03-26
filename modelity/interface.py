@@ -15,6 +15,45 @@ class IModel(Protocol):
     :func:`isinstance` function with :class:`modelity.model.Model` class.
     """
 
+    def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
+        """Serialize model to dict.
+
+        :param loc:
+            The location of this model if it is nested inside another model, or
+            empty location otherwise.
+
+        :param filter:
+            The filter function.
+
+            Check :class:`IDumpFilter` class for more details.
+        """
+
+    def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
+        """Validate this model.
+
+        :param root:
+            Reference to the root model.
+
+            Root model is the model for which this method was initially called.
+            This can be used by nested models to access entire model during
+            validation.
+
+        :param ctx:
+            User-defined context object to be shared across all validators.
+
+            It is completely transparent to Modelity, so any value can be used
+            here, but recommended is ``None`` if no context is used.
+
+        :param errors:
+            List to populate with any errors found during validation.
+
+            Should initially be empty.
+
+        :param loc:
+            The location of this model if it is nested inside another model, or
+            empty location otherwise.
+        """
+
 
 class IModelValidatorCallable(Protocol):
     """Protocol describing model validator callable.
@@ -24,7 +63,7 @@ class IModelValidatorCallable(Protocol):
     fields.
     """
 
-    def __call__(_, cls: type[IModel], self: IModel, root: IModel, errors: list[Error], loc: Loc):
+    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
         """Run this model validator.
 
         :param cls:
@@ -35,6 +74,9 @@ class IModelValidatorCallable(Protocol):
 
         :param root:
             Root model object.
+
+        :param ctx:
+            User-defined context object.
 
         :param errors:
             List of errors to be modified with errors found.
@@ -156,8 +198,22 @@ class ITypeDescriptor(Protocol, Generic[T]):
             Check :class:`IDumpFilter` for more details.
         """
 
-    def validate(self, errors: list[Error], loc: Loc, value: T):
+    def validate(self, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: T):
         """Validate instance of this type inside a model.
+
+        :param root:
+            The reference to the root model.
+
+            This is the model for which validation was initially started.
+
+        :param ctx:
+            The validation context object.
+
+            This is user-defined object that is passed when validation is
+            started and is shared across all validators during validation
+            process. Can be used to pass some additional data that is needed by
+            custom validators. For example, this can be used to validate a
+            field against dynamically changing set of allowed values.
 
         :param errors:
             List of errors to populate with validation errors (if any).

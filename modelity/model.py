@@ -48,7 +48,7 @@ def model_validator(pre: bool = False):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: type["Model"], self: "Model", root: "Model", errors: list[Error], loc: Loc):
+        def proxy(cls: type["Model"], self: "Model", root: "Model", ctx: Any, errors: list[Error], loc: Loc):
             kw: dict[str, Any] = {}
             if "cls" in given_params:
                 kw["cls"] = cls
@@ -56,6 +56,8 @@ def model_validator(pre: bool = False):
                 kw["self"] = self
             if "root" in given_params:
                 kw["root"] = root
+            if "ctx" in given_params:
+                kw["ctx"] = ctx
             if "errors" in given_params:
                 kw["errors"] = errors
             if "loc" in given_params:
@@ -67,7 +69,7 @@ def model_validator(pre: bool = False):
 
         sig = inspect.signature(func)
         given_params = tuple(sig.parameters)
-        supported_params = ("cls", "self", "root", "errors", "loc")
+        supported_params = ("cls", "self", "root", "ctx", "errors", "loc")
         if not _utils.is_subsequence(given_params, supported_params):
             raise TypeError(
                 f"function {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
@@ -208,49 +210,61 @@ class Model(metaclass=ModelMeta):
         """Serialize model to dict.
 
         :param loc:
-            The location of this model.
-
-            Should be non-empty if this model is nested inside some outer
-            model, or empty if this is the root model.
+            The location of this model if it is nested inside another model, or
+            empty location otherwise.
 
         :param filter:
             The filter function.
 
             Check :class:`IDumpFilter` class for more details.
         """
-
         out = {}
         for name, field in self.__class__.__model_fields__.items():
             field_loc = loc + Loc(name)
             field_value = filter(field_loc, getattr(self, name))
-            if field_value is IDumpFilter.SKIP:
-                continue
-            if field_value is Unset:
-                out[name] = field_value
-            else:
-                dump_value = field.type_descriptor.dump(field_loc, field_value, filter)
-                if dump_value is not IDumpFilter.SKIP:
-                    out[name] = dump_value
+            if field_value is not IDumpFilter.SKIP:
+                if field_value is Unset:
+                    out[name] = field_value
+                else:
+                    dump_value = field.type_descriptor.dump(field_loc, field_value, filter)
+                    if dump_value is not IDumpFilter.SKIP:
+                        out[name] = dump_value
         return out
 
-    def validate(self, root: "Model", errors: list[Error], loc: Loc):
-        """Perform validation of this model.
+    def validate(self, root: "Model", ctx: Any, errors: list[Error], loc: Loc):
+        """Validate this model.
 
-        If the model is invalid, then *errors* list will be populated with
-        errors found. Otherwise, *errors* list will be left intact.
+        :param root:
+            Reference to the root model.
+
+            Root model is the model for which this method was initially called.
+            This can be used by nested models to access entire model during
+            validation.
+
+        :param ctx:
+            User-defined context object to be shared across all validators.
+
+            It is completely transparent to Modelity, so any value can be used
+            here, but recommended is ``None`` if no context is used.
 
         :param errors:
-            List of errors to populate with errors found during validation.
+            List to populate with any errors found during validation.
+
+            Should initially be empty.
+
+        :param loc:
+            The location of this model if it is nested inside another model, or
+            empty location otherwise.
         """
         cls = self.__class__
         for name, field in cls.__model_fields__.items():
             value = getattr(self, name)
             if value is not Unset:
-                field.type_descriptor.validate(errors, loc + Loc(name), value)
+                field.type_descriptor.validate(root, ctx, errors, loc + Loc(name), value)
             elif not field.optional:
                 errors.append(ErrorFactory.required_missing(loc + Loc(name)))
         for validator in cls.__model_postvalidators__:
-            validator(cls, self, root, errors, loc)
+            validator(cls, self, root, ctx, errors, loc)
 
 
 def dump(
@@ -259,40 +273,60 @@ def dump(
     exclude_none: bool = False,
     exclude_if: Optional[Callable[[Loc, Any], bool]] = None,
 ) -> dict:
-    """Dump given *model* into dict.
+    """Serialize model to a JSON-compatible dict.
 
-    This is a helper function that uses model's visitor API and provides most
-    common exclusion options.
+    This is a helper function that uses :meth:`Model.dump` underneath,
+    supplying it with most common filtering options.
 
     :param model:
-        The model to dump.
+        The model to serialize.
 
     :param exclude_unset:
         Exclude unset fields from the resulting dict.
 
     :param exclude_none:
-        Exclude fields set to ``None`` from the resulting dict.
+        Exclude fields that are set to ``None`` from the resulting dict.
 
     :param exclude_if:
-        Generic exclusion function.
+        Custom exclusion function.
 
-        Will be called with ``(loc, value)`` arguments, where *loc* is value
-        location, and *value* is visited value. Can be used to to perform more
-        advanced exclusion based on both location and a value. Should return
-        ``True`` to exclude value, or ``False`` to retain it.
+        Will be called with ``(loc, value)`` arguments, where *loc* is a value
+        location, and *value* is the value to be serialized. Can be used to to
+        perform more advanced exclusion based on both location and a value.
+        Should return ``True`` to exclude value, or ``False`` to retain it.
     """
-    return model.dump(Loc(), lambda l, v: v)
+
+    def apply_filters(loc, value):
+        for f in filters:
+            value = f(loc, value)
+            if value is IDumpFilter.SKIP:
+                return value
+        return value
+
+    filters = []
+    if exclude_unset:
+        filters.append(lambda l, v: IDumpFilter.SKIP if v is Unset else v)
+    if exclude_none:
+        filters.append(lambda l, v: IDumpFilter.SKIP if v is None else v)
+    if exclude_if:
+        filters.append(lambda l, v: IDumpFilter.SKIP if exclude_if(l, v) else v)
+    return model.dump(Loc(), apply_filters)
 
 
-def validate(model: Model):
+def validate(model: Model, ctx: Any = None):
     """Validate given model and raise :exc:`modelity.exc.ValidationError` if the
     model is invalid.
 
     :param model:
         The model to validate.
+
+    :param ctx:
+        User-defined context object.
+
+        Check :meth:`Model.validate` for more information.
     """
     errors = []
-    model.validate(model, errors, Loc())
+    model.validate(model, ctx, errors, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))
 

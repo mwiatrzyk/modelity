@@ -59,8 +59,8 @@ def make_bool_type_descriptor(
         def dump(self, loc, value, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors, loc, value):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     true_literals = set(true_literals) if true_literals else None
     false_literals = set(false_literals) if false_literals else None
@@ -112,6 +112,9 @@ def make_datetime_type_descriptor(
         def dump(self, loc: Loc, value: datetime, filter: IDumpFilter):
             return filter(loc, value.strftime(compiled_output_format))
 
+        def validate(self, root, ctx, errors, loc, value):
+            pass
+
     def compile_format(fmt: str) -> str:
         return (
             fmt.replace("YYYY", "%Y")
@@ -148,6 +151,9 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: Enum, filter: IDumpFilter):
             return filter(loc, value.value)
 
+        def validate(self, root, ctx, errors, loc, value):
+            pass
+
     allowed_values = tuple(typ)
     return EnumTypeDescriptor()
 
@@ -169,8 +175,8 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     allowed_values = get_args(typ)
     return LiteralTypeDescriptor()
@@ -194,8 +200,8 @@ def make_none_type_descriptor() -> ITypeDescriptor:
         def dump(self, loc: Loc, value: None, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     return NoneTypeDescriptor()
 
@@ -226,8 +232,8 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
         def dump(self, loc: Loc, value: int, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     class FloatTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -240,8 +246,8 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
         def dump(self, loc: Loc, value: float, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     if issubclass(typ, int):
         return IntTypeDescriptor()
@@ -263,8 +269,8 @@ def make_str_type_descriptor() -> ITypeDescriptor:
         def dump(self, loc: Loc, value: str, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: str):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     return StrTypeDescriptor()
 
@@ -281,5 +287,8 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
 
         def dump(self, loc: Loc, value: bytes, filter: IDumpFilter):
             return filter(loc, value.decode())
+
+        def validate(self, root, ctx, errors, loc, value):
+            pass
 
     return BytesTypeDescriptor()

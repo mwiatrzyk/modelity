@@ -82,6 +82,9 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
             return dump(loc, value, filter)
 
+        def validate(self, root, ctx, errors, loc, value):
+            return
+
     class TypedDictTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = ensure_mapping(errors, loc, value)
@@ -94,6 +97,10 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
             if len(errors) > 0:
                 return Unset
             return MutableMappingProxy(loc, result)
+
+        def validate(self, root, ctx, errors, loc, value: dict):
+            for k, v in value.items():
+                value_type_descriptor.validate(root, ctx, errors, loc + Loc(k), v)
 
         def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: value_type_descriptor.dump(l, v, filter))
@@ -178,8 +185,8 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: list, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-        def validate(self, errors: list[Error], loc: Loc, value: list):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            return
 
     class TypedListDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -193,6 +200,10 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
         def dump(self, loc: Loc, value: list, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
+
+        def validate(self, root, ctx, errors, loc, value: list):
+            for i, elem in enumerate(value):
+                type_descriptor.validate(root, ctx, errors, loc + Loc(i), elem)
 
     from modelity.type_descriptors.main import make_type_descriptor
 
@@ -265,6 +276,9 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, filter)
 
+        def validate(self, root, ctx, errors, loc, value: set):
+            pass
+
     class TypedSetDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = ensure_sequence(errors, loc, value)
@@ -278,12 +292,13 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
+        def validate(self, root, ctx, errors, loc, value: set):
+            pass
+
     from modelity.type_descriptors.main import make_type_descriptor
 
     args = get_args(typ)
     if not args:
-        from modelity.type_descriptors.any import make_any_type_descriptor
-        type_descriptor = make_any_type_descriptor()
         return AnySetDescriptor()
     if not isinstance(args[0], type) or not issubclass(args[0], Hashable):
         raise TypeError("'T' must be hashable type to be used with 'set[T]' generic type")
@@ -324,6 +339,9 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, filter)
 
+        def validate(self, root, ctx, errors, loc, value):
+            pass
+
     class AnyLengthTypedTupleDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = ensure_sequence(errors, loc, value)
@@ -336,6 +354,10 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
+
+        def validate(self, root, ctx, errors, loc, value: tuple):
+            for i, elem in enumerate(value):
+                type_descriptor.validate(root, ctx, errors, loc + Loc(i), elem)
 
     class FixedLengthTypedTupleDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -355,6 +377,10 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptors[l.last].dump(l, v, filter))
+
+        def validate(self, root, ctx, errors, loc, value: tuple):
+            for i, elem, desc in zip(range(len(type_descriptors)), value, type_descriptors):
+                desc.validate(root, ctx, errors, loc + Loc(i), elem)
 
     from modelity.type_descriptors.main import make_type_descriptor
 

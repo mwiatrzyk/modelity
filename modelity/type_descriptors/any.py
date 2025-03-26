@@ -17,7 +17,7 @@ def make_any_type_descriptor() -> ITypeDescriptor:
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
             return filter(loc, value)
 
-        def validate(self, errors, loc, value):
-            return None
+        def validate(self, root, ctx, errors, loc, value):
+            return
 
     return AnyTypeDescriptor()

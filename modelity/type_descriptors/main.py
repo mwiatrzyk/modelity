@@ -51,7 +51,7 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
     if origin is Literal:
         return make_literal_type_descriptor(typ)
     if origin is Annotated:
-        return make_annotated_type_descriptor(typ)
+        return make_annotated_type_descriptor(typ, **opts)
     if origin is Union:
         return make_union_type_descriptor(typ, **opts)
     if origin is tuple:
@@ -67,9 +67,9 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
     if issubclass(typ, datetime):
         return make_datetime_type_descriptor(**opts)
     if issubclass(typ, str):
-        return make_str_type_descriptor(**opts)
+        return make_str_type_descriptor()
     if issubclass(typ, bytes):
-        return make_bytes_type_descriptor(**opts)
+        return make_bytes_type_descriptor()
     if issubclass(typ, Enum):
         return make_enum_type_descriptor(typ)
     if issubclass(typ, Number):

@@ -1,8 +1,8 @@
-from typing import Any, Mapping
+from typing import Mapping
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ModelParsingError
-from modelity.interface import IDumpFilter, ITypeDescriptor
+from modelity.interface import IDumpFilter, IModel, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -14,11 +14,10 @@ def make_model_type_descriptor(typ: type) -> ITypeDescriptor:
     :param typ:
         Model type.
     """
-    from modelity.model import Model
 
     class ModelTypeDescriptor:
 
-        def parse(self, errors: list[Error], loc: Loc, value: Model):
+        def parse(self, errors: list[Error], loc: Loc, value: IModel):
             if isinstance(value, typ):
                 return value
             if not isinstance(value, Mapping):
@@ -31,10 +30,10 @@ def make_model_type_descriptor(typ: type) -> ITypeDescriptor:
             else:
                 return obj
 
-        def dump(self, loc: Loc, value: Model, filter: IDumpFilter):
+        def dump(self, loc: Loc, value: IModel, filter: IDumpFilter):
             return value.dump(loc, filter)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Model):
-            return value.validate(None, errors, loc)
+        def validate(self, root, ctx, errors, loc, value: IModel):
+            value.validate(root, ctx, errors, loc)
 
     return ModelTypeDescriptor()

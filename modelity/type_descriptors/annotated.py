@@ -6,7 +6,7 @@ from modelity.loc import Loc
 from modelity.unset import Unset
 
 
-def make_annotated_type_descriptor(typ) -> ITypeDescriptor:
+def make_annotated_type_descriptor(typ, **opts) -> ITypeDescriptor:
     """Make parser for the :class:`typing.Annotated` types.
 
     This parser assumes that the first argument of the annotated type is the
@@ -35,9 +35,14 @@ def make_annotated_type_descriptor(typ) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
             return type_descriptor.dump(loc, value, filter)
 
+        def validate(self, root, ctx, errors, loc, value):
+            for constraint in constraints:
+                if not constraint(errors, loc, value):
+                    return
+
     from modelity.type_descriptors.main import make_type_descriptor
 
     args = get_args(typ)
-    type_descriptor = make_type_descriptor(args[0])
+    type_descriptor = make_type_descriptor(args[0], **opts)
     constraints = cast(Iterator[IConstraintCallable], args[1:])
     return AnnotatedTypeDescriptor()
