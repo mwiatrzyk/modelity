@@ -86,4 +86,7 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
 
     if issubclass(typ, Model):
         return make_model_type_descriptor(typ, **opts)
+    custom_type_descriptor_maker = getattr(typ, "__modelity_type_descriptor__", None)
+    if custom_type_descriptor_maker is not None and callable(custom_type_descriptor_maker):
+        return custom_type_descriptor_maker(typ, **opts)
     raise UnsupportedTypeError(typ)

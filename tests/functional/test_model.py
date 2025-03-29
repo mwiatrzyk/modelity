@@ -8,6 +8,7 @@ import pytest
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ModelParsingError, ValidationError
+from modelity.interface import ITypeDescriptor
 from modelity.loc import Loc
 from modelity.model import FieldInfo, Model, dump, validate
 from modelity.unset import Unset
@@ -20,6 +21,32 @@ class EDummy(Enum):
 
 class Nested(Model):
     bar: int
+
+
+class CustomType:
+
+    @staticmethod
+    def __modelity_type_descriptor__(typ, **opts) -> ITypeDescriptor:
+
+        class CustomTypeDescriptor:
+
+            def parse(self, errors, loc, value):
+                return typ(value, **opts)
+
+            def dump(self, loc, value, filter) -> Any:
+                return value.value
+
+            def validate(self, root, ctx, errors, loc, value):
+                return
+
+        return CustomTypeDescriptor()
+
+    def __init__(self, value, **opts):
+        self.value = value
+        self.opts = opts
+
+    def __eq__(self, other):
+        return self.value == other.value and self.opts == other.opts
 
 
 class TestModelWithOneField:
@@ -116,6 +143,8 @@ class TestModelWithOneField:
             (Union[str, int], None, "123", "123"),
             (Union[str, int], None, 123, 123),
             (Union[str, int], None, "spam", "spam"),
+            (CustomType, None, 1, CustomType(1)),
+            (CustomType, FieldInfo(type_opts={"foo": 1}), 1, CustomType(1, foo=1)),
         ],
     )
     def test_parse_successfully(self, model: Model, expected_value):
@@ -286,6 +315,7 @@ class TestModelWithOneField:
             (Union[int, Nested], None, {"bar": "123"}, {"foo": {"bar": 123}}),
             (Union[int, Nested, float], None, "3.14", {"foo": 3.14}),
             (Union[int, Nested, float], None, Unset, {"foo": Unset}),
+            (CustomType, None, 1, {"foo": 1}),
         ],
     )
     def test_dump(self, model: Model, expected_output):
@@ -341,6 +371,7 @@ class TestModelWithOneField:
             (Optional[Nested], None, None, None),
             (Union[int, Nested], None, 1, 1),
             (Union[int, Nested], None, {"bar": 2}, Nested(bar=2)),
+            (CustomType, None, 1, CustomType(1)),
         ],
     )
     def test_validate_model_successfully(self, model: Model, expected_output):
