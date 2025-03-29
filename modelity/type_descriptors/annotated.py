@@ -1,4 +1,4 @@
-from typing import Any, Iterator, cast, get_args
+from typing import Annotated, Any, Iterator, TypeVar, cast, get_args
 
 from modelity.error import Error
 from modelity.interface import IConstraintCallable, IDumpFilter, ITypeDescriptor
@@ -6,20 +6,24 @@ from modelity.loc import Loc
 from modelity.unset import Unset
 
 
-def make_annotated_type_descriptor(typ, **opts) -> ITypeDescriptor:
-    """Make parser for the :class:`typing.Annotated` types.
+def make_annotated_type_descriptor(typ: Any, **opts: Any) -> ITypeDescriptor:
+    """Make descriptor for type created using :class:`typing.Annotated` object.
 
-    This parser assumes that the first argument of the annotated type is the
-    type, and all remaining are :class:`IParser` protocol instances to be tried
-    from left to right and only if type parsing was successful.
+    For example, this function will create descriptor for constrained integer
+    type, like in this example:
+
+    .. testcode::
+
+        from typing import Annotated
+        from modelity.constraints import Gt
+
+        PositiveInteger = Annotated[int, Gt(0)]
 
     :param typ:
-        Type marked with :class:`typing.Annotated`, supplied with user-defined
-        constraints.
+        The type to create descriptor for.
 
-        For example:
-
-            ``Annotated[int, Gt(0), Lt(10)]``
+    :param `**opts`:
+        Options to be passed to the inner type descriptor.
     """
 
     class AnnotatedTypeDescriptor:

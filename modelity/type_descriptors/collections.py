@@ -20,10 +20,18 @@ from modelity.unset import Unset, UnsetType
 
 
 def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
-    """Make type descriptor for the :class:`dict` type, both typed and untyped.
+    """Make descriptor for :class:`dict` type.
+
+    Following variants are supported:
+
+    * ``dict`` (plain dict, with any keys and any values)
+    * ``dict[K, V]`` (typed dict, with keys of type *K*, and values of type *V*)
 
     :param typ:
-        Dict type to create parser for.
+        The type to create parser for.
+
+    :param `**opts`:
+        The options to be passed to inner type descriptors.
     """
 
     class MutableMappingProxy(MutableMapping):
@@ -117,12 +125,18 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
 
 
 def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
-    """Make parser for given list type.
+    """Make descriptor for :class:`list` type.
 
-    Handles both plain lists and typed ones
+    Following type variants are supported:
+
+    * ``list`` (plain, untyped lists)
+    * ``list[T]`` (typed list, with each item of type *T*)
 
     :param typ:
-        List type to make parser for.
+        The type to create descriptor for.
+
+    :param `**opts`:
+        Type options.
     """
 
     class MutableSequenceProxy(MutableSequence):
@@ -215,7 +229,19 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
 
 def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
-    """Make parser for set type."""
+    """Make descriptor for :class:`set` type.
+
+    Following type variants are supported:
+
+    * ``set`` (untyped sets, with items of any type)
+    * ``set[T]`` (typed sets, with items of type *T*)
+
+    :param typ:
+        The type to create descriptor for.
+
+    :param `**opts`:
+        Type options.
+    """
 
     class MutableSetProxy(MutableSet):
         __slots__ = ["_loc", "_data"]
@@ -307,12 +333,19 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
 
 def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
-    """Make parser for given tuple type.
+    """Make descriptor for :class:`tuple` type.
 
-    Returned parser can parse any kind of tuple, both typed and untyped.
+    Following type variants are supported:
+
+    * ``tuple`` (untyped, unlimited size)
+    * ``tuple[T, ...]`` (typed, unlimited size, with items of type *T*)
+    * ``tuple[A, B, ..., Z] (typed, fixed size, with items of type *A*, *B*, ..., *Z*)
 
     :param typ:
-        Tuple type to create parser for.
+        The type to create descriptor for.
+
+    :param `**opts`:
+        The options to be passed to inner type descriptors.
     """
 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
