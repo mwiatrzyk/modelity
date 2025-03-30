@@ -31,7 +31,7 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
             for t in types:
                 if isinstance(value, t):
                     return value
-            inner_errors = []
+            inner_errors: list[Error] = []
             for parser in type_descriptors:
                 result = parser.parse(inner_errors, loc, value)
                 if result is not Unset:
@@ -53,7 +53,7 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
     types = get_args(typ)
     if len(types) == 2 and types[-1] is type(None):
-        type_descriptor = make_type_descriptor(types[0], **opts)
+        type_descriptor: ITypeDescriptor = make_type_descriptor(types[0], **opts)
         return OptionalTypeDescriptor()
-    type_descriptors = [make_type_descriptor(typ, **opts) for typ in types]
+    type_descriptors: list[ITypeDescriptor] = [make_type_descriptor(typ, **opts) for typ in types]
     return UnionTypeDescriptor()

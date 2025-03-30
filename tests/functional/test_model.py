@@ -1,16 +1,28 @@
 from datetime import datetime, timezone
 from enum import Enum
-import json
+import textwrap
 from typing import Annotated, Any, Literal, Optional, Union
 
 import pytest
 
+from mockify.api import Mock, ordered, satisfied, Raise, Return
+
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import ErrorFactory
-from modelity.exc import ModelParsingError, ValidationError
+from modelity.exc import ParsingError, ParsingError, ValidationError
 from modelity.interface import ITypeDescriptor
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model, dump, validate
+from modelity.model import (
+    FieldInfo,
+    Model,
+    dump,
+    field_postprocessor,
+    field_preprocessor,
+    field_validator,
+    model_postvalidator,
+    model_prevalidator,
+    validate,
+)
 from modelity.unset import Unset
 
 
@@ -21,6 +33,18 @@ class EDummy(Enum):
 
 class Nested(Model):
     bar: int
+
+
+@pytest.fixture
+def mock():
+    mock = Mock("mock")
+    with satisfied(mock):
+        yield mock
+
+
+@pytest.fixture
+def sut(SUT):
+    return SUT()
 
 
 class CustomType:
@@ -260,9 +284,9 @@ class TestModelWithOneField:
         ],
     )
     def test_parsing_failed(self, model_class: type[Model], given_value, expected_errors):
-        with pytest.raises(ModelParsingError) as excinfo:
+        with pytest.raises(ParsingError) as excinfo:
             model_class(foo=given_value)
-        assert type(excinfo.value.model) is model_class
+        assert excinfo.value.typ is model_class
         assert excinfo.value.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize(
@@ -413,3 +437,877 @@ class TestModelWithOneField:
             validate(model)
         assert excinfo.value.model is model
         assert excinfo.value.errors == tuple(expected_errors)
+
+
+class TestModelWithModelField:
+
+    class SUT(Model):
+
+        class Foo(Model):
+            bar: int
+
+        foo: Foo
+
+    @pytest.fixture
+    def sut(self):
+        return self.SUT()
+
+    @pytest.mark.parametrize(
+        "args, expected_bar",
+        [
+            ({"foo": {}}, Unset),
+            ({"foo": {"bar": "1"}}, 1),
+            ({"foo": SUT.Foo()}, Unset),
+            ({"foo": SUT.Foo(bar=2)}, 2),
+        ],
+    )
+    def test_construct(self, args, expected_bar):
+        uut = self.SUT(**args)
+        assert uut.foo.bar == expected_bar
+
+    @pytest.mark.parametrize(
+        "given_foo, expected_bar",
+        [
+            ({}, Unset),
+            ({"bar": "1"}, 1),
+        ],
+    )
+    def test_assign_value_to_field(self, sut: SUT, given_foo, expected_bar):
+        sut.foo = given_foo
+        assert sut.foo.bar == expected_bar
+
+    @pytest.mark.parametrize(
+        "initial_foo, initial_bar, expected_errors",
+        [
+            ({}, "spam", [ErrorFactory.invalid_integer(Loc("foo", "bar"), "spam")]),
+            (SUT.Foo(), "spam", [ErrorFactory.invalid_integer(Loc("foo", "bar"), "spam")]),
+        ],
+    )
+    def test_when_assigning_incorrect_value_then_parsing_error_is_raised(
+        self, sut: SUT, initial_foo, initial_bar, expected_errors
+    ):
+        sut.foo = initial_foo
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo.bar = initial_bar
+        assert excinfo.value.typ is type(sut.foo)
+        assert excinfo.value.errors == tuple(expected_errors)
+
+
+class TestModelWithDictField:
+
+    class SUT(Model):
+        foo: dict[str, int]
+
+    @pytest.fixture
+    def sut(self, args):
+        return self.SUT(**args)
+
+    @pytest.mark.parametrize(
+        "args, key, value, expected_value",
+        [
+            ({"foo": {}}, "one", "1", 1),
+            ({"foo": {}}, "two", 2, 2),
+        ],
+    )
+    def test_set_valid_item(self, sut: SUT, key, value, expected_value):
+        sut.foo[key] = value
+        assert sut.foo[key] == expected_value
+
+    @pytest.mark.parametrize(
+        "args, key, value, expected_errors",
+        [({"foo": {}}, "one", "spam", [ErrorFactory.invalid_integer(Loc("foo", "one"), "spam")])],
+    )
+    def test_setting_item_to_invalid_value_causes_error(self, sut: SUT, key, value, expected_errors):
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo[key] = value
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    def test_updating_dict_with_several_invalid_data_causes_several_errors(self):
+        sut = self.SUT(foo={})
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo.update({"one": "one", "two": "two"})
+        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
+        assert excinfo.value.errors == (
+            ErrorFactory.invalid_integer(Loc("foo", "one"), "one"),
+            ErrorFactory.invalid_integer(Loc("foo", "two"), "two"),
+        )
+
+    def test_update_dict_successfully(self):
+        sut = self.SUT(foo={"three": 3})
+        sut.foo.update(one=1, two=2)
+        assert sut.foo == {"one": 1, "two": 2, "three": 3}
+
+    def test_setdefault_successfully(self):
+        sut = self.SUT(foo={"one": 1})
+        assert sut.foo.setdefault("one", 123) == 1
+        assert sut.foo.setdefault("two", "2") == "2"
+        assert sut.foo.setdefault("two", "2") == 2
+
+    def test_setdefault_fails(self):
+        sut = self.SUT(foo={})
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo.setdefault("one", "spam")
+        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
+        assert excinfo.value.errors == (ErrorFactory.invalid_integer(Loc("foo", "one"), "spam"),)
+
+
+class TestModelWithListField:
+
+    class SUT(Model):
+        foo: list[int]
+
+    @pytest.fixture
+    def sut(self, initial):
+        return self.SUT(foo=initial)
+
+    @pytest.mark.parametrize(
+        "initial, given, expected_result",
+        [
+            ([], "1", [1]),
+            ([1, 2], "1", [1, 2, 1]),
+        ],
+    )
+    def test_append_successfully(self, sut: SUT, given, expected_result):
+        sut.foo.append(given)
+        assert sut.foo == expected_result
+
+    @pytest.mark.parametrize(
+        "initial, given, expected_errors",
+        [
+            ([], "spam", [ErrorFactory.invalid_integer(Loc("foo", 0), "spam")]),
+            ([1, 2, 3], "spam", [ErrorFactory.invalid_integer(Loc("foo", 3), "spam")]),
+        ],
+    )
+    def test_append_failed(self, sut: SUT, given, expected_errors):
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo.append(given)
+        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
+        assert excinfo.value.errors == tuple(expected_errors)
+
+    @pytest.mark.parametrize(
+        "initial, given, expected_result",
+        [
+            ([], "1", [1]),
+            ([1, 2], "12", [1, 2, 1, 2]),
+        ],
+    )
+    def test_extend_successfully(self, sut: SUT, given, expected_result):
+        sut.foo.extend(given)
+        assert sut.foo == expected_result
+
+    @pytest.mark.parametrize(
+        "initial, given, expected_errors",
+        [
+            ([], ["one"], [ErrorFactory.invalid_integer(Loc("foo", 0), "one")]),
+            (
+                [],
+                ["one", "two"],
+                [
+                    ErrorFactory.invalid_integer(Loc("foo", 0), "one"),
+                    ErrorFactory.invalid_integer(Loc("foo", 1), "two"),
+                ],
+            ),
+        ],
+    )
+    def test_extend_failed(self, sut: SUT, given, expected_errors):
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo.extend(given)
+        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
+        assert excinfo.value.errors == tuple(expected_errors)
+
+
+class TestModelWithModelPrevalidators:
+
+    def test_invoke_model_prevalidator_without_args(self, mock):
+
+        class SUT(Model):
+
+            @model_prevalidator()
+            def foo():
+                mock.foo()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_value_error_exception_is_converted_into_error(self, mock):
+
+        class SUT(Model):
+
+            @model_prevalidator()
+            def foo():
+                mock.foo()
+
+        sut = SUT()
+        mock.foo.expect_call().will_once(Raise(ValueError("an error")))
+        with pytest.raises(ValidationError) as excinfo:
+            validate(sut)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), "an error", ValueError),)
+
+    @pytest.mark.parametrize(
+        "arg_name, expect_call_arg",
+        [
+            ("cls", "SUT"),
+            ("self", "sut"),
+            ("root", "sut"),
+            ("ctx", "{1, 2, 3}"),
+            ("errors", "[]"),
+            ("loc", "Loc('spam')"),
+        ],
+    )
+    def test_invoke_model_prevalidator_with_single_arg(self, mock, arg_name, expect_call_arg):
+        code = textwrap.dedent(
+            f"""
+        class SUT(Model):
+
+            @model_prevalidator()
+            def foo({arg_name}):
+                mock.foo({arg_name})
+
+        sut = SUT()
+        sut.__loc__ = Loc("spam")
+        mock.foo.expect_call({expect_call_arg})
+        with ordered(mock):
+            validate(sut, ctx=ctx)
+        """
+        )
+        ctx = {1, 2, 3}
+        g = dict(globals())
+        g.update({"mock": mock, "ctx": ctx})
+        exec(code, g)
+
+    def test_invoke_nested_model_prevalidator_with_self_and_root_arguments(self, mock):
+
+        class SUT(Model):
+
+            class Nested(Model):
+                @model_prevalidator()
+                def foo(self, root):
+                    mock.foo(self, root)
+
+            nested: Nested
+
+        sut = SUT(nested={})
+        mock.foo.expect_call(sut.nested, sut)
+        with ordered(mock):
+            validate(sut)
+
+    def test_invoke_model_prevalidator_with_all_params(self, mock):
+
+        class SUT(Model):
+
+            @model_prevalidator()
+            def foo(cls, self, root, ctx, errors, loc):
+                mock.foo(cls, self, root, ctx, errors, loc)
+
+        sut = SUT()
+        mock.foo.expect_call(SUT, sut, sut, None, [], Loc())
+        with ordered(mock):
+            validate(sut)
+
+    def test_two_model_prevalidators_are_executed_in_declaration_order(self, mock):
+
+        class SUT(Model):
+
+            @model_prevalidator()
+            def foo():
+                mock.foo()
+
+            @model_prevalidator()
+            def bar():
+                mock.bar()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_prevalidators_defined_in_base_model_are_also_executed_for_child_model(self, mock):
+
+        class Base(Model):
+
+            @model_prevalidator()
+            def foo():
+                mock.foo()
+
+        class SUT(Base):
+
+            @model_prevalidator()
+            def bar():
+                mock.bar()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+
+class TestModelWithModelPostvalidators:
+
+    def test_invoke_model_postvalidator_without_args(self, mock):
+
+        class SUT(Model):
+
+            @model_postvalidator()
+            def foo():
+                mock.foo()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_value_error_exception_is_converted_into_error(self, mock):
+
+        class SUT(Model):
+
+            @model_postvalidator()
+            def foo():
+                mock.foo()
+
+        sut = SUT()
+        mock.foo.expect_call().will_once(Raise(ValueError("an error")))
+        with pytest.raises(ValidationError) as excinfo:
+            validate(sut)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), "an error", ValueError),)
+
+    @pytest.mark.parametrize(
+        "arg_name, expect_call_arg",
+        [
+            ("cls", "SUT"),
+            ("self", "sut"),
+            ("root", "sut"),
+            ("ctx", "{1, 2, 3}"),
+            ("errors", "[]"),
+            ("loc", "Loc('spam')"),
+        ],
+    )
+    def test_invoke_model_postvalidator_with_single_arg(self, mock, arg_name, expect_call_arg):
+        code = textwrap.dedent(
+            f"""
+        class SUT(Model):
+
+            @model_postvalidator()
+            def foo({arg_name}):
+                mock.foo({arg_name})
+
+        sut = SUT()
+        sut.__loc__ = Loc("spam")
+        mock.foo.expect_call({expect_call_arg})
+        with ordered(mock):
+            validate(sut, ctx=ctx)
+        """
+        )
+        ctx = {1, 2, 3}
+        g = dict(globals())
+        g.update({"mock": mock, "ctx": ctx})
+        exec(code, g)
+
+    def test_invoke_nested_model_postvalidator_with_self_and_root_arguments(self, mock):
+
+        class SUT(Model):
+
+            class Nested(Model):
+                @model_postvalidator()
+                def foo(self, root):
+                    mock.foo(self, root)
+
+            nested: Nested
+
+        sut = SUT(nested={})
+        mock.foo.expect_call(sut.nested, sut)
+        with ordered(mock):
+            validate(sut)
+
+    def test_invoke_model_postvalidator_with_all_params(self, mock):
+
+        class SUT(Model):
+
+            @model_postvalidator()
+            def foo(cls, self, root, ctx, errors, loc):
+                mock.foo(cls, self, root, ctx, errors, loc)
+
+        sut = SUT()
+        mock.foo.expect_call(SUT, sut, sut, None, [], Loc())
+        with ordered(mock):
+            validate(sut)
+
+    def test_two_model_postvalidators_are_executed_in_declaration_order(self, mock):
+
+        class SUT(Model):
+
+            @model_postvalidator()
+            def foo():
+                mock.foo()
+
+            @model_postvalidator()
+            def bar():
+                mock.bar()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_postvalidators_defined_in_base_model_are_also_executed_for_child_model(self, mock):
+
+        class Base(Model):
+
+            @model_postvalidator()
+            def foo():
+                mock.foo()
+
+        class SUT(Base):
+
+            @model_postvalidator()
+            def bar():
+                mock.bar()
+
+        sut = SUT()
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+
+class TestModelWithFieldValidators:
+
+    def test_declare_field_validator_without_args(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_foo():
+                mock.foo()
+
+        sut = SUT(foo=1)
+        mock.foo.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_value_error_exception_is_converted_into_error(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_foo():
+                mock.foo()
+
+        sut = SUT(foo=1)
+        mock.foo.expect_call().will_once(Raise(ValueError("an error")))
+        with pytest.raises(ValidationError) as excinfo:
+            validate(sut)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", ValueError),)
+
+    @pytest.mark.parametrize(
+        "arg_name, expected_call_arg",
+        [
+            ("cls", "SUT"),
+            ("self", "sut"),
+            ("root", "sut"),
+            ("ctx", "{1, 2, 3}"),
+            ("errors", "[]"),
+            ("loc", "Loc('foo')"),
+            ("value", "123"),
+        ],
+    )
+    def test_declare_field_validator_with_single_arg(self, mock, arg_name, expected_call_arg):
+        code = textwrap.dedent(
+            f"""
+        class SUT(Model):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_foo({arg_name}):
+                mock.foo({arg_name})
+
+        sut = SUT(foo=123)
+        assert sut.foo == 123
+        mock.foo.expect_call({expected_call_arg})
+        with ordered(mock):
+            validate(sut, ctx=ctx)
+        """
+        )
+        ctx = {1, 2, 3}
+        g = dict(globals())
+        g.update({"mock": mock, "ctx": ctx})
+        exec(code, g)
+
+    def test_declare_field_validator_with_all_args(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_foo(cls, self, root, ctx, errors, loc, value):
+                mock.foo(cls, self, root, ctx, errors, loc, value)
+
+        ctx = object()
+        sut = SUT(foo=123)
+        mock.foo.expect_call(SUT, sut, sut, ctx, [], Loc("foo"), 123)
+        with ordered(mock):
+            validate(sut, ctx=ctx)
+
+    def test_declare_field_validator_in_nested_model_with_self_and_root_args(self, mock):
+
+        class SUT(Model):
+
+            class Nested(Model):
+                foo: int
+
+                @field_validator("foo")
+                def _validate_foo(self, root):
+                    mock.foo(self, root)
+
+            nested: Nested
+
+        sut = SUT(nested={"foo": 123})
+        mock.foo.expect_call(sut.nested, sut)
+        with ordered(mock):
+            validate(sut)
+
+    def test_two_field_validators_are_executed_in_declaration_order(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_foo():
+                mock.foo()
+
+            @field_validator("foo")
+            def _validate_bar():
+                mock.bar()
+
+        sut = SUT(foo=123)
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_inherited_field_validators_are_executed_in_declaration_order(self, mock):
+
+        class Base(Model):
+
+            @field_validator()
+            def _validate_foo():
+                mock.foo()
+
+        class SUT(Base):
+            foo: int
+
+            @field_validator("foo")
+            def _validate_bar():
+                mock.bar()
+
+        sut = SUT(foo=123)
+        mock.foo.expect_call()
+        mock.bar.expect_call()
+        with ordered(mock):
+            validate(sut)
+
+    def test_field_validator_declared_without_field_names_is_applied_to_all_fields(self, mock):
+
+        class SUT(Model):
+            foo: int
+            bar: int
+
+            @field_validator()
+            def _validate_foo(loc, value):
+                mock.foo(loc, value)
+
+        sut = SUT(foo=123, bar=456)
+        mock.foo.expect_call(Loc("foo"), 123)
+        mock.foo.expect_call(Loc("bar"), 456)
+        with ordered(mock):
+            validate(sut)
+
+    def test_field_validator_is_not_called_if_value_is_not_set(self, mock):
+
+        class SUT(Model):
+            foo: Optional[int]
+
+            @field_validator("foo")
+            def _validate_foo():
+                mock.foo()
+
+        sut = SUT()
+        mock.foo.expect_call().times(0)
+        with ordered(mock):
+            validate(sut)
+
+
+class TestModelWithPrePostAndFieldValidators:
+
+    def test_first_invoke_model_prevalidator_then_field_validator_and_finally_model_postvalidator(self, mock):
+
+        class SUT(Model):
+            foo: Optional[int]
+
+            @model_prevalidator()
+            def _prevalidate(self):
+                mock.prevalidate(self)
+
+            @model_postvalidator()
+            def _postvalidate(self):
+                mock.postvalidate(self)
+
+            @field_validator("foo")
+            def _validate_foo(self, loc, value):
+                mock.validate_foo(self, loc, value)
+
+        sut = SUT()
+        sut.foo = 123
+        mock.prevalidate.expect_call(sut)
+        mock.validate_foo.expect_call(sut, Loc("foo"), 123)
+        mock.postvalidate.expect_call(sut)
+        with ordered(mock):
+            validate(sut)
+
+
+class TestModelWithFieldPreprocessors:
+
+    def test_declare_preprocessor_without_args(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_preprocessor("foo")
+            def _preprocess():
+                return mock.preprocess()
+
+        sut = SUT()
+        mock.preprocess.expect_call().will_once(Return("123"))
+        sut.foo = 1
+        assert sut.foo == 123
+
+    @pytest.mark.parametrize(
+        "arg_name, expect_call_arg, given_foo, mock_return, expected_foo",
+        [
+            ("cls", "SUT", 1, "123", 123),
+            ("errors", "[]", 1, "123", 123),
+            ("loc", "Loc('foo')", 1, "123", 123),
+            ("value", 1, 1, "123", 123),
+            ("value", 2, 2, "2", 2),
+        ],
+    )
+    def test_declare_preprocessor_with_single_arg(
+        self, mock, arg_name, expect_call_arg, given_foo, mock_return, expected_foo
+    ):
+        code = textwrap.dedent(
+            f"""
+        class SUT(Model):
+            foo: int
+
+            @field_preprocessor("foo")
+            def _preprocess({arg_name}):
+                return mock.preprocess({arg_name})
+
+        sut = SUT()
+        mock.preprocess.expect_call({expect_call_arg}).will_once(Return({mock_return!r}))
+        sut.foo = {given_foo!r}
+        assert sut.foo == {expected_foo!r}
+        """
+        )
+        g = globals()
+        g.update({"mock": mock})
+        exec(code, g)
+
+    def test_preprocessor_declared_without_field_names_is_executed_for_all_fields(self, mock):
+
+        class SUT(Model):
+            foo: int
+            bar: int
+
+            @field_preprocessor()
+            def _preprocess(loc, value):
+                return mock.foo(loc, value)
+
+        mock.foo.expect_call(Loc("foo"), 1).will_once(Return(1))
+        mock.foo.expect_call(Loc("bar"), 2).will_once(Return(2))
+        with ordered(mock):
+            sut = SUT(foo=1, bar=2)
+            assert sut.foo == 1
+            assert sut.bar == 2
+
+    def test_two_preprocessors_are_chained_in_declaration_order(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_preprocessor("foo")
+            def _first(value):
+                return mock.first(value)
+
+            @field_preprocessor("foo")
+            def _second(value):
+                return mock.second(value)
+
+        mock.first.expect_call(1).will_once(Return(12))
+        mock.second.expect_call(12).will_once(Return(123))
+        with ordered(mock):
+            sut = SUT(foo=1)
+            assert sut.foo == 123
+
+    def test_inherited_preprocessors_are_chained_in_declaration_order(self, mock):
+
+        class Base(Model):
+
+            @field_preprocessor()
+            def _first(value):
+                return mock.first(value)
+
+        class SUT(Base):
+            foo: int
+
+            @field_preprocessor("foo")
+            def _second(value):
+                return mock.second(value)
+
+        mock.first.expect_call(1).will_once(Return(12))
+        mock.second.expect_call(12).will_once(Return(123))
+        with ordered(mock):
+            sut = SUT(foo=1)
+            assert sut.foo == 123
+
+    def test_when_preprocessor_throws_type_error_then_it_is_converted_to_error(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_preprocessor("foo")
+            def _preprocess_foo(value):
+                return mock.preprocess_foo(value)
+
+        mock.preprocess_foo.expect_call(123).will_once(Raise(TypeError("an error")))
+        sut = SUT()
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo = 123
+        assert excinfo.value.typ is SUT
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", TypeError),)
+
+
+class TestModelWithFieldPostprocessors:
+
+    def test_declare_preprocessor_without_args(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_postprocessor("foo")
+            def _postprocess_foo(value):
+                return mock.postprocess_foo(value)
+
+        sut = SUT()
+        mock.postprocess_foo.expect_call(1).will_once(Return(12))
+        sut.foo = "1"
+        assert sut.foo == 12
+
+    @pytest.mark.parametrize(
+        "arg_name, expect_call_arg, given_foo, mock_return",
+        [
+            ("cls", "SUT", 1, 123),
+            ("errors", "[]", 1, 123),
+            ("loc", "Loc('foo')", 1, 123),
+            ("value", 1, 1, 123),
+            ("value", 2, 2, 2),
+        ],
+    )
+    def test_declare_postprocessor_with_single_arg(self, mock, arg_name, expect_call_arg, given_foo, mock_return):
+        code = textwrap.dedent(
+            f"""
+        class SUT(Model):
+            foo: int
+
+            @field_postprocessor("foo")
+            def _postprocess_foo({arg_name}):
+                return mock.postprocess_foo({arg_name})
+
+        sut = SUT()
+        mock.postprocess_foo.expect_call({expect_call_arg}).will_once(Return({mock_return!r}))
+        sut.foo = {given_foo!r}
+        assert sut.foo == {mock_return!r}
+        """
+        )
+        g = globals()
+        g.update({"mock": mock})
+        exec(code, g)
+
+    def test_postprocessor_declared_without_field_names_is_executed_for_all_fields(self, mock):
+
+        class SUT(Model):
+            foo: int
+            bar: int
+
+            @field_postprocessor()
+            def _postprocess(loc, value):
+                return mock.foo(loc, value)
+
+        mock.foo.expect_call(Loc("foo"), 1).will_once(Return(1))
+        mock.foo.expect_call(Loc("bar"), 2).will_once(Return(2))
+        with ordered(mock):
+            sut = SUT(foo=1, bar=2)
+            assert sut.foo == 1
+            assert sut.bar == 2
+
+    def test_two_postprocessors_are_chained_in_declaration_order(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_postprocessor("foo")
+            def _first(value):
+                return mock.first(value)
+
+            @field_postprocessor("foo")
+            def _second(value):
+                return mock.second(value)
+
+        mock.first.expect_call(1).will_once(Return(12))
+        mock.second.expect_call(12).will_once(Return(123))
+        with ordered(mock):
+            sut = SUT(foo=1)
+            assert sut.foo == 123
+
+    def test_inherited_postprocessors_are_chained_in_declaration_order(self, mock):
+
+        class Base(Model):
+
+            @field_postprocessor()
+            def _first(value):
+                return mock.first(value)
+
+        class SUT(Base):
+            foo: int
+
+            @field_postprocessor("foo")
+            def _second(value):
+                return mock.second(value)
+
+        mock.first.expect_call(1).will_once(Return(12))
+        mock.second.expect_call(12).will_once(Return(123))
+        with ordered(mock):
+            sut = SUT(foo=1)
+            assert sut.foo == 123
+
+    def test_when_postprocessor_throws_type_error_then_it_is_converted_to_error(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @field_postprocessor("foo")
+            def _postprocess_foo(value):
+                return mock.postprocess_foo(value)
+
+        mock.postprocess_foo.expect_call(123).will_once(Raise(TypeError("an error")))
+        sut = SUT()
+        with pytest.raises(ParsingError) as excinfo:
+            sut.foo = 123
+        assert excinfo.value.typ is SUT
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", TypeError),)

@@ -1,7 +1,6 @@
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 from modelity.error import Error
-from modelity.loc import Loc
 
 
 class ModelityError(Exception):
@@ -40,32 +39,32 @@ class ParsingError(ModelError):
     """Exception raised when type parser fails to parse input value into
     instance of desired type."""
 
+    #: The type for which parsing has failed.
+    typ: Any
+
+    def __init__(self, typ: Any, errors: tuple[Error, ...]):
+        super().__init__(errors)
+        self.typ = typ
+
+    @property
+    def typ_name(self) -> str:
+        """Return the name of the type."""
+        name = getattr(self.typ, "__qualname__", None)
+        if name is not None:
+            return name
+        return repr(self.typ)
+
     @property
     def formatted_errors(self) -> str:
         """The string containing formatted :attr:`errors` attribute."""
         out = []
         for error in sorted(self.errors, key=lambda x: x.loc):
             out.append(f"  {error.loc}:")
-            out.append(f"    {error.msg} [code={error.code}, value={error.value!r}]")
+            out.append(f"    {error.msg} [code={error.code}, value_type={error.value_type!r}]")
         return "\n".join(out)
 
     def __str__(self):
-        return f"parsing failed with {len(self.errors)} error(-s):\n{self.formatted_errors}"
-
-
-class ModelParsingError(ParsingError):
-    """Exception raised by model when it fails to parse input data to the valid
-    type."""
-
-    #: The model object for which the parsing has failed.
-    model: Any
-
-    def __init__(self, model: Any, errors: tuple[Error, ...]):
-        super().__init__(errors)
-        self.model = model
-
-    def __str__(self):
-        return f"parsing failed for model {self.model.__class__.__qualname__!r} with {len(self.errors)} error(-s):\n{self.formatted_errors}"
+        return f"parsing failed for type {self.typ_name!r} with {len(self.errors)} error(-s):\n{self.formatted_errors}"
 
 
 class ValidationError(ModelError):

@@ -5,4 +5,4 @@ Modelity documentation
    :maxdepth: 2
 
    about
-   quickstart
+   .. quickstart

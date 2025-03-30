@@ -6,7 +6,7 @@ import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, FieldInfo, model_validator, validate, dump
+from modelity.model import Model, FieldInfo, model_postvalidator, validate, dump
 from modelity.unset import Unset
 from modelity.error import ErrorFactory
 
@@ -43,7 +43,7 @@ class Response(Model):
     error: Error = FieldInfo(optional=True)
     id: ID
 
-    @model_validator()
+    @model_postvalidator()
     def _validate_response(self):
         if self.result is Unset and self.error is Unset:
             raise ValueError("neither 'error' nor 'result' Field set")

@@ -8,13 +8,14 @@ from typing import (
     MutableSet,
     Sequence,
     Union,
+    cast,
     get_args,
 )
 
 from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import IDumpFilter, ITypeDescriptor
+from modelity.interface import EXCLUDE, IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
@@ -35,10 +36,10 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
     """
 
     class MutableMappingProxy(MutableMapping):
-        __slots__ = ["_root_loc", "_data"]
+        __slots__ = ["_loc", "_data"]
 
-        def __init__(self, root_loc: Loc, initial_data: dict):
-            self._root_loc = root_loc
+        def __init__(self, loc: Loc, initial_data: dict):
+            self._loc = loc
             self._data = initial_data
 
         def __repr__(self):
@@ -48,14 +49,19 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
             del self._data[key]
 
         def __setitem__(self, key, value) -> None:
-            errors = []
-            key = key_type_descriptor.parse(errors, self._root_loc, key)
+            errors: list[Error] = []
+            self.__setitem(self._data, key, value, errors)
+            if errors:
+                raise ParsingError(typ, tuple(errors))
+
+        def __setitem(self, out: dict, key, value, errors: list[Error]):
+            key = key_type_descriptor.parse(errors, self._loc, key)
             if key is Unset:
-                raise ParsingError(tuple(errors))
-            value = value_type_descriptor.parse(errors, self._root_loc + Loc(key), value)
+                return
+            value = value_type_descriptor.parse(errors, self._loc + Loc(key), value)
             if value is Unset:
-                raise ParsingError(tuple(errors))
-            self._data[key] = value
+                return
+            out[key] = value
 
         def __getitem__(self, key):
             return self._data[key]
@@ -66,17 +72,38 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         def __len__(self) -> int:
             return len(self._data)
 
+        def update(self, *args, **kwargs):
+            tmp = {}
+            tmp.update(*args, **kwargs)
+            errors = []
+            result = parse_typed(errors, self._loc, tmp)
+            if errors:
+                raise ParsingError(typ, tuple(errors))
+            self._data.update(result)
+
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
             return value
         errors.append(ErrorFactory.invalid_dict(loc, value))
         return Unset
 
+    def parse_typed(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
+        result = ensure_mapping(errors, loc, value)
+        if result is Unset:
+            return result
+        result = dict(
+            (key_type_descriptor.parse(errors, loc, k), value_type_descriptor.parse(errors, loc + Loc(k), v))
+            for k, v in cast(Mapping, result).items()
+        )
+        if len(errors) > 0:
+            return Unset
+        return result
+
     def dump(loc: Loc, value: dict, filter: IDumpFilter) -> dict:
         result = {}
         for k, v in value.items():
             v = filter(loc, v)
-            if v is not IDumpFilter.SKIP:
+            if v is not EXCLUDE:
                 result[k] = v
         return result
 
@@ -95,16 +122,10 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
 
     class TypedDictTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
-            result = ensure_mapping(errors, loc, value)
-            if result is Unset:
-                return result
-            result = dict(
-                (key_type_descriptor.parse(errors, loc, k), value_type_descriptor.parse(errors, loc + Loc(k), v))
-                for k, v in result.items()
-            )
+            result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
-            return MutableMappingProxy(loc, result)
+            return MutableMappingProxy(loc, cast(dict, result))
 
         def validate(self, root, ctx, errors, loc, value: dict):
             for k, v in value.items():
@@ -118,8 +139,8 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
     args = get_args(typ)
     if not args:
         return AnyDictTypeDescriptor()
-    key_type_descriptor, value_type_descriptor = make_type_descriptor(args[0], **opts), make_type_descriptor(
-        args[1], **opts
+    key_type_descriptor, value_type_descriptor = cast(ITypeDescriptor, make_type_descriptor(args[0], **opts)), cast(
+        ITypeDescriptor, make_type_descriptor(args[1], **opts)
     )
     return TypedDictTypeDescriptor()
 
@@ -159,20 +180,29 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
             return self._data[index]
 
         def __setitem__(self, index, value):
-            self._data[index] = self._parse_item(index, value)
+            self._data[index] = self.__parse_item(index, value)
 
         def __len__(self):
             return len(self._data)
 
         def insert(self, index, value):
-            self._data.insert(index, self._parse_item(index, value))
+            self._data.insert(index, self.__parse_item(index, value))
 
-        def _parse_item(self, index, value):
+        def extend(self, *args, **kwargs):
+            tmp = []
+            tmp.extend(*args, **kwargs)
+            errors = []
+            result = parse_typed(errors, self._loc, tmp)
+            if result is Unset:
+                raise ParsingError(typ, tuple(errors))
+            self._data.extend(result)
+
+        def __parse_item(self, index, value):
             errors = []
             result = type_descriptor.parse(errors, self._loc + Loc(index), value)
             if result is not Unset:
                 return result
-            raise ParsingError(tuple(errors))
+            raise ParsingError(typ, tuple(errors))
 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value):
@@ -180,11 +210,21 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
         errors.append(ErrorFactory.invalid_list(loc, value))
         return Unset
 
+    def parse_typed(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
+        result = ensure_sequence(errors, loc, value)
+        if result is Unset:
+            return Unset
+        result = cast(Sequence, result)
+        result = list(type_descriptor.parse(errors, loc + Loc(i), x) for i, x in enumerate(result))
+        if len(errors) > 0:
+            return Unset
+        return result
+
     def dump(loc: Loc, value: list, filter: IDumpFilter) -> list:
         result = []
         for i, elem in enumerate(value):
             dump_value = filter(loc + Loc(i), elem)
-            if dump_value is not IDumpFilter.SKIP:
+            if dump_value is not EXCLUDE:
                 result.append(dump_value)
         return result
 
@@ -204,12 +244,10 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
     class TypedListDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
-            result = ensure_sequence(errors, loc, value)
-            if result is Unset:
-                return Unset
-            result = list(type_descriptor.parse(errors, loc + Loc(i), x) for i, x in enumerate(result))
+            result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
+            result = cast(list, result)
             return MutableSequenceProxy(loc, result)
 
         def dump(self, loc: Loc, value: list, filter: IDumpFilter):
@@ -224,7 +262,7 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
     args = get_args(typ)
     if len(args) == 0:
         return AnyListDescriptor()
-    type_descriptor = make_type_descriptor(args[0], **opts)
+    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
     return TypedListDescriptor()
 
 
@@ -266,7 +304,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
             errors = []
             self._data.add(type_descriptor.parse(errors, self._loc, value))
             if len(errors) > 0:
-                raise ParsingError(tuple(errors))
+                raise ParsingError(typ, tuple(errors))
 
         def discard(self, value):
             self._data.discard(value)
@@ -282,7 +320,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         if result is Unset:
             return Unset
         try:
-            return set(result)
+            return set(cast(Sequence, result))
         except TypeError:
             errors.append(ErrorFactory.invalid_set(loc, value))
             return Unset
@@ -291,7 +329,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         result = []
         for elem in value:
             elem = filter(loc, elem)
-            if elem is not IDumpFilter.SKIP:
+            if elem is not EXCLUDE:
                 result.append(elem)
         return result
 
@@ -307,10 +345,10 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
     class TypedSetDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
-            result = ensure_sequence(errors, loc, value)
-            if result is Unset:
-                return result
-            result = set(type_descriptor.parse(errors, loc, x) for x in result)
+            seq = ensure_sequence(errors, loc, value)
+            if seq is Unset:
+                return seq
+            result = set(type_descriptor.parse(errors, loc, x) for x in cast(Sequence, seq))
             if len(errors) > 0:
                 return Unset
             return MutableSetProxy(loc, result)
@@ -328,7 +366,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         return AnySetDescriptor()
     if not isinstance(args[0], type) or not issubclass(args[0], Hashable):
         raise TypeError("'T' must be hashable type to be used with 'set[T]' generic type")
-    type_descriptor = make_type_descriptor(args[0], **opts)
+    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
     return TypedSetDescriptor()
 
 
@@ -358,7 +396,7 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
         result = []
         for i, elem in enumerate(value):
             elem = filter(loc + Loc(i), elem)
-            if elem is not IDumpFilter.SKIP:
+            if elem is not EXCLUDE:
                 result.append(elem)
         return result
 
@@ -377,10 +415,12 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
     class AnyLengthTypedTupleDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
-            result = ensure_sequence(errors, loc, value)
-            if result is Unset:
+            seq = ensure_sequence(errors, loc, value)
+            if seq is Unset:
                 return Unset
-            result = tuple(type_descriptor.parse(errors, loc + Loc(pos), x) for pos, x in enumerate(result))
+            result = tuple(
+                type_descriptor.parse(errors, loc + Loc(pos), x) for pos, x in enumerate(cast(Sequence, seq))
+            )
             if len(errors) > 0:
                 return Unset
             return result
@@ -397,6 +437,7 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
             result = ensure_sequence(errors, loc, value)
             if result is Unset:
                 return Unset
+            result = cast(tuple, result)
             if len(result) != num_type_descriptors:
                 errors.append(ErrorFactory.unsupported_tuple_format(loc, result, args))
                 return Unset
@@ -421,8 +462,8 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
     if not args:
         return AnyTupleDescriptor()
     if args[-1] is Ellipsis:
-        type_descriptor = make_type_descriptor(args[0], **opts)
+        type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
         return AnyLengthTypedTupleDescriptor()
-    type_descriptors = tuple(make_type_descriptor(x, **opts) for x in args)
+    type_descriptors: tuple[ITypeDescriptor, ...] = tuple(make_type_descriptor(x, **opts) for x in args)
     num_type_descriptors = len(type_descriptors)
     return FixedLengthTypedTupleDescriptor()

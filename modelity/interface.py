@@ -8,19 +8,20 @@ T = TypeVar("T")
 
 
 class IModel(Protocol):
-    """Protocol describing model interface.
+    """Protocol describing common interface for data models."""
 
-    The only purpose of this interface is to provide type hints for functions
-    that use models. To check if the object is a model, please use
-    :func:`isinstance` function with :class:`modelity.model.Model` class.
-    """
+    #: The root location of the model.
+    #:
+    #: If the model is a root model, then root location is empty. Otherwise, if
+    #: the model is nested inside another model, root location points to a field
+    #: in parent model when nested model object is attached to.
+    #:
+    #: This property is automatically assigned by Modelity internals and should
+    #: not be modified by hand.
+    __loc__: Loc
 
-    def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
+    def dump(self, filter: "IDumpFilter") -> dict:
         """Serialize model to dict.
-
-        :param loc:
-            The location of this model if it is nested inside another model, or
-            empty location otherwise.
 
         :param filter:
             The filter function.
@@ -28,7 +29,7 @@ class IModel(Protocol):
             Check :class:`IDumpFilter` class for more details.
         """
 
-    def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
+    def validate(self, root: "IModel", ctx: Any, errors: list[Error]):
         """Validate this model.
 
         :param root:
@@ -48,19 +49,15 @@ class IModel(Protocol):
             List to populate with any errors found during validation.
 
             Should initially be empty.
-
-        :param loc:
-            The location of this model if it is nested inside another model, or
-            empty location otherwise.
         """
 
 
-class IModelValidatorCallable(Protocol):
-    """Protocol describing model validator callable.
+class IModelValidationHook(Protocol):
+    """Protocol describing interface of the model-level validation hooks.
 
     Model validators are user-defined functions that run during validation
     phase and can operate at the model level, with access to all model
-    fields.
+    fields no matter if those fields are set or not.
     """
 
     def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
@@ -89,12 +86,87 @@ class IModelValidatorCallable(Protocol):
         """
 
 
+class IFieldValidationHook(Protocol):
+    """Protocol describing interface of the field-level validation hooks.
+
+    Field validators are executed for selected fields and only if those fields
+    have values set.
+    """
+
+    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
+        """Perform field validation.
+
+        :param cls:
+            Model type.
+
+        :param self:
+            The model that owns validated field.
+
+        :param root:
+            The root model.
+
+        :param ctx:
+            User-defined context object.
+
+        :param errors:
+            List of errors to be modified when errors are found.
+
+        :param loc:
+            Field's location in the model.
+
+        :param value:
+            Field's value.
+        """
+
+
+class IFieldParsingHook(Protocol):
+    """Protocol describing interface of the user-defined field parsing hooks.
+
+    When field is initialized with a value, then just type parsing is normally
+    performed by the Modelity library and based on the results of the parsing
+    itself, Modelity can determine if the value was positively parsed or not.
+    However, built-in parsing is very restrictive and will not perform any
+    cleanup on the input value by its own. Instead, Modelity allows to create
+    two kind of user-defined parsing hooks:
+
+    * **preprocessors**, running **before** the value is parsed,
+    * **postprocessors**, running **after** the parsing and **only** if the
+      parsing **has succeeded**.
+
+    Preprocessors can be used to perform value filtering (like white character
+    stripping), while postprocessors can be used to perform field-specific
+    additional checks each time the value is changed.
+
+    Both hooks share common interface defined by this protocol.
+    """
+
+    def __call__(_, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        """Call field processing hook.
+
+        :param cls:
+            Model's type.
+
+        :param errors:
+            List of errors.
+
+            Can be modified by the hook if the hook fails.
+
+        :param loc:
+            The location of the currently processed field.
+
+        :param value:
+            The processed value.
+        """
+
+
+#: A sentinel to be returned by :class:`IDumpFilter` callable to indicate that
+#: the current value must be excluded from the dump output.
+EXCLUDE = object()
+
+
 class IDumpFilter(Protocol):
     """Protocol describing model field filtering function used during model
     serialization."""
-
-    #: Special return value for field exclusion from the output.
-    SKIP = object()
 
     def __call__(self, loc: Loc, value: Any) -> Any:
         """Apply the filter to a model's field.

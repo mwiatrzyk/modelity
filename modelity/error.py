@@ -65,6 +65,11 @@ class Error:
     #: used to render custom error messages.
     data: dict = dataclasses.field(default_factory=dict)
 
+    @property
+    def value_type(self) -> type:
+        """Return the type of the incorrect value."""
+        return type(self.value)
+
 
 class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_out_of_range for both enums and literals
     """Factory class for creating built-in errors."""
@@ -122,7 +127,7 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
         return Error(loc, ErrorCode.INVALID_TUPLE, "not a valid tuple object", value)
 
     @staticmethod
-    def unsupported_tuple_format(loc: Loc, value: tuple, supported_format: tuple[type]) -> Error:
+    def unsupported_tuple_format(loc: Loc, value: tuple, supported_format: tuple) -> Error:
         """Error reported when tuple object does not match types defined for a
         fixed-size typed tuple.
 
@@ -212,7 +217,7 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
         return Error(loc, ErrorCode.INVALID_DATETIME, "not a valid datetime value", value)
 
     @staticmethod
-    def unsupported_datetime_format(loc: Loc, value: str, supported_formats: tuple[str]):
+    def unsupported_datetime_format(loc: Loc, value: str, supported_formats: Sequence[str]):
         """Create error signalling that the input string does not match any
         known datetime format.
 
@@ -258,7 +263,7 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
         )
 
     @staticmethod
-    def invalid_number(loc: Loc, value: Any, msg: str, expected_type: type[Number]) -> Error:
+    def invalid_number(loc: Loc, value: Any, msg: str, expected_type: type) -> Error:
         """Create error signalling that the value could not be parsed to a
         valid number of given type.
 

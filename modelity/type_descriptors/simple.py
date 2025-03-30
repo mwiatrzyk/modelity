@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, TypeVar, get_args
+from typing import Any, Generic, Optional, TypeVar, cast, get_args
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UnsupportedTypeError
@@ -68,7 +68,7 @@ def make_bool_type_descriptor(
 
 
 def make_datetime_type_descriptor(
-    input_datetime_formats: list[str] = None, output_datetime_format: str = None
+    input_datetime_formats: Optional[list[str]] = None, output_datetime_format: Optional[str] = None
 ) -> ITypeDescriptor:
     """Make parser for the :class:`datetime.datetime` type.
 
@@ -229,7 +229,7 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_integer(loc, value))
                 return Unset
 
-        def dump(self, loc: Loc, value: int, filter: IDumpFilter):
+        def dump(self, loc: Loc, value: T, filter: IDumpFilter):
             return filter(loc, value)
 
         def validate(self, root, ctx, errors, loc, value):
@@ -243,7 +243,7 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_float(loc, value))
                 return Unset
 
-        def dump(self, loc: Loc, value: float, filter: IDumpFilter):
+        def dump(self, loc: Loc, value: T, filter: IDumpFilter):
             return filter(loc, value)
 
         def validate(self, root, ctx, errors, loc, value):

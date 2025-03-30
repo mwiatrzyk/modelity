@@ -691,6 +691,7 @@ class TestModelTypeDescriptor:
             (UUT, {"nested": {}}, UUT(nested=UUT.Nested()), []),
             (UUT, {"nested": {"a": "123"}}, UUT(nested=UUT.Nested(a=123)), []),
             (UUT, 123, Unset, [ErrorFactory.invalid_model(loc, 123, UUT)]),
+            (UUT, {"nested": {"a": "spam"}}, Unset, [ErrorFactory.invalid_integer(loc + Loc("nested", "a"), "spam")]),
         ],
     )
     def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):

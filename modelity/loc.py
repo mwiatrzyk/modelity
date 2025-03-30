@@ -37,6 +37,10 @@ class Loc(Sequence):
         return ".".join(str(x) for x in self)
 
     def __getitem__(self, index):
+        if type(index) is slice:
+            if index.step is not None:
+                raise TypeError("slicing with step is not allowed for Loc objects")
+            return Loc(*self._path[index])
         return self._path[index]
 
     def __len__(self) -> int:
@@ -71,3 +75,7 @@ class Loc(Sequence):
         if self_len > len(other):
             return False
         return self._path == other._path[:self_len]
+
+    def is_empty(self) -> bool:
+        """Check if this is an empty location object."""
+        return len(self) == 0

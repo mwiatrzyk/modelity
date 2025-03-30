@@ -1,10 +1,10 @@
 from datetime import datetime
 from enum import Enum
 from numbers import Number
-from typing import Annotated, Any, Literal, Type, TypeVar, Union, get_origin
+from typing import Annotated, Any, Literal, Type, TypeVar, Union, cast, get_origin
 
 from modelity.exc import UnsupportedTypeError
-from modelity.interface import ITypeDescriptor
+from modelity.interface import IModel, ITypeDescriptor
 
 from .any import make_any_type_descriptor
 from .model import make_model_type_descriptor
@@ -31,17 +31,17 @@ T = TypeVar("T")
 
 
 def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]:
-    """Central parser making function.
+    """Central type descriptor maker.
 
-    Creates parser for any of the built-in type given via *typ* argument or
-    raises :exc:`modelity.exc.UnsupportedTypeError` if there was no parser
-    found for the given type.
+    Can be used to create descriptor for any type supported by Modelity
+    library, plus user-defined types if necessary hook is provided in
+    user-defined type.
 
     :param typ:
-        The type to create parser for.
+        The type to create descriptor for.
 
     :param `**opts`:
-        Parser factory options.
+        Type options.
     """
     if typ is Any:
         return make_any_type_descriptor()
@@ -57,7 +57,7 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
     if origin is tuple:
         return make_tuple_type_descriptor(typ, **opts)
     if origin is dict:
-        return make_dict_type_descriptor(typ, **opts)
+        return make_dict_type_descriptor(cast(type[dict], typ), **opts)
     if origin is list:
         return make_list_type_descriptor(typ, **opts)
     if origin is set:
@@ -71,13 +71,13 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
     if issubclass(typ, bytes):
         return make_bytes_type_descriptor()
     if issubclass(typ, Enum):
-        return make_enum_type_descriptor(typ)
+        return make_enum_type_descriptor(cast(type[Enum], typ))
     if issubclass(typ, Number):
         return make_numeric_type_descriptor(typ)
     if issubclass(typ, tuple):
         return make_tuple_type_descriptor(typ, **opts)
     if issubclass(typ, dict):
-        return make_dict_type_descriptor(typ, **opts)
+        return make_dict_type_descriptor(cast(type[dict], typ), **opts)
     if issubclass(typ, list):
         return make_list_type_descriptor(typ, **opts)
     if issubclass(typ, set):
@@ -85,7 +85,7 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
     from modelity.model import Model
 
     if issubclass(typ, Model):
-        return make_model_type_descriptor(typ, **opts)
+        return make_model_type_descriptor(cast(type[IModel], typ), **opts)
     custom_type_descriptor_maker = getattr(typ, "__modelity_type_descriptor__", None)
     if custom_type_descriptor_maker is not None and callable(custom_type_descriptor_maker):
         return custom_type_descriptor_maker(typ, **opts)

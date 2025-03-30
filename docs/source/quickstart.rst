@@ -19,7 +19,7 @@ annotations:
         year: int
 
 It is also possible to use helpers from :mod:`typing` module. For example, we
-can create a model ``Bookstore`` that will be able to store list of ``Book``
+can create model ``Bookstore`` that will be able to store list of ``Book``
 model items. Let's additionally make that field optional:
 
 .. testcode::
@@ -32,13 +32,11 @@ model items. Let's additionally make that field optional:
 Creating model instances
 ------------------------
 
-Using constructor
-^^^^^^^^^^^^^^^^^
-
-To create instance of a model, you have to use constructor of the created model
-class. Constructor can only be called with named arguments. Modelity will
-iterate through the list of fields and parse arguments having same name. Any
-extra arguments will be ignored:
+To create instance of a model, the constructor of the declared model class must
+be used. In Modelity, constructors can only be called with named arguments.
+Modelity will iterate through the list of declared fields each time the model
+is created and take values from arguments having same name as declared field.
+Any extra arguments are ignored.
 
 .. testcode::
 
@@ -57,9 +55,11 @@ After executing code from above, following will be printed:
 
     Book(title='My First Book', author='John Doe', publisher='Imaginary Publishing', year=2024)
 
-Modelity verifies presence of required fields at validation phase, not during
-data parsing, therefore it allows to create models that can be initialized
-later, for example by prompting the user:
+In Modelity fields can be declared as required or optional, but constructor
+will not complain about missing required fields. Presence of required fields is
+verified on demand, once :func:`modelity.model.validate` is called on a model.
+This separation of data parsing and data validation is one of Modelity core
+features and allows deferred model initialization, like in example below:
 
 .. testcode::
     :hide:
@@ -79,69 +79,10 @@ And here's what will be printed:
 
     Book(title='My Second Book', author=Unset, publisher=Unset, year=Unset)
 
-As you can see, only one field was set, all other remain ``Unset``. And
-``Unset`` is a special value (instance of :class:`modelity.unset.UnsetType`
-class) used to distinguish unset fields from fields that are set to ``None``.
-
-Using ``load`` method
-^^^^^^^^^^^^^^^^^^^^^
-
-It is also possible to create model instances directly from dicts using
-:meth:`modelity.model.Model.load` method:
-
-.. testcode::
-
-    third = Book.load({"title": "My Third Book"})
-    print(third)
-
-.. testoutput::
-
-    Book(title='My Third Book', author=Unset, publisher=Unset, year=Unset)
-
-Under the hood this method does nothing but constructor calling, therefore its
-behavior is exactly the same as for constructor described above.
-
-Using ``load_valid`` method
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If for any reason you need to create an already valid model, you can use
-:meth:`modelity.model.Model.load_valid` method:
-
-.. testcode::
-
-    fourth = Book.load_valid({
-        "title": "My 4th Book",
-        "author": "John Doe",
-        "publisher": "Imaginary Publishing",
-        "year": 2024,
-    })
-    print(fourth)
-
-.. testoutput::
-
-    Book(title='My 4th Book', author='John Doe', publisher='Imaginary Publishing', year=2024)
-
-This method calls the constructor with provided params, and runs validation
-shortly after. Model created in the example above is already valid, as it was
-created with all required fields given. However, creating model using this
-method with no parameters given will result in a validation error, as all
-required fields are missing:
-
-.. doctest::
-
-
-    >>> Book.load_valid({})
-    Traceback (most recent call last):
-        ...
-    modelity.exc.ValidationError: validation of model 'Book' failed with 4 error(-s):
-      author:
-        this field is required [code=modelity.RequiredMissing, data={}]
-      publisher:
-        this field is required [code=modelity.RequiredMissing, data={}]
-      title:
-        this field is required [code=modelity.RequiredMissing, data={}]
-      year:
-        this field is required [code=modelity.RequiredMissing, data={}]
+In the example above, the only field that was set is *title* field, and all
+other fields remain **unset**. There is a special type
+:class:`modelity.unset.UnsetType` provided by Modelity that is used for marking
+fields unset.
 
 Setting and getting fields
 --------------------------
@@ -175,20 +116,22 @@ complain about it by raising :exc:`modelity.exc.ParsingError` exception:
     >>> book.author = 1
     Traceback (most recent call last):
         ...
-    modelity.exc.ParsingError: parsing failed with 1 error(-s):
+    modelity.exc.ParsingError: parsing failed for type 'Book' with 1 error(-s):
       author:
-        not a valid string value [code=modelity.StringRequired, data={}]
+        string value required [code=modelity.UNSUPPORTED_VALUE_TYPE, value_type=<class 'int'>]
 
-And the field will still have previous value set:
+And once incorrect value was set to a field, it becomes ``Unset``:
 
 .. doctest::
 
     >>> book.author
-    'John Doe'
+    Unset
 
-The exception, however, will not be always raised, as for some types coercion
-is performed and if it is possible to convert user input to correct type, then
-such coercion will take place seamlessly:
+Some combinations of the input-output types allow seamless coercion to a
+field's type, therefore :exc:`modelity.exc.ParsingError` will not always be
+raised. For example, integer field can successfully be initialized with a
+string value if that value represents numeric string that can be converted to
+integer number:
 
 .. doctest::
 
@@ -196,20 +139,63 @@ such coercion will take place seamlessly:
     >>> book.year
     2024
 
-Getting an unset fields
------------------------
+Checking what fields are set in the model
+-----------------------------------------
 
-Modelity will never raise :exc:`AttributeError` for unset fields, but instead
-it will return ``Unset`` for such fields. For example, we did not set
-``publisher`` field, so getting it will return ``Unset``:
+Modelity will never raise exception when getting field that is declared in the
+model class, even if such field is not set. For example:
 
 .. doctest::
 
+    >>> book = Book()
     >>> book.publisher
     Unset
 
-However, if we try to get attribute that is not model's field, then we will get
-:exc:`AttributeError` exception:
+This feature can be used to perform some action depending on wether the field
+is set to a value, or not set at all. Other ways to check if field is set to
+use ``in`` operator:
+
+.. doctest::
+
+    >>> book.author = "John Doe"
+    >>> "author" in book
+    True
+    >>> "publisher" in book
+    False
+
+There is also a way to retrieve all fields set simply by iterating through the
+model instance:
+
+.. doctest::
+
+    >>> book = Book(author="John Doe", year=2024)
+    >>> list(book)
+    ['author', 'year']
+
+And there is also a :func:`modelity.model.has_fields_set` helper available to
+check if the model has at least one field set:
+
+.. testcode::
+    :hide:
+
+    from modelity.model import has_fields_set
+
+.. doctest::
+
+    >>> has_fields_set(Book())
+    False
+    >>> has_fields_set(Book(year=2024))
+    True
+
+Setting and getting a non-field attributes
+------------------------------------------
+
+Modelity will never raise :exc:`AttributeError` exception for attributes that
+are mapped to model fields; those will either return value, or ``Unset`` object
+if the field has no value.
+
+However, if we try to get attribute that is out of model's available fields
+set, then :exc:`AttributeError` exception will be raised:
 
 .. doctest::
 
@@ -218,37 +204,38 @@ However, if we try to get attribute that is not model's field, then we will get
         ...
     AttributeError: 'Book' object has no attribute 'spam'
 
-Setting non-field attributes
-----------------------------
-
-When you try to set attribute that is not declared as model's field, then
-following error will be raised:
+And the same thing will happen when a non-field attribute is tried to be set:
 
 .. doctest::
 
     >>> book.spam = 123
     Traceback (most recent call last):
         ...
-    AttributeError: 'Book' model has no field named 'spam'
+    AttributeError: 'Book' object has no attribute 'spam'
+
+The latter fails because models in Modelity use ``__slots__``, and slots
+disallow setting attributes that are missing in ``__slots__`` list.
 
 Deleting fields
 ---------------
 
 Once field is set on a model, it can be deleted, i.e. restored to the ``Unset``
-state. You can do this explicitly, by setting ``Unset``, or via :func:`delattr`
-function. For example:
+state. You can do this explicitly, by setting ``Unset``, via :func:`delattr`
+function, or simply by deleting attribute using ``del`` operator. For example:
 
 .. doctest::
 
     >>> from modelity.unset import Unset
-    >>> book
-    Book(title='Yet Another Book', author='John Doe', publisher=Unset, year=2024)
+    >>> book = Book(title='Yet Another Book', author='John Doe', year=2024)
     >>> book.title = Unset
     >>> book
     Book(title=Unset, author='John Doe', publisher=Unset, year=2024)
     >>> delattr(book, 'author')
     >>> book
     Book(title=Unset, author=Unset, publisher=Unset, year=2024)
+    >>> del book.year
+    >>> book
+    Book(title=Unset, author=Unset, publisher=Unset, year=Unset)
 
 Checking if field is set
 ------------------------
@@ -272,12 +259,12 @@ Iterating over available fields
 -------------------------------
 
 To iterate over all available model fields, you have to use
-:attr:`modelity.model.ModelMeta.__fields__` dict that is available for
+:attr:`modelity.model.ModelMeta.__model_fields__` dict that is available for
 model classes (not instances):
 
 .. doctest::
 
-    >>> list(Book.__fields__)
+    >>> list(Book.__model_fields__)
     ['title', 'author', 'publisher', 'year']
 
 The fields are iterated in their declaration order. You can additionally use
@@ -286,11 +273,11 @@ fields:
 
 .. doctest::
 
-    >>> Book.__fields__["title"]
+    >>> Book.__model_fields__["title"]
     <BoundField(name='title', type=<class 'str'>, default=Unset, default_factory=None, optional=False)>
 
-Iterating over set fields only
-------------------------------
+Iterating over fields that are set
+----------------------------------
 
 Models provide built-in iterator that can be used to iterate over fields that
 are set:
@@ -301,7 +288,7 @@ are set:
     >>> list(book)
     ['title', 'author']
 
-The iterator iterates over fields in their declaration order and skips ones
+The iterator iterates over fields in their declaration order and skips the ones
 that are not set.
 
 Comparing models
@@ -338,7 +325,7 @@ can either be initialized via constructor, or set later, it is not possible to
 determine whether lack of fields in constructor is a mistake, or intentional
 action. Making validation completely separate from data parsing solves this
 problem at the cost of requiring the user to call
-:meth:`modelity.model.Model.validate` manually.
+:meth:`modelity.model.validate` manually.
 
 Okay, so let's now check how this works. Let's assume that ``Book`` model is
 used to validate some data input form, where application user can create book
@@ -368,9 +355,14 @@ contains *Add* button used to add book to the application's database. This is
 the part where **validation** should take place, as we require only valid books
 to be accepted:
 
+.. testcode::
+    :hide:
+
+    from modelity.model import validate
+
 .. doctest::
 
-    >>> book.validate()
+    >>> validate(book)
     Traceback (most recent call last):
         ...
     modelity.exc.ValidationError: validation of model 'Book' failed with 2 error(-s):

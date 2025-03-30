@@ -1,12 +1,29 @@
-from typing import Callable, Optional, Sequence, TypeVar
+import itertools
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
 T = TypeVar("T")
+
+_unique_id_counter = itertools.count(1)
+
+
+def next_unique_id() -> int:
+    """Create next unique and ascending ID number."""
+    return next(_unique_id_counter)
 
 
 def is_subsequence(candidate: Sequence, seq: Sequence) -> bool:
     """Check if ``candidate`` is a subsequence of sequence ``seq``."""
     it = iter(seq)
     return all(element in it for element in candidate)
+
+
+def is_mutable(obj: Any) -> bool:
+    """Check if *obj* is mutable."""
+    try:
+        hash(obj)
+        return False
+    except TypeError:
+        return True
 
 
 def is_neither_str_nor_bytes_sequence(obj: object) -> bool:

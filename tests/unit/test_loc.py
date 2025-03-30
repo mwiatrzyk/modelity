@@ -76,3 +76,13 @@ class TestLoc:
     )
     def test_concatenate_two_locs(self, left, right, expected_sum):
         assert left + right == expected_sum
+
+    def test_slicing_returns_loc(self):
+        uut = Loc("foo", "bar", 0, "baz")
+        assert uut[1:] == Loc("bar", 0, "baz")
+        assert uut[:2] == Loc("foo", "bar")
+
+    def test_slicing_with_step_is_not_supported_for_loc(self):
+        uut = Loc("foo", "bar", 0)
+        with pytest.raises(TypeError):
+            uut[::2]

@@ -5,7 +5,7 @@ class UnsetType:
     always evaluates to ``False``.
     """
 
-    __slots__ = tuple()
+    __slots__: list = []
 
     _instance = None
 
