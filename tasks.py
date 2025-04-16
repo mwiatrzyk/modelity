@@ -57,3 +57,9 @@ def clean(ctx: invoke.Context, dry_run=False):
     """Clean the workspace."""
     extra_opts = "n" if dry_run else ""
     ctx.run(f"git clean -xdf{extra_opts} -e .python-version")
+
+
+@invoke.task()
+def gen_api_docs(ctx: invoke.Context):
+    """Generate or update API docs sources from Modelity modules."""
+    ctx.run("python scripts/generate_api_docs.py modelity/ docs/source/api/")
