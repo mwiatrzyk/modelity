@@ -5,5 +5,6 @@ Modelity documentation
    :maxdepth: 2
 
    about
+   tutorial
    api/index
    .. quickstart

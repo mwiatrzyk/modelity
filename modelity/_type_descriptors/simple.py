@@ -1,6 +1,6 @@
 """Parser factories for the built-in simple types."""
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, Generic, Optional, TypeVar, cast, get_args
 
@@ -23,25 +23,16 @@ _DEFAULT_INPUT_DATETIME_FORMATS = [
     "YYYYMMDDhhmmss",
 ]
 
+_DEFAULT_INPUT_DATE_FORMATS = ["YYYY-MM-DD"]
+
 _DEFAULT_OUTPUT_DATETIME_FORMAT = "YYYY-MM-DDThh:mm:ssZZZZ"
+
+_DEFAULT_OUTPUT_DATE_FORMAT = "YYYY-MM-DD"
 
 
 def make_bool_type_descriptor(
     true_literals: Optional[set] = None, false_literals: Optional[set] = None
 ) -> ITypeDescriptor:
-    """Make :class:`bool` type descriptor.
-
-    This descriptor accepts only :class:`bool` values and rejects all other,
-    without trying to convert to bool. However, it allows to set true- and/or
-    false-evaluating constants that, once given, will be treated as either
-    boolean's ``True`` or ``False``, accordingly.
-
-    :param true_literals:
-        Literals that evaluate to ``True``.
-
-    :param false_literals:
-        Literals that evaluate to ``False``.
-    """
 
     class BoolTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -70,29 +61,6 @@ def make_bool_type_descriptor(
 def make_datetime_type_descriptor(
     input_datetime_formats: Optional[list[str]] = None, output_datetime_format: Optional[str] = None
 ) -> ITypeDescriptor:
-    """Make parser for the :class:`datetime.datetime` type.
-
-    :param input_datetime_formats:
-        List of supported datetime formats to override default ones.
-
-        By default, following subset of the ISO8601 standard is supported:
-
-            * YYYY-MM-DDThh:mm:ss
-            * YYYY-MM-DDThh:mm:ssZZZZ
-            * YYYY-MM-DD hh:mm:ss
-            * YYYY-MM-DD hh:mm:ssZZZZ
-            * YYYYMMDDThhmmss
-            * YYYYMMDDThhmmssZZZZ
-            * YYYYMMDDhhmmss
-            * YYYYMMDDhhmmssZZZZ
-
-    :param output_datetime_format:
-        Datetime format to be used when dumping datetime object to string.
-
-        By default, following format is used:
-
-            YYYY-MM-DDThh:mm:ssZZZZ
-    """
 
     class DateTimeTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -133,12 +101,43 @@ def make_datetime_type_descriptor(
     return DateTimeTypeDescriptor()
 
 
-def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
-    """Make enumerated type descriptor.
+def make_date_type_descriptor(
+    input_date_formats: Optional[list[str]] = None, output_date_format: Optional[str] = None
+) -> ITypeDescriptor:
+    # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
-    :param typ:
-        Enumerate typed to create descriptor for.
-    """
+    class DateTypeDescriptor:
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            if isinstance(value, date):
+                return value
+            if not isinstance(value, str):
+                errors.append(ErrorFactory.invalid_date(loc, value))
+                return Unset
+            for fmt in compiled_input_formats:
+                try:
+                    return datetime.strptime(value, fmt).date()
+                except ValueError:
+                    pass
+            errors.append(ErrorFactory.unsupported_date_format(loc, value, input_formats))
+            return Unset
+
+        def dump(self, loc: Loc, value: date, filter: IDumpFilter):
+            return filter(loc, value.strftime(compiled_output_format))
+
+        def validate(self, root, ctx, errors, loc, value):
+            pass
+
+    def compile_format(fmt: str) -> str:
+        return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
+
+    input_formats = input_date_formats or _DEFAULT_INPUT_DATE_FORMATS
+    compiled_input_formats = [compile_format(x) for x in input_formats]
+    output_format = output_date_format or _DEFAULT_OUTPUT_DATE_FORMAT
+    compiled_output_format = compile_format(output_format)
+    return DateTypeDescriptor()
+
+
+def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
     class EnumTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -159,11 +158,6 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
 
 def make_literal_type_descriptor(typ) -> ITypeDescriptor:
-    """Make descriptor for the :class:`typing.Literal` types.
-
-    :param typ:
-        The literal type to make descriptor for.
-    """
 
     class LiteralTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -183,12 +177,6 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
 
 
 def make_none_type_descriptor() -> ITypeDescriptor:
-    """Make parser for the ``type(None)`` type.
-
-    The parser produced by this function will only accept ``None`` value. It
-    was added for use in complex types, like unions, to avoid special handling
-    of the ``None`` values. Direct use of this parser is rather pointless.
-    """
 
     class NoneTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -207,19 +195,6 @@ def make_none_type_descriptor() -> ITypeDescriptor:
 
 
 def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
-    """Make type descriptor for a numeric type.
-
-    Currently supported numeric types are:
-
-        * :class:`int`
-        * :class:`float`
-
-    If unsupported type is given, then :exc:`modelity.exc.UnsupportedTypeError`
-    exception will be raised.
-
-    :param typ:
-        The numeric type to create descriptor for.
-    """
 
     class IntTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -257,7 +232,6 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
 
 
 def make_str_type_descriptor() -> ITypeDescriptor:
-    """Make type descriptor for the :class:`str` built-in type."""
 
     class StrTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: str):
@@ -276,7 +250,6 @@ def make_str_type_descriptor() -> ITypeDescriptor:
 
 
 def make_bytes_type_descriptor() -> ITypeDescriptor:
-    """Make descriptor for the built-in :class:`bytes` type."""
 
     class BytesTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):

@@ -18,7 +18,7 @@ from modelity.interface import (
     ITypeDescriptor,
 )
 from modelity.loc import Loc
-from modelity.type_descriptors.main import make_type_descriptor
+from modelity._type_descriptors.main import make_type_descriptor as _make_type_descriptor
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
@@ -87,6 +87,24 @@ def _make_model_validator(func) -> IModelValidationHook:
         )
     proxy.__creation_order__ = _utils.next_unique_id()  # type: ignore
     return proxy
+
+
+def make_type_descriptor(typ: type[T], **opts) -> ITypeDescriptor[T]:
+    """Make type descriptor for provided type.
+
+    Can be used to create descriptor for any type supported by Modelity
+    library, plus user-defined types if necessary hook is provided in
+    user-defined type.
+
+    :param typ:
+        The type to create descriptor for.
+
+    :param `**opts`:
+        Additional type-specific options for refining type parsers.
+
+        Please proceed to :ref:`supported-types` for more details.
+    """
+    return _make_type_descriptor(typ, **opts)
 
 
 def field_preprocessor(*field_names: str):

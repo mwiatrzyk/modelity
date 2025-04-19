@@ -7,11 +7,6 @@ from modelity.unset import Unset
 
 
 def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
-    """Make descriptor for the given :class:`typing.Union` type.
-
-    :param typ:
-        The union types to create parser for.
-    """
 
     class OptionalTypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -49,7 +44,7 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 if isinstance(value, typ):
                     desc.validate(root, ctx, errors, loc, value)
 
-    from modelity.type_descriptors.main import make_type_descriptor
+    from modelity._type_descriptors.main import make_type_descriptor
 
     types = get_args(typ)
     if len(types) == 2 and types[-1] is type(None):

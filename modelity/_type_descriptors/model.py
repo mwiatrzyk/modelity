@@ -8,12 +8,6 @@ from modelity.unset import Unset
 
 
 def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
-    """Make type descriptor for any subclass of the
-    :class:`modelity.model.Model` class.
-
-    :param typ:
-        Model type.
-    """
 
     class ModelTypeDescriptor:
 

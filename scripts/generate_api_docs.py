@@ -66,7 +66,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("src", help="Path to the package root directory")
     parser.add_argument("dest", help="Destination directory where Sphinx API docs will be created")
-    parser.add_argument("--title", type=str, help="Set the title for the index document [default: %(default)s]", default="API Reference")
+    parser.add_argument(
+        "--title", type=str, help="Set the title for the index document [default: %(default)s]", default="API Reference"
+    )
     return parser.parse_args()
 
 

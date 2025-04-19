@@ -5,7 +5,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import BoundField, FieldInfo, Model, has_fields_set
-from modelity.type_descriptors.main import make_type_descriptor
+from modelity._type_descriptors.main import make_type_descriptor
 from modelity.unset import Unset
 
 

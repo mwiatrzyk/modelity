@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 from numbers import Number
 from typing import Annotated, Any, Literal, Type, TypeVar, Union, cast, get_origin
@@ -12,6 +12,7 @@ from .annotated import make_annotated_type_descriptor
 from .simple import (
     make_bool_type_descriptor,
     make_bytes_type_descriptor,
+    make_date_type_descriptor,
     make_datetime_type_descriptor,
     make_enum_type_descriptor,
     make_literal_type_descriptor,
@@ -31,18 +32,6 @@ T = TypeVar("T")
 
 
 def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]:
-    """Central type descriptor maker.
-
-    Can be used to create descriptor for any type supported by Modelity
-    library, plus user-defined types if necessary hook is provided in
-    user-defined type.
-
-    :param typ:
-        The type to create descriptor for.
-
-    :param `**opts`:
-        Type options.
-    """
     if typ is Any:
         return make_any_type_descriptor()
     if typ is type(None):
@@ -66,6 +55,8 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
         return make_bool_type_descriptor(**opts)
     if issubclass(typ, datetime):
         return make_datetime_type_descriptor(**opts)
+    if issubclass(typ, date):
+        return make_date_type_descriptor(**opts)
     if issubclass(typ, str):
         return make_str_type_descriptor()
     if issubclass(typ, bytes):

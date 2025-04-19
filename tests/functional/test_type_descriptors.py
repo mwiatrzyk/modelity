@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Union, get_args
 
@@ -7,7 +7,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import Model
-from modelity.type_descriptors.main import make_type_descriptor
+from modelity._type_descriptors.main import make_type_descriptor
 from modelity.unset import Unset
 
 import pytest
@@ -108,6 +108,31 @@ class TestDateTimeTypeDescriptor:
             (["DD-MM-YYYY"], "22-02-2025", datetime(2025, 2, 22), []),
             (None, 123, Unset, [ErrorFactory.invalid_datetime(loc, 123)]),
             (["YYYY-MM-DD"], "spam", Unset, [ErrorFactory.unsupported_datetime_format(loc, "spam", ["YYYY-MM-DD"])]),
+        ],
+    )
+    def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):
+        assert type_descriptor.parse(errors, loc, value) == expected_result
+        assert errors == expected_errors
+
+
+class TestDateTypeDescriptor:
+
+    @pytest.fixture
+    def input_date_formats(self):
+        return None
+
+    @pytest.fixture
+    def type_descriptor(self, input_date_formats):
+        return make_type_descriptor(date, input_date_formats=input_date_formats)
+
+    @pytest.mark.parametrize(
+        "input_date_formats, value, expected_result, expected_errors",
+        [
+            (None, date(2025, 2, 22), date(2025, 2, 22), []),
+            (None, "2025-02-22", date(2025, 2, 22), []),
+            (["DD-MM-YYYY"], "22-02-2025", date(2025, 2, 22), []),
+            (None, 123, Unset, [ErrorFactory.invalid_date(loc, 123)]),
+            (["YYYY-MM-DD"], "spam", Unset, [ErrorFactory.unsupported_date_format(loc, "spam", ["YYYY-MM-DD"])]),
         ],
     )
     def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):

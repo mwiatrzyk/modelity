@@ -18,7 +18,9 @@ class ErrorCode:
     INVALID_MODEL = "modelity.INVALID_MODEL"
     INVALID_BOOL = "modelity.INVALID_BOOL"
     INVALID_DATETIME = "modelity.INVALID_DATETIME"
+    INVALID_DATE = "modelity.INVALID_DATE"
     UNSUPPORTED_DATETIME_FORMAT = "modelity.UNSUPPORTED_DATETIME_FORMAT"
+    UNSUPPORTED_DATE_FORMAT = "modelity.UNSUPPORTED_DATE_FORMAT"
     INVALID_NUMBER = "modelity.INVALID_NUMBER"
     VALUE_OUT_OF_RANGE = "modelity.VALUE_OUT_OF_RANGE"
     UNSUPPORTED_VALUE_TYPE = "modelity.UNSUPPORTED_VALUE_TYPE"
@@ -67,7 +69,7 @@ class Error:
 
     @property
     def value_type(self) -> type:
-        """Return the type of the incorrect value."""
+        """The type of the incorrect value."""
         return type(self.value)
 
 
@@ -217,6 +219,19 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
         return Error(loc, ErrorCode.INVALID_DATETIME, "not a valid datetime value", value)
 
     @staticmethod
+    def invalid_date(loc: Loc, value: Any):
+        """Create error signalling that the input value is not a date
+        object and cannot be parsed to a date object.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The failed value.
+        """
+        return Error(loc, ErrorCode.INVALID_DATE, "not a valid date value", value)
+
+    @staticmethod
     def unsupported_datetime_format(loc: Loc, value: str, supported_formats: Sequence[str]):
         """Create error signalling that the input string does not match any
         known datetime format.
@@ -235,6 +250,29 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
             loc,
             ErrorCode.UNSUPPORTED_DATETIME_FORMAT,
             f"unsupported datetime format; supported formats: {supported_formats_str}",
+            value=value,
+            data={"supported_formats": tuple(supported_formats)},
+        )
+
+    @staticmethod
+    def unsupported_date_format(loc: Loc, value: str, supported_formats: Sequence[str]):
+        """Create error signalling that the input string does not match any
+        known date format.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The failed value.
+
+        :param supported_formats:
+            Tuple with supported date formats.
+        """
+        supported_formats_str = ", ".join(supported_formats)
+        return Error(
+            loc,
+            ErrorCode.UNSUPPORTED_DATE_FORMAT,
+            f"unsupported date format; supported formats: {supported_formats_str}",
             value=value,
             data={"supported_formats": tuple(supported_formats)},
         )

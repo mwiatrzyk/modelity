@@ -30,10 +30,12 @@ Features
 * Ability do access any field via **root model** (the one for each validation
   is executed) from any custom validator, allowing to implement complex
   cross-field validation logic
+* Ability to add custom validation context for even more complex validation
+  strategies.
 * Use of predefined error codes instead of error messages for easier
   customization of error reporting
-* Data parsing made via **parser factory providers**, allowing to register new
-  types easily and reuse existing factories for generic types
+* Ease of providing custom types simply by defining
+  ``__modelity_type_descriptor__`` static method in user-defined type.
 
 Rationale
 ---------
@@ -64,8 +66,5 @@ used along with web framework. Although the project was never finished, I've
 resurrected some ideas from it, especially parsing and validation separation.
 You can still find source code on my GH profile.
 
-And last, but not least... I made this project for fun :-)
-
-Yes, I really enjoy spending part of my free time writing code, even if just
-for my own later use and having in mind that probably no one will even try to
-use it. But who knows? :-)
+And last, but not least... I made this project for fun with a hope that maybe
+someone will find it useful :-)

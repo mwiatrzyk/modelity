@@ -4,7 +4,6 @@ from modelity.loc import Loc
 
 
 def make_any_type_descriptor() -> ITypeDescriptor:
-    """Make descriptor for :class:`typing.Any` type."""
 
     class AnyTypeDescriptor:
         def parse(self, errors, loc, value):

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import Enum
 import textwrap
 from typing import Annotated, Any, Literal, Optional, Union
@@ -148,6 +148,8 @@ class TestModelWithOneField:
                 "1999-01-31",
                 datetime(1999, 1, 31),
             ),
+            (date, None, "1999-01-31", date(1999, 1, 31)),
+            (date, FieldInfo(type_opts={"input_date_formats": ["YYYY-MM-DD"]}), "1999-01-31", date(1999, 1, 31)),
             (EDummy, None, 1, EDummy.ONE),
             (EDummy, None, EDummy.ONE, EDummy.ONE),
             (EDummy, None, 2, EDummy.TWO),
@@ -266,6 +268,13 @@ class TestModelWithOneField:
                 FieldInfo(type_opts={"input_datetime_formats": ["YYYY-MM-DD"]}),
                 "1999-01-31T10:11:22",
                 [ErrorFactory.unsupported_datetime_format(Loc("foo"), "1999-01-31T10:11:22", ("YYYY-MM-DD",))],
+            ),
+            (date, None, 123, [ErrorFactory.invalid_date(Loc("foo"), 123)]),
+            (
+                date,
+                FieldInfo(type_opts={"input_date_formats": ["DD-MM-YYYY"]}),
+                "1999-01-01",
+                [ErrorFactory.unsupported_date_format(Loc("foo"), "1999-01-01", ("DD-MM-YYYY",))],
             ),
             (EDummy, None, 123, [ErrorFactory.value_out_of_range(Loc("foo"), 123, (EDummy.ONE, EDummy.TWO))]),
             (Literal[1, 2, "foo"], None, "spam", [ErrorFactory.value_out_of_range(Loc("foo"), "spam", (1, 2, "foo"))]),
