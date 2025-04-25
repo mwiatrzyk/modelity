@@ -531,16 +531,6 @@ class TestModelWithDictField:
             sut.foo[key] = value
         assert excinfo.value.errors == tuple(expected_errors)
 
-    def test_updating_dict_with_several_invalid_data_causes_several_errors(self):
-        sut = self.SUT(foo={})
-        with pytest.raises(ParsingError) as excinfo:
-            sut.foo.update({"one": "one", "two": "two"})
-        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
-        assert excinfo.value.errors == (
-            ErrorFactory.invalid_integer(Loc("foo", "one"), "one"),
-            ErrorFactory.invalid_integer(Loc("foo", "two"), "two"),
-        )
-
     def test_update_dict_successfully(self):
         sut = self.SUT(foo={"three": 3})
         sut.foo.update(one=1, two=2)
@@ -603,26 +593,6 @@ class TestModelWithListField:
     def test_extend_successfully(self, sut: SUT, given, expected_result):
         sut.foo.extend(given)
         assert sut.foo == expected_result
-
-    @pytest.mark.parametrize(
-        "initial, given, expected_errors",
-        [
-            ([], ["one"], [ErrorFactory.invalid_integer(Loc("foo", 0), "one")]),
-            (
-                [],
-                ["one", "two"],
-                [
-                    ErrorFactory.invalid_integer(Loc("foo", 0), "one"),
-                    ErrorFactory.invalid_integer(Loc("foo", 1), "two"),
-                ],
-            ),
-        ],
-    )
-    def test_extend_failed(self, sut: SUT, given, expected_errors):
-        with pytest.raises(ParsingError) as excinfo:
-            sut.foo.extend(given)
-        assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
-        assert excinfo.value.errors == tuple(expected_errors)
 
 
 class TestModelWithModelPrevalidators:

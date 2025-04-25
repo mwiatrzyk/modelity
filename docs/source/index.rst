@@ -6,5 +6,6 @@ Modelity documentation
 
    about
    quickstart
-   types
+   guide
+   glossary
    api/index

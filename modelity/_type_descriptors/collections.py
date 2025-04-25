@@ -1,3 +1,4 @@
+from collections.abc import Set
 from typing import (
     Any,
     Hashable,
@@ -59,14 +60,14 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         def __len__(self) -> int:
             return len(self._data)
 
-        def update(self, *args, **kwargs):
-            tmp = {}
-            tmp.update(*args, **kwargs)
-            errors = []
-            result = parse_typed(errors, self._loc, tmp)
-            if errors:
-                raise ParsingError(typ, tuple(errors))
-            self._data.update(result)
+        # def update(self, *args, **kwargs):
+        #     tmp = {}
+        #     tmp.update(*args, **kwargs)
+        #     errors = []
+        #     result = parse_typed(errors, self._loc, tmp)
+        #     if errors:
+        #         raise ParsingError(typ, tuple(errors))
+        #     self._data.update(result)
 
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
@@ -161,15 +162,6 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
         def insert(self, index, value):
             self._data.insert(index, self.__parse_item(index, value))
-
-        def extend(self, *args, **kwargs):
-            tmp = []
-            tmp.extend(*args, **kwargs)
-            errors = []
-            result = parse_typed(errors, self._loc, tmp)
-            if result is Unset:
-                raise ParsingError(typ, tuple(errors))
-            self._data.extend(result)
 
         def __parse_item(self, index, value):
             errors = []
@@ -271,7 +263,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
             self._data.discard(value)
 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
-        if is_neither_str_nor_bytes_sequence(value):
+        if is_neither_str_nor_bytes_sequence(value) or isinstance(value, Set):
             return value
         errors.append(ErrorFactory.invalid_set(loc, value))
         return Unset

@@ -113,8 +113,23 @@ def field_preprocessor(*field_names: str):
     Field preprocessors allow to execute user-defined filtering (like white
     character stripping) before value is passed further to the type parser.
 
-    Check :class:`modelity.interface.IFieldParsingHook` protocol for the list
-    of supported arguments and their meaning.
+    Check :class:`modelity.interface.IFieldParsingHook` protocol for more
+    details.
+
+    Here's an example use:
+
+    .. testcode::
+
+        from modelity.model import Model, field_preprocessor
+
+        class FieldPreprocessorExample(Model):
+            foo: str
+
+            @field_preprocessor("foo")
+            def _strip_white_characters(value):
+                if isinstance(value, str):
+                    return value.strip()
+                return value
 
     :param `*field_names`:
         List of field names this preprocessor will be called for.
@@ -143,6 +158,19 @@ def field_postprocessor(*field_names: str):
     Check :class:`modelity.interface.IFieldParsingHook` protocol for the list
     of supported arguments and their meaning.
 
+    Here's an example use:
+
+    .. testcode::
+
+        from modelity.model import Model, field_postprocessor
+
+        class FieldPostprocessorExample(Model):
+            foo: str
+
+            @field_postprocessor("foo")
+            def _strip_white_characters(value):
+                return value.strip()  # The 'value' is guaranteed to be str when this gets called
+
     :param `*field_names`:
         List of field names this postprocessor will be called for.
 
@@ -163,7 +191,7 @@ def model_prevalidator():
     Prevalidators run before any other validators (including built-in ones),
     during the initial stage of model validation.
 
-    Check :class:`modelity.interface.IModelValidatorCallable` protocol for the
+    Check :class:`modelity.interface.IModelValidationHook` protocol for the
     list of supported arguments that can be used by the decorated method.
     """
 
@@ -181,7 +209,7 @@ def model_postvalidator():
     Postvalidators run after all other validators, during the final stage of
     model validation.
 
-    Check :class:`modelity.interface.IModelValidatorCallable` protocol for the
+    Check :class:`modelity.interface.IModelValidationHook` protocol for the
     list of supported arguments that can be used by the decorated method.
     """
 
@@ -201,7 +229,7 @@ def field_validator(*field_names: str):
     value must pass parsing step, field validators can safely assume that the
     value already has correct type.
 
-    Check :class:`modelity.interface.IFieldValidatorCallable` protocol for the
+    Check :class:`modelity.interface.IFieldValidationHook` protocol for the
     list of supported method arguments and their meaning.
 
     :param `*field_names`:
