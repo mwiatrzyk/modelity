@@ -4,63 +4,98 @@ Data parsing and validation library for Python.
 
 ## About
 
-Modelity is a data parsing and validation library allowing to declare mutable
-data models using Python's type hinting mechanism. Modelity design was based on
-following assumptions:
+Modelity is a data parsing and validation library, written purely in Python,
+and based on the idea that data parsing and validation should be separated from
+each other, but being a part of single toolkit for ease of use.
 
-* Use of recursive **type parser providers**, allowing to create parsers for
-  both built-in types, and user-defined ones.
+In Modelity, **data parsing** is executed **automatically** once data model is
+**instantiated or modified**, while model **validation** needs to be explicitly
+called by the user. Thanks to this approach, models can be feed with data
+progressively (f.e. in response to user’s input), while still being able to
+validate at any time.
 
-* Use of cache mechanism, so type parser created once can be reused by other
-  models, or other fields.
+## Features
 
-* Clean separation between **data parsing** and **model validation** steps,
-  with automatic data parsing whenever model is created or modified, and
-  validation phase being executed on user's demand.
-
-* Separation between model-scoped validators (executed always) and field-scoped
-  validators (executed for selected fields and only if the field has value
-  set).
-
-* Ability to inspect entire model when validating it, even from a nested model.
-
-* Use of separate ``Unset`` type to differentiate between fields set to
-  ``None`` and fields that are unset.
-
-* Easily customized with user-defined parsing and/or validation hooks provided
-  by decorators.
-
-* Models are mutable, so modifying a field after model is created, appending a
-  value to typed list field etc. invokes parsing mechanism, keeping integrity
-  of the entire model.
+* Declare models using type annotations
+* Uses slots, not descriptors, making reading from a model as fast as possible
+* Clean separation between **data parsing** stage (executed when model is
+  created or modified) and **model validation** stage (executed on demand)
+* Clean differentiation between unset fields (via special `Unset` sentinel) and
+  optional fields set to `None`
+* Easily customizable via pre- and postprocessors (executed during data
+  parsing), model-level validators, and field-level validators (both executed
+  during model validation)
+* Ability do access any field via **root model** (the one for each validation is
+  executed) from any custom validator, allowing to implement complex
+  cross-field validation logic
+* Ability to add custom **validation context** for even more complex validation
+  strategies (like having different validators when model is created, when
+  model is updated or when model is fetched over the API).
+* Use of predefined error codes instead of error messages for easier
+  customization of error reporting (if needed)
+* Ease of providing custom types simply by defining
+  `__modelity_type_descriptor__` static method in user-defined type.
 
 ## Rationale
 
-Why I have created this toolkit?
+Why I have created this library?
 
-Well, for fun, that's for sure :-)
+First reason is that I didn’t find such clean separation in known data parsing
+tools, and found myself needing such freedom in several projects - both
+private, and commercial ones. Separation between parsing and validation steps
+simplifies validators, as validators in models can assume that they are called
+when model is instantiated, therefore they can access all model’s fields
+without any extra checks.
 
-I also wanted to resurrect some ideas from my over 10-year old and abandoned
-project Formify (which you can still find on my GH profile), as it was already
-supplied with data parsing and validation separation mechanism. Unfortunately,
-the name Formify was already in use (as I have never released it), so I've
-decided to go with a completely new project name.
+Second reason is that I often found myself writing validation logic from the
+scratch for various reasons, especially for large models with lots of
+dependencies. Each time I had to validate some complex logic manually I was
+asking myself, why don’t merge all these ideas and make a library that already
+has these kind of helpers? For example, I sometimes needed to access parent
+model when validating field that itself is another, nested model. With
+Modelity, it is easy, as root model (the one that is validated) is
+populated to all nested models' validators recursively.
 
-And last but not least - the separation of concerns (**parsing** and
-**validation**) is the feature that I needed in several projects, both private
-and commercial, and that I did not find in any toolkit I've been using, forcing
-me to subclassing and/or creating separate project-specific tools to make
-validation being separate from data parsing. I needed this especially for large
-models, with lots of nested submodels, that could not be easily validated
-without being able to inspect entire model tree (f.e. when validity of nested
-model depends on a value of particular parent model field).
+Third reason is that I wanted to finish my over 10 years old, abandoned project
+Formify (the name is already in use, so I have chosen new name for new project)
+which I was developing in free time at the beginning of my professional work
+during learning of Python. That project was originally made to handle form
+parsing and validation to be used along with web framework. Although the
+project was never finished, I’ve resurrected some ideas from it, especially
+parsing and validation separation. You can still find source code on my GH
+profile.
 
-## Usage
+And last, but not least… I made this project for fun with a hope that maybe
+someone will find it useful :-)
 
-I will create a separate guide in the future, but for now please check out the
-examples directly in the source code:
+## Example
 
-https://github.com/mwiatrzyk/modelity/tree/main/tests/examples
+Here's an example data model created with Modelity:
+
+```python
+import datetime
+import typing
+
+from modelity.model import Model
+
+class Address(Model):
+    address_line1: str
+    address_line2: typing.Optional[str]
+    city: str
+    state_province: typing.Optional[str]
+    postal_code: str
+    country_code: str
+
+class Person(Model):
+    name: str
+    second_name: typing.Optional[str]
+    surname: str
+    dob: datetime.date
+```
+
+## Documentation
+
+Please visit project's ReadTheDocs site: https://modelity.readthedocs.io/en/latest/.
 
 ## License
 
