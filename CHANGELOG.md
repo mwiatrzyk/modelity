@@ -1,3 +1,16 @@
+## 0.9.0 (2025-04-27)
+
+### BREAKING CHANGES
+
+- Modelity is now using completely redesigned built-in
+type system made using ITypeDescriptor protocol, that glues together
+methods for parsing, serializing and validating values of a given type.
+The change also included some breaking changes in the Modelity API.
+
+### Fix
+
+- update README and add missing release info
+
 ## 0.8.0 (2025-04-27)
 
 ### Feat
