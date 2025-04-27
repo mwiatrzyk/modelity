@@ -1,3 +1,9 @@
+## 0.8.0 (2025-04-27)
+
+### Feat
+
+- custom types can now be easily registered by defining `__modelity_type_descriptor__` static function returning type descriptor
+
 ## 0.7.0 (2024-11-14)
 
 ### BREAKING CHANGES
