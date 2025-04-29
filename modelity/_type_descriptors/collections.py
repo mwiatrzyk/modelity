@@ -60,15 +60,6 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         def __len__(self) -> int:
             return len(self._data)
 
-        # def update(self, *args, **kwargs):
-        #     tmp = {}
-        #     tmp.update(*args, **kwargs)
-        #     errors = []
-        #     result = parse_typed(errors, self._loc, tmp)
-        #     if errors:
-        #         raise ParsingError(typ, tuple(errors))
-        #     self._data.update(result)
-
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
             return value
