@@ -1,3 +1,4 @@
 # Requirements file used by ReadTheDocs
 
 sphinx_rtd_theme==3.0.1
+typing_extensions==4.12.2
