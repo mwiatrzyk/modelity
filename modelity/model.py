@@ -611,7 +611,7 @@ def has_fields_set(model: Model) -> bool:
 MT = TypeVar("MT", bound=Model)
 
 
-def load(model_type: type[MT], data: dict, ctx: Any=None) -> MT:
+def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
     """Parse and validate given data using provided model type.
 
     This is a helper function meant to be used to create models from data that

@@ -33,6 +33,7 @@ class ErrorCode:
     REGEX_CONSTRAINT_FAILED = "modelity.REGEX_CONSTRAINT_FAILED"
     REQUIRED_MISSING = "modelity.REQUIRED_MISSING"
     EXCEPTION = "modelity.EXCEPTION"
+    PARSING_ERROR = "modelity.PARSING_ERROR"
 
 
 @dataclasses.dataclass
@@ -75,6 +76,25 @@ class Error:
 
 class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_out_of_range for both enums and literals
     """Factory class for creating built-in errors."""
+
+    @staticmethod
+    def parsing_error(loc: Loc, value: Any, msg: str, typ: Any) -> Error:
+        """Generic error to be reported when *value* could not be parsed to a
+        given *target_type*.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            Tha value that failed parsing.
+
+        :param msg:
+            The error message.
+
+        :param typ:
+            The type *value* was tried to be parsed to.
+        """
+        return Error(loc, ErrorCode.PARSING_ERROR, msg, value, {"typ": typ})
 
     @staticmethod
     def invalid_dict(loc: Loc, value: Any) -> Error:
