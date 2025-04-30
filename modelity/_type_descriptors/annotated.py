@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Iterator, TypeVar, cast, get_args
 
 from modelity.error import Error
-from modelity.interface import IConstraintCallable, IDumpFilter, ITypeDescriptor
+from modelity.interface import IConstraint, IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -30,5 +30,5 @@ def make_annotated_type_descriptor(typ: Any, **opts: Any) -> ITypeDescriptor:
 
     args = get_args(typ)
     type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
-    constraints = cast(Iterator[IConstraintCallable], args[1:])
+    constraints = cast(Iterator[IConstraint], args[1:])
     return AnnotatedTypeDescriptor()

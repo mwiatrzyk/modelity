@@ -459,7 +459,7 @@ Constraining fields with **typing.Annotated**
 
 Modelity has its own support for :obj:`typing.Annotated` typing form, backed up
 with :mod:`modelity.constraints` module, or using user-defined constraints that
-satisfy the :class:`modelity.interface.IConstraintCallable` protocol. This can
+satisfy the :class:`modelity.interface.IConstraint` protocol. This can
 be used to create field-level validations like length or range checking. See
 this in action:
 

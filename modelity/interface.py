@@ -188,7 +188,7 @@ class IDumpFilter(Protocol):
         """
 
 
-class IConstraintCallable(Protocol):
+class IConstraint(Protocol):
     """Protocol describing constraint callable.
 
     Constraint callables can be used with :class:`typing.Annotated`-wrapped
