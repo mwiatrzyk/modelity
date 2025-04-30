@@ -9,7 +9,7 @@ from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.interface import (
-    EXCLUDE,
+    DISCARD,
     IDumpFilter,
     IFieldParsingHook,
     IFieldValidationHook,
@@ -549,12 +549,12 @@ class Model(metaclass=ModelMeta):
         for name, field in self.__class__.__model_fields__.items():
             field_loc = self.__loc__ + Loc(name)
             field_value = filter(field_loc, getattr(self, name))
-            if field_value is not EXCLUDE:
+            if field_value is not DISCARD:
                 if field_value is Unset:
                     out[name] = field_value
                 else:
                     dump_value = field.descriptor.dump(field_loc, field_value, filter)
-                    if dump_value is not EXCLUDE:
+                    if dump_value is not DISCARD:
                         out[name] = dump_value
         return out
 
@@ -688,17 +688,17 @@ def dump(
     def apply_filters(loc, value):
         for f in filters:
             value = f(loc, value)
-            if value is EXCLUDE:
+            if value is DISCARD:
                 return value
         return value
 
     filters = []
     if exclude_unset:
-        filters.append(lambda l, v: EXCLUDE if v is Unset else v)
+        filters.append(lambda l, v: DISCARD if v is Unset else v)
     if exclude_none:
-        filters.append(lambda l, v: EXCLUDE if v is None else v)
+        filters.append(lambda l, v: DISCARD if v is None else v)
     if exclude_if:
-        filters.append(lambda l, v: EXCLUDE if exclude_if(l, v) else v)
+        filters.append(lambda l, v: DISCARD if exclude_if(l, v) else v)
     return model.dump(apply_filters)
 
 

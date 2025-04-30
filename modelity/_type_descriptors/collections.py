@@ -16,7 +16,7 @@ from typing import (
 from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import EXCLUDE, IDumpFilter, ITypeDescriptor
+from modelity.interface import DISCARD, IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
@@ -82,7 +82,7 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         result = {}
         for k, v in value.items():
             v = filter(loc, v)
-            if v is not EXCLUDE:
+            if v is not DISCARD:
                 result[k] = v
         return result
 
@@ -181,7 +181,7 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
         result = []
         for i, elem in enumerate(value):
             dump_value = filter(loc + Loc(i), elem)
-            if dump_value is not EXCLUDE:
+            if dump_value is not DISCARD:
                 result.append(dump_value)
         return result
 
@@ -273,7 +273,7 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         result = []
         for elem in value:
             elem = filter(loc, elem)
-            if elem is not EXCLUDE:
+            if elem is not DISCARD:
                 result.append(elem)
         return result
 
@@ -326,7 +326,7 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
         result = []
         for i, elem in enumerate(value):
             elem = filter(loc + Loc(i), elem)
-            if elem is not EXCLUDE:
+            if elem is not DISCARD:
                 result.append(elem)
         return result
 

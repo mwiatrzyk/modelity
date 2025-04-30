@@ -7,6 +7,13 @@ from modelity.unset import UnsetType
 T = TypeVar("T")
 
 
+#: A sentinel value indicating that the return value or the input arguments
+#: should be discarded by the caller.
+#:
+#: Currently used only by the :meth:`IDumpFilter.__call__` method.
+DISCARD = object()
+
+
 class IModel(Protocol):
     """Protocol describing common interface for data models."""
 
@@ -21,10 +28,19 @@ class IModel(Protocol):
     __loc__: Loc
 
     def dump(self, filter: "IDumpFilter") -> dict:
-        """Serialize model to dict.
+        """Serialize model to a JSON-compatible dict.
 
         :param filter:
             The filter function.
+
+            It can be used to discard values from the output or to modify the
+            value before it gets written to the output. The most trivial
+            implementation that does nothing is:
+
+            .. testcode::
+
+                def dump_filter(loc, value):
+                    return value
 
             Check :class:`IDumpFilter` class for more details.
         """
@@ -159,32 +175,27 @@ class IFieldParsingHook(Protocol):
         """
 
 
-#: A sentinel to be returned by :class:`IDumpFilter` callable to indicate that
-#: the current value must be excluded from the dump output.
-EXCLUDE = object()
-
-
 class IDumpFilter(Protocol):
-    """Protocol describing model field filtering function used during model
-    serialization."""
+    """Protocol describing interface of the filter function used by
+    :meth:`modelity.model.Model.dump` method."""
 
     def __call__(self, loc: Loc, value: Any) -> Any:
         """Apply the filter to a model's field.
 
         This method is invoked for each field in the model, regardless of whether
-        the field is set or unset. It determines the value to be included in the
-        serialized output.
-
-        To exclude a field from the output, return :obj:`IDumpFilter.SKIP`.
+        the field is set or unset. It should return the serialized value for a
+        field, or :obj:`DISCARD` to discard the field from the serialized
+        output.
 
         :param loc:
-            The location of the current field.
+            The location of the current value in the model.
 
         :param value:
-            The current value of the field.
+            The current value.
 
         :return:
-            The processed value or :obj:`IDumpFilter.SKIP` to exclude it.
+            The value to use for a field or :obj:`DISCARD` to discard currently
+            processed value from the serialized output.
         """
 
 
