@@ -664,25 +664,35 @@ def dump(
 ) -> dict:
     """Serialize model to a JSON-compatible dict.
 
-    This is a helper function that uses :meth:`Model.dump` underneath,
-    supplying it with most common filtering options.
+    This is a helper function that uses :meth:`Model.dump` method underneath,
+    giving it filters created from most common filtering options.
 
     :param model:
         The model to serialize.
 
     :param exclude_unset:
-        Exclude unset fields from the resulting dict.
+        Exclude :obj:`modelity.unset.Unset` values from the resulting dict.
 
     :param exclude_none:
-        Exclude fields that are set to ``None`` from the resulting dict.
+        Exclude ``None`` values from the resulting dict.
 
     :param exclude_if:
-        Custom exclusion function.
+        Custom generic exclusion function.
 
-        Will be called with ``(loc, value)`` arguments, where *loc* is a value
-        location, and *value* is the value to be serialized. Can be used to to
-        perform more advanced exclusion based on both location and a value.
-        Should return ``True`` to exclude value, or ``False`` to retain it.
+        Suitable for more complex cases not covered by the boolean flags
+        available. Will be called with 2 arguments: location and the value, and
+        should return ``True`` to exclude value, or ``False`` to leave it.
+
+        Here's an example:
+
+        .. testcode::
+
+            import typing
+
+            from modelity.loc import Loc
+
+            def exclude_from_foo_or_when_none(loc: Loc, value: typing.Any) -> bool:
+                return loc[0] == "foo" or value is None
     """
 
     def apply_filters(loc, value):
