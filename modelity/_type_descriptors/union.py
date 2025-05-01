@@ -15,7 +15,7 @@ def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
             return type_descriptor.parse(errors, loc, value)
 
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-            return filter(loc, value)
+            return value
 
         def validate(self, root, ctx, errors, loc, value):
             if value is not None:

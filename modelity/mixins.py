@@ -1,4 +1,5 @@
-"""Mixin helpers for building custom type descriptors."""
+"""Mixin helpers for building custom type descriptors by implicitly
+implementing :class:`modelity.interface.ITypeDescriptor` protocol."""
 
 from typing import Any
 

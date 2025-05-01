@@ -2,12 +2,13 @@
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Generic, Optional, TypeVar, cast, get_args
+from typing import Any, Optional, TypeVar, get_args
 
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UnsupportedTypeError
 from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
+from modelity.mixins import NoValidateMixin
 from modelity.unset import Unset
 
 T = TypeVar("T")
@@ -34,7 +35,7 @@ def make_bool_type_descriptor(
     true_literals: Optional[set] = None, false_literals: Optional[set] = None
 ) -> ITypeDescriptor:
 
-    class BoolTypeDescriptor:
+    class BoolTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bool):
                 return value
@@ -48,10 +49,7 @@ def make_bool_type_descriptor(
             return Unset
 
         def dump(self, loc, value, filter: IDumpFilter):
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value
 
     true_literals = set(true_literals) if true_literals else None
     false_literals = set(false_literals) if false_literals else None
@@ -62,7 +60,7 @@ def make_datetime_type_descriptor(
     input_datetime_formats: Optional[list[str]] = None, output_datetime_format: Optional[str] = None
 ) -> ITypeDescriptor:
 
-    class DateTimeTypeDescriptor:
+    class DateTimeTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, datetime):
                 return value
@@ -79,9 +77,6 @@ def make_datetime_type_descriptor(
 
         def dump(self, loc: Loc, value: datetime, filter: IDumpFilter):
             return filter(loc, value.strftime(compiled_output_format))
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
 
     def compile_format(fmt: str) -> str:
         return (
@@ -106,7 +101,7 @@ def make_date_type_descriptor(
 ) -> ITypeDescriptor:
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
-    class DateTypeDescriptor:
+    class DateTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, date):
                 return value
@@ -124,9 +119,6 @@ def make_date_type_descriptor(
         def dump(self, loc: Loc, value: date, filter: IDumpFilter):
             return filter(loc, value.strftime(compiled_output_format))
 
-        def validate(self, root, ctx, errors, loc, value):
-            pass
-
     def compile_format(fmt: str) -> str:
         return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
@@ -139,7 +131,7 @@ def make_date_type_descriptor(
 
 def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
-    class EnumTypeDescriptor:
+    class EnumTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return typ(value)
@@ -148,10 +140,7 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
                 return Unset
 
         def dump(self, loc: Loc, value: Enum, filter: IDumpFilter):
-            return filter(loc, value.value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value.value
 
     allowed_values = tuple(typ)
     return EnumTypeDescriptor()
@@ -159,7 +148,7 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
 def make_literal_type_descriptor(typ) -> ITypeDescriptor:
 
-    class LiteralTypeDescriptor:
+    class LiteralTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value in allowed_values:
                 return value
@@ -167,10 +156,7 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
             return Unset
 
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value
 
     allowed_values = get_args(typ)
     return LiteralTypeDescriptor()
@@ -178,7 +164,7 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
 
 def make_none_type_descriptor() -> ITypeDescriptor:
 
-    class NoneTypeDescriptor:
+    class NoneTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
@@ -186,17 +172,14 @@ def make_none_type_descriptor() -> ITypeDescriptor:
             return Unset
 
         def dump(self, loc: Loc, value: None, filter: IDumpFilter):
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value
 
     return NoneTypeDescriptor()
 
 
 def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
 
-    class IntTypeDescriptor:
+    class IntTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return int(value)
@@ -205,12 +188,9 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 return Unset
 
         def dump(self, loc: Loc, value: T, filter: IDumpFilter):
-            return filter(loc, value)
+            return value
 
-        def validate(self, root, ctx, errors, loc, value):
-            pass
-
-    class FloatTypeDescriptor:
+    class FloatTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return float(value)
@@ -219,10 +199,7 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 return Unset
 
         def dump(self, loc: Loc, value: T, filter: IDumpFilter):
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value
 
     if issubclass(typ, int):
         return IntTypeDescriptor()
@@ -233,7 +210,7 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
 
 def make_str_type_descriptor() -> ITypeDescriptor:
 
-    class StrTypeDescriptor:
+    class StrTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: str):
             if isinstance(value, str):
                 return value
@@ -241,17 +218,14 @@ def make_str_type_descriptor() -> ITypeDescriptor:
             return Unset
 
         def dump(self, loc: Loc, value: str, filter: IDumpFilter):
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value
 
     return StrTypeDescriptor()
 
 
 def make_bytes_type_descriptor() -> ITypeDescriptor:
 
-    class BytesTypeDescriptor:
+    class BytesTypeDescriptor(NoValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bytes):
                 return value
@@ -259,9 +233,6 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
             return Unset
 
         def dump(self, loc: Loc, value: bytes, filter: IDumpFilter):
-            return filter(loc, value.decode())
-
-        def validate(self, root, ctx, errors, loc, value):
-            pass
+            return value.decode()
 
     return BytesTypeDescriptor()
