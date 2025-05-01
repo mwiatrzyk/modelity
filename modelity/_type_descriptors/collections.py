@@ -18,7 +18,7 @@ from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import DISCARD, IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
-from modelity.mixins import NoValidateMixin
+from modelity.mixins import EmptyValidateMixin
 from modelity.unset import Unset, UnsetType
 
 
@@ -87,7 +87,7 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
                 result[k] = v
         return result
 
-    class AnyDictTypeDescriptor(NoValidateMixin):
+    class AnyDictTypeDescriptor(EmptyValidateMixin):
         def parse(self, errors, loc, value):
             result = ensure_mapping(errors, loc, value)
             if result is Unset:
@@ -183,7 +183,7 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 result.append(dump_value)
         return result
 
-    class AnyListDescriptor(NoValidateMixin):
+    class AnyListDescriptor(EmptyValidateMixin):
 
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
@@ -272,14 +272,14 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 result.append(elem)
         return result
 
-    class AnySetDescriptor(NoValidateMixin):
+    class AnySetDescriptor(EmptyValidateMixin):
         def parse(self, errors, loc, value):
             return parse_any_set(errors, loc, value)
 
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-    class TypedSetDescriptor(NoValidateMixin):
+    class TypedSetDescriptor(EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             seq = ensure_sequence(errors, loc, value)
             if seq is Unset:
@@ -319,7 +319,7 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
                 result.append(elem)
         return result
 
-    class AnyTupleDescriptor(NoValidateMixin):
+    class AnyTupleDescriptor(EmptyValidateMixin):
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
             if result is Unset:

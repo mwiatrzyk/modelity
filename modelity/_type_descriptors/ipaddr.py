@@ -5,12 +5,12 @@ from typing import Any
 from modelity.loc import Loc
 from modelity.unset import Unset
 from modelity.error import Error, ErrorFactory
-from modelity.mixins import StrDumpMixin, NoValidateMixin
+from modelity.mixins import StrDumpMixin, EmptyValidateMixin
 
 
 def make_ipv4_address_type_descriptor():
 
-    class IPv4TypeDescriptor(StrDumpMixin, NoValidateMixin):
+    class IPv4TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv4Address):
                 return value
@@ -25,7 +25,7 @@ def make_ipv4_address_type_descriptor():
 
 def make_ipv6_address_type_descriptor():
 
-    class IPv6TypeDescriptor(StrDumpMixin, NoValidateMixin):
+    class IPv6TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv6Address):
                 return value

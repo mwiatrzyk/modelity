@@ -21,7 +21,15 @@ class StrDumpMixin:
         return str(value)
 
 
-class NoValidateMixin:
+class ExactDumpMixin:
+    """A mixin that adds :meth:`modelity.interface.ITypeDescriptor.dump` method
+    implementation that dumps values unchanged."""
+
+    def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
+        return value
+
+
+class EmptyValidateMixin:
     """A mixin that adds :meth:`modelity.interface.ITypeDescriptor.validate`
     method implementation that simply does nothing.
 
