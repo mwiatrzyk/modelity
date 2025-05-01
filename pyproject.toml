@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modelity"
-version = "0.9.0"
+version = "0.10.0"
 description = "Data parsing and validation library for Python"
 authors = ["Maciej Wiatrzyk <maciej.wiatrzyk@gmail.com>"]
 license = "MIT"

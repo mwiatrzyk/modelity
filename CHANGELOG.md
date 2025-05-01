@@ -1,3 +1,21 @@
+## 0.10.0 (2025-05-01)
+
+### BREAKING CHANGES
+
+- rename `modelity.interface.IConstraintCallable` into `modelity.interface.IConstraint`
+- sentinel rename: `modelity.interface.EXCLUDE` -> `modelity.interface.DISCARD`
+
+### Fix
+
+- add missing calls to `filter` when serializing models
+
+### Feat
+
+- add support for fields of type `ipaddress.IPv4Address`
+- add `modelity.mixins` module providing general purpose mixin classes to reduce boilerplate code
+- add support for `ipaddress.IPv6Address` type
+- add and use `modelity.mixins.ExactDumpMixin` mixin that adds `dump` method returning value unchanged
+
 ## 0.9.0 (2025-04-27)
 
 ### BREAKING CHANGES
