@@ -82,7 +82,7 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
     def dump(loc: Loc, value: dict, filter: IDumpFilter) -> dict:
         result = {}
         for k, v in value.items():
-            v = filter(loc, v)
+            v = filter(loc + Loc(k), v)  # TODO: found missing Loc(k); add test for this
             if v is not DISCARD:
                 result[k] = v
         return result

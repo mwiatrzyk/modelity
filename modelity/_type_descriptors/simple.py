@@ -215,6 +215,6 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
             return Unset
 
         def dump(self, loc: Loc, value: bytes, filter: IDumpFilter):
-            return value.decode()
+            return filter(loc, value.decode())
 
     return BytesTypeDescriptor()

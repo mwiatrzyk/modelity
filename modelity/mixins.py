@@ -18,7 +18,7 @@ class StrDumpMixin:
     """
 
     def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-        return str(value)
+        return filter(loc, str(value))
 
 
 class ExactDumpMixin:
@@ -26,7 +26,7 @@ class ExactDumpMixin:
     implementation that dumps values unchanged."""
 
     def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-        return value
+        return filter(loc, value)
 
 
 class EmptyValidateMixin:

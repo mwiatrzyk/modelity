@@ -3,19 +3,17 @@ from typing import Any, get_args
 from modelity.error import Error
 from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
+from modelity.mixins import ExactDumpMixin
 from modelity.unset import Unset
 
 
 def make_union_type_descriptor(typ, **opts) -> ITypeDescriptor:
 
-    class OptionalTypeDescriptor:
+    class OptionalTypeDescriptor(ExactDumpMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
             return type_descriptor.parse(errors, loc, value)
-
-        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-            return value
 
         def validate(self, root, ctx, errors, loc, value):
             if value is not None:
