@@ -9,5 +9,6 @@ API Reference
   modelity/exc
   modelity/interface
   modelity/loc
+  modelity/mixins
   modelity/model
   modelity/unset

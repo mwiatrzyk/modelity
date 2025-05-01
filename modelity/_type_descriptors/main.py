@@ -4,7 +4,7 @@ import ipaddress
 from numbers import Number
 from typing import Annotated, Any, Literal, Type, TypeVar, Union, cast, get_origin
 
-from modelity._type_descriptors.ipaddr import make_ipv4_address_type_descriptor
+from modelity._type_descriptors.ipaddr import make_ipv4_address_type_descriptor, make_ipv6_address_type_descriptor
 from modelity.exc import UnsupportedTypeError
 from modelity.interface import IModel, ITypeDescriptor
 
@@ -77,6 +77,8 @@ def make_type_descriptor(typ: Union[Type[T], Any], **opts) -> ITypeDescriptor[T]
         return make_set_type_descriptor(typ, **opts)
     if issubclass(typ, ipaddress.IPv4Address):
         return make_ipv4_address_type_descriptor()
+    if issubclass(typ, ipaddress.IPv6Address):
+        return make_ipv6_address_type_descriptor()
     from modelity.model import Model
 
     if issubclass(typ, Model):

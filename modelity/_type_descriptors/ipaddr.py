@@ -21,3 +21,18 @@ def make_ipv4_address_type_descriptor():
                 return Unset
 
     return IPv4TypeDescriptor()
+
+
+def make_ipv6_address_type_descriptor():
+
+    class IPv6TypeDescriptor(StrDumpMixin, NoValidateMixin):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            if isinstance(value, ipaddress.IPv6Address):
+                return value
+            try:
+                return ipaddress.IPv6Address(value)
+            except ipaddress.AddressValueError:
+                errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv6 address", ipaddress.IPv6Address))
+                return Unset
+
+    return IPv6TypeDescriptor()
