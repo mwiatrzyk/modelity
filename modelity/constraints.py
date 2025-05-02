@@ -19,6 +19,9 @@ class Ge:
     def __init__(self, min_inclusive):
         self.min_inclusive = min_inclusive
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.min_inclusive!r})"
+
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value >= self.min_inclusive:
             return True
@@ -38,6 +41,9 @@ class Gt:
 
     def __init__(self, min_exclusive):
         self.min_exclusive = min_exclusive
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.min_exclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value > self.min_exclusive:
@@ -59,6 +65,9 @@ class Le:
     def __init__(self, max_inclusive):
         self.max_inclusive = max_inclusive
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.max_inclusive!r})"
+
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value <= self.max_inclusive:
             return True
@@ -78,6 +87,9 @@ class Lt:
 
     def __init__(self, max_exclusive):
         self.max_exclusive = max_exclusive
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.max_exclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value < self.max_exclusive:
@@ -99,6 +111,9 @@ class MinLen:
     def __init__(self, min_len: int):
         self.min_len = min_len
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.min_len!r})"
+
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if len(value) >= self.min_len:
             return True
@@ -119,6 +134,9 @@ class MaxLen:
     def __init__(self, max_len: int):
         self.max_len = max_len
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.max_len!r})"
+
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if len(value) <= self.max_len:
             return True
@@ -138,6 +156,9 @@ class Regex:
 
     def __init__(self, pattern: str):
         self._compiled_pattern = re.compile(pattern)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self._compiled_pattern.pattern!r})"
 
     @property
     def pattern(self) -> str:
