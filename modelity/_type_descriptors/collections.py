@@ -7,22 +7,27 @@ from typing import (
     MutableMapping,
     MutableSequence,
     MutableSet,
+    Optional,
     Sequence,
     Union,
     cast,
     get_args,
 )
 
+from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import DISCARD, IDumpFilter, ITypeDescriptor
+from modelity.interface import DISCARD, IDumpFilter, ITypeDescriptor, ITypeDescriptorFactory
 from modelity.loc import Loc
 from modelity.mixins import EmptyValidateMixin
 from modelity.unset import Unset, UnsetType
 
+registry = TypeDescriptorFactoryRegistry()
 
-def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
+
+@registry.type_descriptor_factory(dict)
+def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDescriptor:
 
     class MutableMappingProxy(MutableMapping):
         __slots__ = ["_loc", "_data"]
@@ -111,18 +116,17 @@ def make_dict_type_descriptor(typ: type[dict], **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: value_type_descriptor.dump(l, v, filter))
 
-    from modelity._type_descriptors.main import make_type_descriptor
-
     args = get_args(typ)
     if not args:
         return AnyDictTypeDescriptor()
-    key_type_descriptor, value_type_descriptor = cast(ITypeDescriptor, make_type_descriptor(args[0], **opts)), cast(
-        ITypeDescriptor, make_type_descriptor(args[1], **opts)
+    key_type_descriptor, value_type_descriptor = cast(ITypeDescriptor, make_type_descriptor(args[0], type_opts)), cast(
+        ITypeDescriptor, make_type_descriptor(args[1], type_opts)
     )
     return TypedDictTypeDescriptor()
 
 
-def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
+@registry.type_descriptor_factory(list)
+def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDescriptor:
 
     class MutableSequenceProxy(MutableSequence):
         __slots__ = ["_loc", "_data"]
@@ -209,16 +213,17 @@ def make_list_type_descriptor(typ, **opts) -> ITypeDescriptor:
             for i, elem in enumerate(value):
                 type_descriptor.validate(root, ctx, errors, loc + Loc(i), elem)
 
-    from modelity._type_descriptors.main import make_type_descriptor
-
     args = get_args(typ)
     if len(args) == 0:
         return AnyListDescriptor()
-    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
+    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], type_opts)
     return TypedListDescriptor()
 
 
-def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
+@registry.type_descriptor_factory(set)
+def make_set_type_descriptor(
+    typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: Optional[dict]
+) -> ITypeDescriptor:
 
     class MutableSetProxy(MutableSet):
         __slots__ = ["_loc", "_data"]
@@ -292,18 +297,19 @@ def make_set_type_descriptor(typ, **opts) -> ITypeDescriptor:
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
-    from modelity._type_descriptors.main import make_type_descriptor
-
     args = get_args(typ)
     if not args:
         return AnySetDescriptor()
     if not isinstance(args[0], type) or not issubclass(args[0], Hashable):
         raise TypeError("'T' must be hashable type to be used with 'set[T]' generic type")
-    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
+    type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], type_opts)
     return TypedSetDescriptor()
 
 
-def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
+@registry.type_descriptor_factory(tuple)
+def make_tuple_type_descriptor(
+    typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: Optional[dict]
+) -> ITypeDescriptor:
 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value):
@@ -372,14 +378,12 @@ def make_tuple_type_descriptor(typ, **opts) -> ITypeDescriptor:
             for i, elem, desc in zip(range(len(type_descriptors)), value, type_descriptors):
                 desc.validate(root, ctx, errors, loc + Loc(i), elem)
 
-    from modelity._type_descriptors.main import make_type_descriptor
-
     args = get_args(typ)
     if not args:
         return AnyTupleDescriptor()
     if args[-1] is Ellipsis:
-        type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], **opts)
+        type_descriptor: ITypeDescriptor = make_type_descriptor(args[0], type_opts)
         return AnyLengthTypedTupleDescriptor()
-    type_descriptors: tuple[ITypeDescriptor, ...] = tuple(make_type_descriptor(x, **opts) for x in args)
+    type_descriptors: tuple[ITypeDescriptor, ...] = tuple(make_type_descriptor(x, type_opts) for x in args)
     num_type_descriptors = len(type_descriptors)
     return FixedLengthTypedTupleDescriptor()

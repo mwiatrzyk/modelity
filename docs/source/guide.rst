@@ -924,7 +924,6 @@ To let Modelity know how to process the type we need to create
     import dataclasses
 
     from modelity.error import Error
-    from modelity.model import make_type_descriptor
 
     @dataclasses.dataclass
     class Point:
@@ -932,7 +931,7 @@ To let Modelity know how to process the type we need to create
         y: float
 
         @staticmethod
-        def __modelity_type_descriptor__(typ, **opts):
+        def __modelity_type_descriptor__(typ, make_type_descriptor, type_opts):
 
             class PointDescriptor:
 
@@ -950,7 +949,7 @@ To let Modelity know how to process the type we need to create
 
             # It is possible to use Modelity built-in types for parsing floats
             # to reuse existing mechanisms.
-            float_descriptor = make_type_descriptor(float, **opts)
+            float_descriptor = make_type_descriptor(float, type_opts)
             return PointDescriptor()
 
 And now, let's create the model again:

@@ -1,12 +1,17 @@
 from typing import Mapping
 
+from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IDumpFilter, IModel, ITypeDescriptor
 from modelity.loc import Loc
+from modelity.model import Model
 from modelity.unset import Unset
 
+registry = TypeDescriptorFactoryRegistry()
 
+
+@registry.type_descriptor_factory(Model)
 def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
 
     class ModelTypeDescriptor:
@@ -30,6 +35,6 @@ def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
             return value.dump(filter)
 
         def validate(self, root, ctx, errors, loc, value: IModel):
-            value.validate(root, ctx, errors)
+            value.validate(root, ctx, errors, loc)
 
     return ModelTypeDescriptor()

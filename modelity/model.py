@@ -18,7 +18,9 @@ from modelity.interface import (
     ITypeDescriptor,
 )
 from modelity.loc import Loc
-from modelity._type_descriptors.main import make_type_descriptor as _make_type_descriptor
+
+# from modelity._type_descriptors.main import make_type_descriptor as _make_type_descriptor
+# from modelity._type_descriptors.all import registry as _root_registry
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
@@ -104,7 +106,9 @@ def make_type_descriptor(typ: type[T], **opts) -> ITypeDescriptor[T]:
 
         Please proceed to :ref:`supported-types` for more details.
     """
-    return _make_type_descriptor(typ, **opts)
+    from modelity._type_descriptors.all import registry
+
+    return registry.make_type_descriptor(typ, type_opts=opts)
 
 
 def field_preprocessor(*field_names: str):
@@ -558,7 +562,7 @@ class Model(metaclass=ModelMeta):
                         out[name] = dump_value
         return out
 
-    def validate(self, root: "Model", ctx: Any, errors: list[Error]):
+    def validate(self, root: "Model", ctx: Any, errors: list[Error], loc: Loc):
         """Validate this model.
 
         :param root:
@@ -580,23 +584,25 @@ class Model(metaclass=ModelMeta):
             Should initially be empty.
 
         :param loc:
-            The location of this model if it is nested inside another model, or
-            empty location otherwise.
+            The absolute location of this model if it is nested inside another
+            model, or empty location otherwise.
+
+            This is used to properly render error locations.
         """
         cls = self.__class__
         for model_prevalidator in cls.__model_prevalidators__:
-            model_prevalidator(cls, self, root, ctx, errors, self.__loc__)  # type: ignore
+            model_prevalidator(cls, self, root, ctx, errors, loc)  # type: ignore
         for name, field in cls.__model_fields__.items():
-            loc = self.__loc__ + Loc(name)
+            value_loc = loc + Loc(name)
             value = getattr(self, name)
             if value is not Unset:
                 for field_validator in cls.__model_field_validators__.get(name, []):
-                    field_validator(cls, self, root, ctx, errors, loc, value)  # type: ignore
-                field.descriptor.validate(root, ctx, errors, loc, value)  # type: ignore
+                    field_validator(cls, self, root, ctx, errors, value_loc, value)  # type: ignore
+                field.descriptor.validate(root, ctx, errors, value_loc, value)  # type: ignore
             elif not field.optional:
-                errors.append(ErrorFactory.required_missing(loc))
+                errors.append(ErrorFactory.required_missing(value_loc))
         for model_postvalidator in cls.__model_postvalidators__:
-            model_postvalidator(cls, self, root, ctx, errors, self.__loc__)  # type: ignore
+            model_postvalidator(cls, self, root, ctx, errors, loc)  # type: ignore
 
 
 def has_fields_set(model: Model) -> bool:
@@ -725,6 +731,6 @@ def validate(model: Model, ctx: Any = None):
         Check :meth:`Model.validate` for more information.
     """
     errors: list[Error] = []
-    model.validate(model, ctx, errors)
+    model.validate(model, ctx, errors, model.__loc__)
     if errors:
         raise ValidationError(model, tuple(errors))

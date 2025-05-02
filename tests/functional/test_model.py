@@ -50,12 +50,12 @@ def sut(SUT):
 class CustomType:
 
     @staticmethod
-    def __modelity_type_descriptor__(typ, **opts) -> ITypeDescriptor:
+    def __modelity_type_descriptor__(typ, type_opts: dict) -> ITypeDescriptor:
 
         class CustomTypeDescriptor:
 
             def parse(self, errors, loc, value):
-                return typ(value, **opts)
+                return typ(value, **type_opts)
 
             def dump(self, loc, value, filter) -> Any:
                 return value.value

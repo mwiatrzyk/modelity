@@ -2,13 +2,15 @@
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Optional, TypeVar, get_args
+import ipaddress
+from typing import Any, Literal, Optional, TypeVar, get_args
 
+from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UnsupportedTypeError
 from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
-from modelity.mixins import EmptyValidateMixin, ExactDumpMixin
+from modelity.mixins import EmptyValidateMixin, ExactDumpMixin, StrDumpMixin
 from modelity.unset import Unset
 
 T = TypeVar("T")
@@ -30,32 +32,42 @@ _DEFAULT_OUTPUT_DATETIME_FORMAT = "YYYY-MM-DDThh:mm:ssZZZZ"
 
 _DEFAULT_OUTPUT_DATE_FORMAT = "YYYY-MM-DD"
 
+registry = TypeDescriptorFactoryRegistry()
 
-def make_bool_type_descriptor(
-    true_literals: Optional[set] = None, false_literals: Optional[set] = None
-) -> ITypeDescriptor:
+
+@registry.type_descriptor_factory(Any)
+def make_any_type_descriptor() -> ITypeDescriptor:
+
+    class AnyTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+        def parse(self, errors, loc, value):
+            return value
+
+    return AnyTypeDescriptor()
+
+
+@registry.type_descriptor_factory(bool)
+def make_bool_type_descriptor(type_opts: dict) -> ITypeDescriptor:
 
     class BoolTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bool):
                 return value
-            if value in (true_literals or []):
+            if value in true_literals:
                 return True
-            if value in (false_literals or []):
+            if value in false_literals:
                 return False
             errors.append(
                 ErrorFactory.invalid_bool(loc, value, true_literals=true_literals, false_literals=false_literals)
             )
             return Unset
 
-    true_literals = set(true_literals) if true_literals else None
-    false_literals = set(false_literals) if false_literals else None
+    true_literals = set(type_opts.get("true_literals") or [])
+    false_literals = set(type_opts.get("false_literals") or [])
     return BoolTypeDescriptor()
 
 
-def make_datetime_type_descriptor(
-    input_datetime_formats: Optional[list[str]] = None, output_datetime_format: Optional[str] = None
-) -> ITypeDescriptor:
+@registry.type_descriptor_factory(datetime)
+def make_datetime_type_descriptor(type_opts: dict) -> ITypeDescriptor:
 
     class DateTimeTypeDescriptor(EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -86,16 +98,15 @@ def make_datetime_type_descriptor(
             .replace("ZZZZ", "%z")
         )
 
-    input_formats = input_datetime_formats or _DEFAULT_INPUT_DATETIME_FORMATS
+    input_formats = type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS
+    output_format = type_opts.get("output_datetime_format") or _DEFAULT_OUTPUT_DATETIME_FORMAT
     compiled_input_formats = [compile_format(x) for x in input_formats]
-    output_format = output_datetime_format or _DEFAULT_OUTPUT_DATETIME_FORMAT
     compiled_output_format = compile_format(output_format)
     return DateTimeTypeDescriptor()
 
 
-def make_date_type_descriptor(
-    input_date_formats: Optional[list[str]] = None, output_date_format: Optional[str] = None
-) -> ITypeDescriptor:
+@registry.type_descriptor_factory(date)
+def make_date_type_descriptor(type_opts: dict) -> ITypeDescriptor:
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
     class DateTypeDescriptor(EmptyValidateMixin):
@@ -119,13 +130,14 @@ def make_date_type_descriptor(
     def compile_format(fmt: str) -> str:
         return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
-    input_formats = input_date_formats or _DEFAULT_INPUT_DATE_FORMATS
+    input_formats = type_opts.get("input_date_formats") or _DEFAULT_INPUT_DATE_FORMATS
+    output_format = type_opts.get("output_date_format") or _DEFAULT_OUTPUT_DATE_FORMAT
     compiled_input_formats = [compile_format(x) for x in input_formats]
-    output_format = output_date_format or _DEFAULT_OUTPUT_DATE_FORMAT
     compiled_output_format = compile_format(output_format)
     return DateTypeDescriptor()
 
 
+@registry.type_descriptor_factory(Enum)
 def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
     class EnumTypeDescriptor(EmptyValidateMixin):
@@ -143,6 +155,7 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
     return EnumTypeDescriptor()
 
 
+@registry.type_descriptor_factory(Literal)
 def make_literal_type_descriptor(typ) -> ITypeDescriptor:
 
     class LiteralTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
@@ -156,6 +169,7 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
     return LiteralTypeDescriptor()
 
 
+@registry.type_descriptor_factory(type(None))
 def make_none_type_descriptor() -> ITypeDescriptor:
 
     class NoneTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
@@ -168,7 +182,8 @@ def make_none_type_descriptor() -> ITypeDescriptor:
     return NoneTypeDescriptor()
 
 
-def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
+@registry.type_descriptor_factory(int)
+def make_int_type_descriptor():
 
     class IntTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -178,6 +193,12 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_integer(loc, value))
                 return Unset
 
+    return IntTypeDescriptor()
+
+
+@registry.type_descriptor_factory(float)
+def make_float_type_descriptor():
+
     class FloatTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
@@ -186,13 +207,10 @@ def make_numeric_type_descriptor(typ: type[T]) -> ITypeDescriptor[T]:
                 errors.append(ErrorFactory.invalid_float(loc, value))
                 return Unset
 
-    if issubclass(typ, int):
-        return IntTypeDescriptor()
-    if issubclass(typ, float):
-        return FloatTypeDescriptor()
-    raise UnsupportedTypeError(typ)
+    return FloatTypeDescriptor()
 
 
+@registry.type_descriptor_factory(str)
 def make_str_type_descriptor() -> ITypeDescriptor:
 
     class StrTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
@@ -205,6 +223,7 @@ def make_str_type_descriptor() -> ITypeDescriptor:
     return StrTypeDescriptor()
 
 
+@registry.type_descriptor_factory(bytes)
 def make_bytes_type_descriptor() -> ITypeDescriptor:
 
     class BytesTypeDescriptor(EmptyValidateMixin):
@@ -218,3 +237,35 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
             return filter(loc, value.decode())
 
     return BytesTypeDescriptor()
+
+
+@registry.type_descriptor_factory(ipaddress.IPv4Address)
+def make_ipv4_address_type_descriptor():
+
+    class IPv4TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            if isinstance(value, ipaddress.IPv4Address):
+                return value
+            try:
+                return ipaddress.IPv4Address(value)
+            except ipaddress.AddressValueError:
+                errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv4 address", ipaddress.IPv4Address))
+                return Unset
+
+    return IPv4TypeDescriptor()
+
+
+@registry.type_descriptor_factory(ipaddress.IPv6Address)
+def make_ipv6_address_type_descriptor():
+
+    class IPv6TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
+            if isinstance(value, ipaddress.IPv6Address):
+                return value
+            try:
+                return ipaddress.IPv6Address(value)
+            except ipaddress.AddressValueError:
+                errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv6 address", ipaddress.IPv6Address))
+                return Unset
+
+    return IPv6TypeDescriptor()

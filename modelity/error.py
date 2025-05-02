@@ -222,7 +222,7 @@ class ErrorFactory:  # TODO: flatten the errors to be more generic, f.e. value_o
             ErrorCode.INVALID_BOOL,
             "not a valid boolean value",
             value,
-            {"true_literals": true_literals, "false_literals": false_literals},
+            {"true_literals": true_literals or set(), "false_literals": false_literals or set()},
         )
 
     @staticmethod

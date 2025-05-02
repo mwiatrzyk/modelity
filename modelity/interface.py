@@ -1,4 +1,4 @@
-from typing import Any, Protocol, Union, TypeVar, Generic
+from typing import Any, Optional, Protocol, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
@@ -45,7 +45,7 @@ class IModel(Protocol):
             Check :class:`IDumpFilter` class for more details.
         """
 
-    def validate(self, root: "IModel", ctx: Any, errors: list[Error]):
+    def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
         """Validate this model.
 
         :param root:
@@ -65,6 +65,9 @@ class IModel(Protocol):
             List to populate with any errors found during validation.
 
             Should initially be empty.
+
+        :param loc:
+            The absolute location of the validated model inside a parent model.
         """
 
 
@@ -309,3 +312,9 @@ class ITypeDescriptor(Protocol, Generic[T]):
 
             It is guaranteed to be of type *T*.
         """
+
+
+class ITypeDescriptorFactory(Protocol):
+
+    def __call__(self, typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor:
+        pass
