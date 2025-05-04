@@ -81,7 +81,22 @@ class IModel(Protocol):
         """
 
 
-class IModelValidationHook(Protocol):
+class IBaseHook(Protocol):
+    """Base class for hook protocols."""
+
+    #: The ID number assigned for a hook.
+    #:
+    #: This is sequential number that can be used to order hooks in their
+    #: declaration order.
+    __modelity_hook_id__: int
+
+    #: The name of a hook.
+    #:
+    #: Modelity uses this to group hooks by their functionality.
+    __modelity_hook_name__: str
+
+
+class IModelValidationHook(IBaseHook):
     """Protocol describing interface of the model-level validation hooks.
 
     Model validators are user-defined functions that run during validation
@@ -115,12 +130,18 @@ class IModelValidationHook(Protocol):
         """
 
 
-class IFieldValidationHook(Protocol):
+class IFieldValidationHook(IBaseHook):
     """Protocol describing interface of the field-level validation hooks.
 
     Field validators are executed for selected fields and only if those fields
     have values set.
     """
+
+    #: Set containing field names this hook will be applied to.
+    #:
+    #: If this is an empty set, then the hook will be applied to all fields of
+    #: the model it was declared in.
+    __modelity_hook_field_names__: set[str]
 
     def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
         """Perform field validation.
@@ -148,7 +169,7 @@ class IFieldValidationHook(Protocol):
         """
 
 
-class IFieldParsingHook(Protocol):
+class IFieldParsingHook(IBaseHook):
     """Protocol describing interface of the user-defined field parsing hooks.
 
     When field is initialized with a value, then just type parsing is normally
@@ -168,6 +189,12 @@ class IFieldParsingHook(Protocol):
 
     Both hooks share common interface defined by this protocol.
     """
+
+    #: Set containing field names this hook will be applied to.
+    #:
+    #: If this is an empty set, then the hook will be applied to all fields of
+    #: the model it was declared in.
+    __modelity_hook_field_names__: set[str]
 
     def __call__(_, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
         """Call field processing hook.
