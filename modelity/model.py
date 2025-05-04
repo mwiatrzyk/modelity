@@ -91,7 +91,7 @@ def _make_model_validator(func) -> IModelValidationHook:
     return proxy
 
 
-def make_type_descriptor(typ: type[T], **opts) -> ITypeDescriptor[T]:
+def make_type_descriptor(typ: type[T], type_opts: Optional[dict]=None) -> ITypeDescriptor[T]:
     """Make type descriptor for provided type.
 
     Can be used to create descriptor for any type supported by Modelity
@@ -101,14 +101,19 @@ def make_type_descriptor(typ: type[T], **opts) -> ITypeDescriptor[T]:
     :param typ:
         The type to create descriptor for.
 
-    :param `**opts`:
-        Additional type-specific options for refining type parsers.
+    :param type_opts:
+        Type-specific additional options.
 
-        Please proceed to :ref:`supported-types` for more details.
+        This can be used to customize the behavior of parsing, dumping and/or
+        validation for a given type *typ*.
+
+        Not all the types use this, so please check
+        :ref:`configurable-types-label` for list of types that can be
+        customized.
     """
     from modelity._type_descriptors.all import registry
 
-    return registry.make_type_descriptor(typ, type_opts=opts)
+    return registry.make_type_descriptor(typ, type_opts or {})
 
 
 def field_preprocessor(*field_names: str):
@@ -422,7 +427,7 @@ class ModelMeta(type):
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
             bound_field = BoundField(
-                field_name, annotation, make_type_descriptor(annotation, **field_info.type_opts), field_info
+                field_name, annotation, make_type_descriptor(annotation, field_info.type_opts), field_info
             )
             fields[field_name] = bound_field
         for key in dict(attrs):
@@ -465,8 +470,65 @@ class ModelMeta(type):
 class Model(metaclass=ModelMeta):
     """Base class for creating models.
 
+    To create a model using Modelity, you have to import this class, inherit
+    from it, and provide fields in similar way as you would using
+    :mod:`dataclasses` module. Here's an example:
+
+    .. testcode::
+
+        import datetime
+
+        from modelity.model import Model
+
+        class Book(Model):
+            title: str
+            author: str
+            publisher: str
+            page_count: int
+            date_published: datetime.date
+
+    And now, the class can be instantiated in similar way as dataclass with a
+    difference that all fields in Modelity models are implicitly optional to
+    allow gradual initialization like in example below:
+
+    .. doctest::
+
+        >>> book = Book()  # This will not fail
+        >>> book.title = "My First Book"
+        >>> book.author = "John Doe"
+        >>> book.publisher = "Dummy Publishing Ltd."
+        >>> book.page_count = 200
+        >>> book.date_published = "2024-07-31"  # Model initialization completed
+
+    .. note::
+
+        Keyword args are also supported, so the initialization from above is
+        equal to this:
+
+        .. doctest::
+
+            >>> book_via_kw = Book(
+            ...     title="My First Book",
+            ...     author="John Doe",
+            ...     publisher="Dummy Publishing Ltd.",
+            ...     page_count=200,
+            ...     date_published="2024-07-31"
+            ... )
+            >>> book == book_via_kw
+            True
+
+    Now, to validate the model, you have to use :func:`modelity.model.validate`
+    helper:
+
+    .. doctest::
+
+        >>> from modelity.model import validate
+        >>> validate(book)  # OK, as all required fields are set
+
     This class implicitly implements :class:`modelity.interface.IModel`
     protocol.
+
+    Check :ref:`quickstart` or :ref:`guide` for more examples.
     """
 
     __slots__ = ["__loc__"]
@@ -537,21 +599,14 @@ class Model(metaclass=ModelMeta):
     def __delattr__(self, name):
         setattr(self, name, Unset)
 
-    def dump(self, filter: IDumpFilter) -> dict:
-        """Serialize model to dict.
+    def dump(self, loc: Loc, filter: IDumpFilter) -> dict:
+        """Dump model to a JSON-serializable dict.
 
-        :param loc:
-            The location of this model if it is nested inside another model, or
-            empty location otherwise.
-
-        :param filter:
-            The filter function.
-
-            Check :class:`IDumpFilter` class for more details.
+        Check :class:`modelity.interface.IModel.dump` method for more details.
         """
         out = {}
         for name, field in self.__class__.__model_fields__.items():
-            field_loc = self.__loc__ + Loc(name)
+            field_loc = loc + Loc(name)
             field_value = filter(field_loc, getattr(self, name))
             if field_value is not DISCARD:
                 if field_value is Unset:
@@ -565,29 +620,7 @@ class Model(metaclass=ModelMeta):
     def validate(self, root: "Model", ctx: Any, errors: list[Error], loc: Loc):
         """Validate this model.
 
-        :param root:
-            Reference to the root model.
-
-            Root model is the model for which this method was initially called.
-            This can be used by nested models to access entire model during
-            validation.
-
-        :param ctx:
-            User-defined context object to be shared across all validators.
-
-            It is completely transparent to Modelity, so any value can be used
-            here, but recommended is ``None`` if no context is used.
-
-        :param errors:
-            List to populate with any errors found during validation.
-
-            Should initially be empty.
-
-        :param loc:
-            The absolute location of this model if it is nested inside another
-            model, or empty location otherwise.
-
-            This is used to properly render error locations.
+        Check :class:`modelity.interface.IModel.validate` method for more details.
         """
         cls = self.__class__
         for model_prevalidator in cls.__model_prevalidators__:
@@ -715,7 +748,7 @@ def dump(
         filters.append(lambda l, v: DISCARD if v is None else v)
     if exclude_if:
         filters.append(lambda l, v: DISCARD if exclude_if(l, v) else v)
-    return model.dump(apply_filters)
+    return model.dump(Loc(), apply_filters)
 
 
 def validate(model: Model, ctx: Any = None):
@@ -731,6 +764,6 @@ def validate(model: Model, ctx: Any = None):
         Check :meth:`Model.validate` for more information.
     """
     errors: list[Error] = []
-    model.validate(model, ctx, errors, model.__loc__)
+    model.validate(model, ctx, errors, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))

@@ -1,10 +1,7 @@
-# TODO: Refactor these tests to use Model, not type descriptor directly. After
-# that, merge test_types.py into this file.
-
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
-from typing import Annotated, Any, Literal, Optional, Union, get_args
+from typing import Annotated, Any, Literal, Optional, Union
 
 from modelity.constraints import Ge, Gt, Le, Lt, MaxLen, MinLen, Regex
 from modelity.error import ErrorFactory
@@ -17,11 +14,6 @@ from modelity.unset import Unset
 import pytest
 
 loc = Loc("foo")
-
-
-@pytest.fixture
-def errors():
-    return []
 
 
 @pytest.fixture
@@ -84,13 +76,13 @@ class TestIPv4:
         assert excinfo.value.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize(
-        "input_value, dump_filter, output_value",
+        "input_value, output_value",
         [
-            ("1.1.1.1", lambda l, v: v, {"foo": "1.1.1.1"}),
+            ("1.1.1.1", {"foo": "1.1.1.1"}),
         ],
     )
-    def test_dump(self, model, dump_filter, output_value):
-        assert model.dump(dump_filter) == output_value
+    def test_dump(self, model, output_value):
+        assert dump(model) == output_value
 
     @pytest.mark.parametrize("input_value", ["1.1.1.2"])
     def test_validate_successfully(self, model):
@@ -132,13 +124,13 @@ class TestIPv6:
         assert excinfo.value.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize(
-        "input_value, dump_filter, output_value",
+        "input_value, output_value",
         [
-            ("ffff::0001", lambda l, v: v, {"foo": "ffff::1"}),
+            ("ffff::0001", {"foo": "ffff::1"}),
         ],
     )
-    def test_dump(self, model, dump_filter, output_value):
-        assert model.dump(dump_filter) == output_value
+    def test_dump(self, model, output_value):
+        assert dump(model) == output_value
 
     @pytest.mark.parametrize("input_value", ["ffff::1"])
     def test_validate_successfully(self, model):
@@ -868,12 +860,12 @@ class TestDictTypeDescriptor:
     def test_parsing_error_is_raised_when_setting_invalid_key(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out["spam"] = 3.14
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(loc, "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(Loc(), "spam")])
 
     def test_parsing_error_is_raised_when_setting_invalid_value(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out[123] = "spam"
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_float(loc + Loc(123), "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.invalid_float(Loc(123), "spam")])
 
     def test_set_item_and_delete_it(self, out: dict):
         out[1] = 2
@@ -985,7 +977,7 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(loc + Loc(0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
         ],
     )
     def test_setting_to_invalid_value_causes_parsing_error(
@@ -999,11 +991,11 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(loc + Loc(0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
         ],
     )
     def test_inserting_invalid_value_causes_parsing_error(
-        self, model_type, errors, initial, index, value, expected_errors
+        self, model_type, initial, index, value, expected_errors
     ):
         l = model_type(foo=initial).foo
         with pytest.raises(ParsingError) as excinfo:
@@ -1094,7 +1086,7 @@ class TestSetTypeDescriptor:
         s = model_type(foo=[]).foo
         with pytest.raises(ParsingError) as excinfo:
             s.add("dummy")
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(loc, "dummy")])
+        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(Loc(), "dummy")])
 
     @pytest.mark.parametrize("typ", [set[int]])
     def test_add_value_and_discard_it(self, model_type):
@@ -1173,7 +1165,7 @@ class TestModelTypeDescriptor:
         (Dummy, lambda l, v: v if l.last != "foo" else DISCARD, {}, {}),
     ])
     def test_dump(self, model, filter, output_value):
-        assert model.dump(filter) == output_value
+        assert model.dump(Loc(), filter) == output_value
 
     @pytest.mark.parametrize("typ, input_value", [
         (Dummy, {"nested": {"a": 123}}),

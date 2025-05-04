@@ -20,7 +20,7 @@ class TestLoc:
     @pytest.mark.parametrize(
         "uut, expected_str",
         [
-            (Loc(), ""),
+            (Loc(), "(empty)"),
             (Loc("foo"), "foo"),
             (Loc(1), "1"),
             (Loc("foo", "bar", 2), "foo.bar.2"),

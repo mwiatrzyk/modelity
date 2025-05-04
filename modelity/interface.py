@@ -27,22 +27,38 @@ class IModel(Protocol):
     #: not be modified by hand.
     __loc__: Loc
 
-    def dump(self, filter: "IDumpFilter") -> dict:
-        """Serialize model to a JSON-compatible dict.
+    def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
+        """Dump model to a JSON-serializable dict.
+
+        :param loc:
+            The absolute location of this model.
+
+            This will be empty if this is a root model, or non-empty for model
+            object that acts as a field in some outer model.
 
         :param filter:
             The filter function.
 
             It can be used to discard values from the output or to modify the
-            value before it gets written to the output. The most trivial
-            implementation that does nothing is:
+            value before it gets written to the output. Check the example below:
 
             .. testcode::
 
-                def dump_filter(loc, value):
-                    return value
+                from modelity.unset import Unset
+                from modelity.model import Model
+                from modelity.interface import DISCARD
 
-            Check :class:`IDumpFilter` class for more details.
+                class Example(Model):
+                    foo: int
+
+                def exclude_unset(loc, value):
+                    return DISCARD if value is Unset else value
+
+            .. doctest::
+
+                >>> example = Example(foo=123)
+
+            Check :class:`IDumpFilter` protocol for more details.
         """
 
     def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
@@ -64,10 +80,14 @@ class IModel(Protocol):
         :param errors:
             List to populate with any errors found during validation.
 
-            Should initially be empty.
+            Should initially be empty and can potentially contain validation
+            errors after this method's execution is done.
 
         :param loc:
             The absolute location of the validated model inside a parent model.
+
+            This will be empty for root model object, or non-empty if this
+            model object is a field value in some outer model object.
         """
 
 
@@ -260,17 +280,17 @@ class ITypeDescriptor(Protocol, Generic[T]):
         """
 
     def dump(self, loc: Loc, value: T, filter: IDumpFilter) -> Any:
-        """Serialize value to a nearest JSON type.
+        """Dump value to a nearest JSON type.
 
-        This method should return any of the following:
+        This method, for given input, should return one of the following types:
 
-        * dict
-        * list
-        * number
-        * string
-        * boolean
-        * ``None``
-        * :obj:`IDumpFilter.SKIP`.
+        * :class:`dict` object for mappings,
+        * :class:`list` for sequences, sets and and other iterables,
+        * :class:`int` or :class:`float` for numbers,
+        * :class:`str` for strings or types that are encoded as strings (f.e. date and time),
+        * :class:`bool` for boolean values,
+        * :obj:`None` for null values,
+        * :obj:`DISCARD` sentinel to signal that the value should be discarded.
 
         :param loc:
             The location of current value inside a model.
@@ -302,7 +322,7 @@ class ITypeDescriptor(Protocol, Generic[T]):
             field against dynamically changing set of allowed values.
 
         :param errors:
-            List of errors to populate with validation errors (if any).
+            List of errors to populate with any validation errors found.
 
         :param loc:
             The location of the *value* inside the model.
@@ -310,11 +330,33 @@ class ITypeDescriptor(Protocol, Generic[T]):
         :param value:
             The value to validate.
 
-            It is guaranteed to be of type *T*.
+            It is guaranteed to be of type *T*, so no additional checks are
+            needed.
         """
 
 
 class ITypeDescriptorFactory(Protocol):
+    """Protocol describing type descriptor factory function.
 
-    def __call__(self, typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor:
-        pass
+    These functions are used to create instances of :class:`ITypeDescriptor`
+    for provided type and type options.
+    """
+
+    def __call__(self, typ: Any, type_opts: dict) -> ITypeDescriptor:
+        """Create type descriptor for a given type.
+
+        :param typ:
+            The type to create descriptor for.
+
+            Can be either simple type, or a special form created using helpers
+            from the :mod:`typing` module.
+
+        :param type_opts:
+            Type-specific options injected directly from a model when
+            :class:`modelity.model.Model` subclass is created.
+
+            Used to customize parsing, dumping and/or validation logic for a
+            provided type.
+
+            If not used, then it should be set to an empty dict.
+        """

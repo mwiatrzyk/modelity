@@ -488,8 +488,8 @@ class TestModelWithModelField:
     @pytest.mark.parametrize(
         "initial_foo, initial_bar, expected_errors",
         [
-            ({}, "spam", [ErrorFactory.invalid_integer(Loc("foo", "bar"), "spam")]),
-            (SUT.Foo(), "spam", [ErrorFactory.invalid_integer(Loc("foo", "bar"), "spam")]),
+            ({}, "spam", [ErrorFactory.invalid_integer(Loc("bar"), "spam")]),
+            (SUT.Foo(), "spam", [ErrorFactory.invalid_integer(Loc("bar"), "spam")]),
         ],
     )
     def test_when_assigning_incorrect_value_then_parsing_error_is_raised(
@@ -524,7 +524,7 @@ class TestModelWithDictField:
 
     @pytest.mark.parametrize(
         "args, key, value, expected_errors",
-        [({"foo": {}}, "one", "spam", [ErrorFactory.invalid_integer(Loc("foo", "one"), "spam")])],
+        [({"foo": {}}, "one", "spam", [ErrorFactory.invalid_integer(Loc("one"), "spam")])],
     )
     def test_setting_item_to_invalid_value_causes_error(self, sut: SUT, key, value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
@@ -547,7 +547,7 @@ class TestModelWithDictField:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo.setdefault("one", "spam")
         assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
-        assert excinfo.value.errors == (ErrorFactory.invalid_integer(Loc("foo", "one"), "spam"),)
+        assert excinfo.value.errors == (ErrorFactory.invalid_integer(Loc("one"), "spam"),)
 
 
 class TestModelWithListField:
@@ -573,8 +573,8 @@ class TestModelWithListField:
     @pytest.mark.parametrize(
         "initial, given, expected_errors",
         [
-            ([], "spam", [ErrorFactory.invalid_integer(Loc("foo", 0), "spam")]),
-            ([1, 2, 3], "spam", [ErrorFactory.invalid_integer(Loc("foo", 3), "spam")]),
+            ([], "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
+            ([1, 2, 3], "spam", [ErrorFactory.invalid_integer(Loc(3), "spam")]),
         ],
     )
     def test_append_failed(self, sut: SUT, given, expected_errors):
@@ -632,7 +632,7 @@ class TestModelWithModelPrevalidators:
             ("root", "sut"),
             ("ctx", "{1, 2, 3}"),
             ("errors", "[]"),
-            ("loc", "Loc('spam')"),
+            ("loc", "Loc()"),
         ],
     )
     def test_invoke_model_prevalidator_with_single_arg(self, mock, arg_name, expect_call_arg):
@@ -645,7 +645,6 @@ class TestModelWithModelPrevalidators:
                 mock.foo({arg_name})
 
         sut = SUT()
-        sut.__loc__ = Loc("spam")
         mock.foo.expect_call({expect_call_arg})
         with ordered(mock):
             validate(sut, ctx=ctx)
@@ -761,7 +760,7 @@ class TestModelWithModelPostvalidators:
             ("root", "sut"),
             ("ctx", "{1, 2, 3}"),
             ("errors", "[]"),
-            ("loc", "Loc('spam')"),
+            ("loc", "Loc()"),
         ],
     )
     def test_invoke_model_postvalidator_with_single_arg(self, mock, arg_name, expect_call_arg):
@@ -774,7 +773,6 @@ class TestModelWithModelPostvalidators:
                 mock.foo({arg_name})
 
         sut = SUT()
-        sut.__loc__ = Loc("spam")
         mock.foo.expect_call({expect_call_arg})
         with ordered(mock):
             validate(sut, ctx=ctx)

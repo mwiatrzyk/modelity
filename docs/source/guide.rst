@@ -1,3 +1,5 @@
+.. _guide:
+
 User's guide
 ============
 
@@ -214,7 +216,7 @@ type is given, then exception will be raised:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'list' with 1 error(-s):
-      typed.4:
+      4:
         not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** lists are
@@ -299,7 +301,7 @@ example:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'dict' with 1 error(-s):
-      typed.one:
+      one:
         not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** dicts are
@@ -356,7 +358,7 @@ after it was initialized with automatic type parsing:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'set' with 1 error(-s):
-      typed:
+      (empty):
         not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** sets are
@@ -700,8 +702,12 @@ missing:
     Traceback (most recent call last):
       ...
     modelity.exc.ValidationError: validation of model 'Vec2d' failed with 1 error(-s):
-      direction.y:
+      y:
         this field is required [code=modelity.REQUIRED_MISSING, data={}]
+
+This example shows that validation, although optional as requiring explicit
+:func:`modelity.model.validate` function call, can be made required and run
+automatically when needed.
 
 .. _model_prevalidator:
 
@@ -992,6 +998,7 @@ new type, then following will also work fine with a new type:
     {'foo': (1.0, 2.0)}
     >>> validate(model)
 
+.. _configurable-types-label:
 
 Configurable types
 ------------------
@@ -1027,6 +1034,7 @@ Let's consider following example:
                     false_literals=['no']
                 )
             )
+
 Now, the field *locked* can, in addition to boolean value, be also set to
 either **yes** or **no** string value:
 

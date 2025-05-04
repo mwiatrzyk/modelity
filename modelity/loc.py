@@ -34,7 +34,7 @@ class Loc(Sequence):
         return f"{self.__class__.__qualname__}({', '.join(repr(x) for x in self._path)})"
 
     def __str__(self) -> str:
-        return ".".join(str(x) for x in self)
+        return ".".join(str(x) for x in self) or "(empty)"
 
     def __getitem__(self, index):
         if type(index) is slice:
