@@ -219,9 +219,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 
 
 @registry.type_descriptor_factory(set)
-def make_set_type_descriptor(
-    typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: dict
-) -> ITypeDescriptor:
+def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: dict) -> ITypeDescriptor:
 
     class MutableSetProxy(MutableSet):
         __slots__ = ["_data"]
@@ -304,9 +302,7 @@ def make_set_type_descriptor(
 
 
 @registry.type_descriptor_factory(tuple)
-def make_tuple_type_descriptor(
-    typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: dict
-) -> ITypeDescriptor:
+def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: dict) -> ITypeDescriptor:
 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value):

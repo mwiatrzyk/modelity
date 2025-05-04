@@ -17,16 +17,6 @@ DISCARD = object()
 class IModel(Protocol):
     """Protocol describing common interface for data models."""
 
-    #: The root location of the model.
-    #:
-    #: If the model is a root model, then root location is empty. Otherwise, if
-    #: the model is nested inside another model, root location points to a field
-    #: in parent model when nested model object is attached to.
-    #:
-    #: This property is automatically assigned by Modelity internals and should
-    #: not be modified by hand.
-    __loc__: Loc
-
     def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
         """Dump model to a JSON-serializable dict.
 

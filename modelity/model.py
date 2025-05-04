@@ -19,8 +19,6 @@ from modelity.interface import (
 )
 from modelity.loc import Loc
 
-# from modelity._type_descriptors.main import make_type_descriptor as _make_type_descriptor
-# from modelity._type_descriptors.all import registry as _root_registry
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
@@ -91,7 +89,7 @@ def _make_model_validator(func) -> IModelValidationHook:
     return proxy
 
 
-def make_type_descriptor(typ: type[T], type_opts: Optional[dict]=None) -> ITypeDescriptor[T]:
+def make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
     """Make type descriptor for provided type.
 
     Can be used to create descriptor for any type supported by Modelity
@@ -531,10 +529,7 @@ class Model(metaclass=ModelMeta):
     Check :ref:`quickstart` or :ref:`guide` for more examples.
     """
 
-    __slots__ = ["__loc__"]
-
     def __init__(self, **kwargs) -> None:
-        self.__loc__: Loc = Loc()
         errors: list[Error] = []
         for name, field in self.__class__.__model_fields__.items():
             value = kwargs.pop(name, Unset)
@@ -592,9 +587,7 @@ class Model(metaclass=ModelMeta):
         errors: list[Error] = []
         self.__set_value(field.descriptor, errors, name, value)
         if errors:
-            raise ParsingError(
-                self.__class__, tuple(Error(self.__loc__ + x.loc, x.code, x.msg, x.value, x.data) for x in errors)
-            )
+            raise ParsingError(self.__class__, tuple(errors))
 
     def __delattr__(self, name):
         setattr(self, name, Unset)

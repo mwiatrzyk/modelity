@@ -5,4 +5,4 @@ modelity.unset
   :members:
   :undoc-members:
   :show-inheritance:
-  :special-members: __call__, __loc__
+  :special-members: __call__

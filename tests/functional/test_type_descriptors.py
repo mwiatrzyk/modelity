@@ -136,7 +136,9 @@ class TestIPv6:
     def test_validate_successfully(self, model):
         validate(model)
 
+
 # TODO: add tests for dump and validate for the rest
+
 
 @pytest.mark.parametrize("typ", [Any])
 class TestAnyTypeDescriptor:
@@ -156,11 +158,14 @@ class TestAnyTypeDescriptor:
     def test_parse_successfully(self, model, input_value):
         assert model.foo == input_value
 
-    @pytest.mark.parametrize("input_value, expected_output", [
-        (1, {"foo": 1}),
-        (3.14, {"foo": 3.14}),
-        ("spam", {"foo": "spam"}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_output",
+        [
+            (1, {"foo": 1}),
+            (3.14, {"foo": 3.14}),
+            ("spam", {"foo": "spam"}),
+        ],
+    )
     def test_dump(self, model, expected_output):
         assert dump(model) == expected_output
 
@@ -215,12 +220,15 @@ class TestBoolTypeDescriptor:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("true_literals, false_literals, input_value, expected_output", [
-        (['y'], None, 'y', {"foo": True}),
-        (None, ['n'], 'n', {"foo": False}),
-        (None, None, True, {"foo": True}),
-        (None, None, False, {"foo": False}),
-    ])
+    @pytest.mark.parametrize(
+        "true_literals, false_literals, input_value, expected_output",
+        [
+            (["y"], None, "y", {"foo": True}),
+            (None, ["n"], "n", {"foo": False}),
+            (None, None, True, {"foo": True}),
+            (None, None, False, {"foo": False}),
+        ],
+    )
     def test_dump(self, model, expected_output):
         assert dump(model) == expected_output
 
@@ -282,10 +290,13 @@ class TestDateTimeTypeDescriptor:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("output_datetime_format, input_value, output_value", [
-        (None, "2024-01-31 11:22:33", {"foo": "2024-01-31T11:22:33"}),
-        ("YYYY-MM-DD", "2024-01-31 11:22:33", {"foo": "2024-01-31"}),
-    ])
+    @pytest.mark.parametrize(
+        "output_datetime_format, input_value, output_value",
+        [
+            (None, "2024-01-31 11:22:33", {"foo": "2024-01-31T11:22:33"}),
+            ("YYYY-MM-DD", "2024-01-31 11:22:33", {"foo": "2024-01-31"}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -332,10 +343,13 @@ class TestDateTypeDescriptor:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("output_date_format, input_value, output_value", [
-        (None, "2024-01-31", {"foo": "2024-01-31"}),
-        ("DD-MM-YYYY", "2024-01-31", {"foo": "31-01-2024"}),
-    ])
+    @pytest.mark.parametrize(
+        "output_date_format, input_value, output_value",
+        [
+            (None, "2024-01-31", {"foo": "2024-01-31"}),
+            ("DD-MM-YYYY", "2024-01-31", {"foo": "31-01-2024"}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -367,19 +381,25 @@ class TestEnumTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        (4, [ErrorFactory.value_out_of_range(loc, 4, (Dummy.FOO, Dummy.BAR, Dummy.BAZ))]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            (4, [ErrorFactory.value_out_of_range(loc, 4, (Dummy.FOO, Dummy.BAR, Dummy.BAZ))]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (Dummy.FOO, {"foo": Dummy.FOO.value}),
-        (Dummy.BAR, {"foo": Dummy.BAR.value}),
-        (Dummy.BAZ, {"foo": Dummy.BAZ.value}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (Dummy.FOO, {"foo": Dummy.FOO.value}),
+            (Dummy.BAR, {"foo": Dummy.BAR.value}),
+            (Dummy.BAZ, {"foo": Dummy.BAZ.value}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -402,19 +422,25 @@ class TestLiteralTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        ("1", [ErrorFactory.value_out_of_range(loc, "1", (1, 3.14, "spam"))]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            ("1", [ErrorFactory.value_out_of_range(loc, "1", (1, 3.14, "spam"))]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (1, {"foo": 1}),
-        (3.14, {"foo": 3.14}),
-        ("spam", {"foo": "spam"}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (1, {"foo": 1}),
+            (3.14, {"foo": 3.14}),
+            ("spam", {"foo": "spam"}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -435,17 +461,23 @@ class TestNoneTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        ("spam", [ErrorFactory.value_out_of_range(loc, "spam", (None,))]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            ("spam", [ErrorFactory.value_out_of_range(loc, "spam", (None,))]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (None, {"foo": None}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (None, {"foo": None}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -467,18 +499,24 @@ class TestIntegerTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        ("spam", [ErrorFactory.invalid_integer(loc, "spam")]),
-        (None, [ErrorFactory.invalid_integer(loc, None)]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            ("spam", [ErrorFactory.invalid_integer(loc, "spam")]),
+            (None, [ErrorFactory.invalid_integer(loc, None)]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (123, {"foo": 123}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (123, {"foo": 123}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -501,18 +539,24 @@ class TestFloatTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        ("spam", [ErrorFactory.invalid_float(loc, "spam")]),
-        (None, [ErrorFactory.invalid_float(loc, None)]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            ("spam", [ErrorFactory.invalid_float(loc, "spam")]),
+            (None, [ErrorFactory.invalid_float(loc, None)]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (3.14, {"foo": 3.14}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (3.14, {"foo": 3.14}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -533,17 +577,23 @@ class TestStrTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        (123, [ErrorFactory.string_value_required(loc, 123)]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            (123, [ErrorFactory.string_value_required(loc, 123)]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        ("spam", {"foo": "spam"}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            ("spam", {"foo": "spam"}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -564,17 +614,23 @@ class TestBytesTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("input_value, expected_errors", [
-        (123, [ErrorFactory.bytes_value_required(loc, 123)]),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, expected_errors",
+        [
+            (123, [ErrorFactory.bytes_value_required(loc, 123)]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("input_value, output_value", [
-        (b"spam", {"foo": "spam"}),
-    ])
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            (b"spam", {"foo": "spam"}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
@@ -599,45 +655,57 @@ class TestAnnotatedTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (Annotated[int, Ge(0), Le(5)], -1, [ErrorFactory.ge_constraint_failed(loc, -1, 0)]),
-        (Annotated[int, Ge(0), Le(5)], 6, [ErrorFactory.le_constraint_failed(loc, 6, 5)]),
-        (Annotated[float, Gt(0), Lt(1)], 0, [ErrorFactory.gt_constraint_failed(loc, 0, 0)]),
-        (Annotated[float, Gt(0), Lt(1)], 1, [ErrorFactory.lt_constraint_failed(loc, 1, 1)]),
-        (Annotated[str, MinLen(1), MaxLen(5)], "", [ErrorFactory.min_len_constraint_failed(loc, "", 1)]),
-        (
-            Annotated[str, MinLen(1), MaxLen(5)],
-            "spam more spam",
-            [ErrorFactory.max_len_constraint_failed(loc, "spam more spam", 5)],
-        ),
-        (
-            Annotated[str, Regex("^[a-z]+$")],
-            "123",
-            [ErrorFactory.regex_constraint_failed(loc, "123", "^[a-z]+$")],
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (Annotated[int, Ge(0), Le(5)], -1, [ErrorFactory.ge_constraint_failed(loc, -1, 0)]),
+            (Annotated[int, Ge(0), Le(5)], 6, [ErrorFactory.le_constraint_failed(loc, 6, 5)]),
+            (Annotated[float, Gt(0), Lt(1)], 0, [ErrorFactory.gt_constraint_failed(loc, 0, 0)]),
+            (Annotated[float, Gt(0), Lt(1)], 1, [ErrorFactory.lt_constraint_failed(loc, 1, 1)]),
+            (Annotated[str, MinLen(1), MaxLen(5)], "", [ErrorFactory.min_len_constraint_failed(loc, "", 1)]),
+            (
+                Annotated[str, MinLen(1), MaxLen(5)],
+                "spam more spam",
+                [ErrorFactory.max_len_constraint_failed(loc, "spam more spam", 5)],
+            ),
+            (
+                Annotated[str, Regex("^[a-z]+$")],
+                "123",
+                [ErrorFactory.regex_constraint_failed(loc, "123", "^[a-z]+$")],
+            ),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (Annotated[int, Ge(0), Le(10)], 5, {"foo": 5}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (Annotated[int, Ge(0), Le(10)], 5, {"foo": 5}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (Annotated[int, Ge(0), Le(2)], 0),
-        (Annotated[int, Ge(0), Le(2)], 1),
-        (Annotated[int, Ge(0), Le(2)], 2),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (Annotated[int, Ge(0), Le(2)], 0),
+            (Annotated[int, Ge(0), Le(2)], 1),
+            (Annotated[int, Ge(0), Le(2)], 2),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (Annotated[list, MaxLen(3)], []),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (Annotated[list, MaxLen(3)], []),
+        ],
+    )
     def test_validation_fails_if_constraint_is_no_longer_satisfied(self, model):
         assert isinstance(model.foo, list)
         assert model.foo == []
@@ -658,8 +726,7 @@ class TestUnionTypeDescriptor:
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",
-        [
-        ],
+        [],
     )
     def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):
         assert type_descriptor.parse(errors, loc, value) == expected_result
@@ -678,34 +745,43 @@ class TestUnionTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (
-            Union[int, str],
-            None,
-            [
-                ErrorFactory.invalid_integer(loc, None),
-                ErrorFactory.string_value_required(loc, None),
-            ],
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (
+                Union[int, str],
+                None,
+                [
+                    ErrorFactory.invalid_integer(loc, None),
+                    ErrorFactory.string_value_required(loc, None),
+                ],
+            ),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (Optional[str], "spam", {"foo": "spam"}),
-        (Optional[str], None, {"foo": None}),
-        (Union[int, str], "dummy", {"foo": "dummy"}),
-        (Union[int, str], 123, {"foo": 123}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (Optional[str], "spam", {"foo": "spam"}),
+            (Optional[str], None, {"foo": None}),
+            (Union[int, str], "dummy", {"foo": "dummy"}),
+            (Union[int, str], 123, {"foo": 123}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (Optional[str], "spam"),
-        (Optional[str], None),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (Optional[str], "spam"),
+            (Optional[str], None),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
@@ -725,45 +801,75 @@ class TestTupleTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (tuple, 123, [ErrorFactory.invalid_tuple(loc, 123)]),
-        (tuple, "foo", [ErrorFactory.invalid_tuple(loc, "foo")]),
-        (tuple, b"bar", [ErrorFactory.invalid_tuple(loc, b"bar")]),
-        (tuple[int, ...], ["1", "a", "2"], [ErrorFactory.invalid_integer(loc + Loc(1), "a")]),
-        (
-            tuple[int, float, str],
-            ["foo", "3.14", "spam"],
-            [ErrorFactory.invalid_integer(loc + Loc(0), "foo")],
-        ),
-        (
-            tuple[int, float, str],
-            [1, "3.14"],
-            [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14"], (int, float, str))],
-        ),
-        (
-            tuple[int, float, str],
-            [1, "3.14", "spam", "more spam"],
-            [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14", "spam", "more spam"], (int, float, str))],
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (tuple, 123, [ErrorFactory.invalid_tuple(loc, 123)]),
+            (tuple, "foo", [ErrorFactory.invalid_tuple(loc, "foo")]),
+            (tuple, b"bar", [ErrorFactory.invalid_tuple(loc, b"bar")]),
+            (tuple[int, ...], ["1", "a", "2"], [ErrorFactory.invalid_integer(loc + Loc(1), "a")]),
+            (
+                tuple[int, float, str],
+                ["foo", "3.14", "spam"],
+                [ErrorFactory.invalid_integer(loc + Loc(0), "foo")],
+            ),
+            (
+                tuple[int, float, str],
+                [1, "3.14"],
+                [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14"], (int, float, str))],
+            ),
+            (
+                tuple[int, float, str],
+                [1, "3.14", "spam", "more spam"],
+                [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14", "spam", "more spam"], (int, float, str))],
+            ),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (tuple, [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]},),
-        (tuple[int, ...], [1, 2, 3], {"foo": [1, 2, 3]},),
-        (tuple[int, float, str], [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]},),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (
+                tuple,
+                [1, 3.14, "spam"],
+                {"foo": [1, 3.14, "spam"]},
+            ),
+            (
+                tuple[int, ...],
+                [1, 2, 3],
+                {"foo": [1, 2, 3]},
+            ),
+            (
+                tuple[int, float, str],
+                [1, 3.14, "spam"],
+                {"foo": [1, 3.14, "spam"]},
+            ),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (tuple, [1, 3.14, "spam"],),
-        (tuple[int, ...], [1, 2, 3],),
-        (tuple[int, float, str], [1, 3.14, "spam"],),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (
+                tuple,
+                [1, 3.14, "spam"],
+            ),
+            (
+                tuple[int, ...],
+                [1, 2, 3],
+            ),
+            (
+                tuple[int, float, str],
+                [1, 3.14, "spam"],
+            ),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
@@ -789,33 +895,42 @@ class TestDictTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (dict, "foo", [ErrorFactory.invalid_dict(loc, "foo")]),
-        (dict, 123, [ErrorFactory.invalid_dict(loc, 123)]),
-        (dict[str, int], {1: 2}, [ErrorFactory.string_value_required(loc, 1)]),
-        (
-            dict[str, int],
-            {1: "two"},
-            [ErrorFactory.string_value_required(loc, 1), ErrorFactory.invalid_integer(loc + Loc(1), "two")],
-        ),
-        (dict[str, int], {"two": "two"}, [ErrorFactory.invalid_integer(loc + Loc("two"), "two")]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (dict, "foo", [ErrorFactory.invalid_dict(loc, "foo")]),
+            (dict, 123, [ErrorFactory.invalid_dict(loc, 123)]),
+            (dict[str, int], {1: 2}, [ErrorFactory.string_value_required(loc, 1)]),
+            (
+                dict[str, int],
+                {1: "two"},
+                [ErrorFactory.string_value_required(loc, 1), ErrorFactory.invalid_integer(loc + Loc(1), "two")],
+            ),
+            (dict[str, int], {"two": "two"}, [ErrorFactory.invalid_integer(loc + Loc("two"), "two")]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (dict, {}, {"foo": {}}),
-        (dict[str, int], {"one": "1"}, {"foo": {"one": 1}}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (dict, {}, {"foo": {}}),
+            (dict[str, int], {"one": "1"}, {"foo": {"one": 1}}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (dict, {}),
-        (dict[str, int], {"one": "1"}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (dict, {}),
+            (dict[str, int], {"one": "1"}),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
@@ -895,34 +1010,43 @@ class TestListTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (list, None, [ErrorFactory.invalid_list(loc, None)]),
-        (list, 123, [ErrorFactory.invalid_list(loc, 123)]),
-        (list, "spam", [ErrorFactory.invalid_list(loc, "spam")]),
-        (list, b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
-        (list[int], 123, [ErrorFactory.invalid_list(loc, 123)]),
-        (list[int], "spam", [ErrorFactory.invalid_list(loc, "spam")]),
-        (list[int], b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
-        (list[int], ["1", "2", "spam"], [ErrorFactory.invalid_integer(loc + Loc(2), "spam")]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (list, None, [ErrorFactory.invalid_list(loc, None)]),
+            (list, 123, [ErrorFactory.invalid_list(loc, 123)]),
+            (list, "spam", [ErrorFactory.invalid_list(loc, "spam")]),
+            (list, b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
+            (list[int], 123, [ErrorFactory.invalid_list(loc, 123)]),
+            (list[int], "spam", [ErrorFactory.invalid_list(loc, "spam")]),
+            (list[int], b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
+            (list[int], ["1", "2", "spam"], [ErrorFactory.invalid_integer(loc + Loc(2), "spam")]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (list, [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]}),
-        (list[Any], [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]}),
-        (list[int], [1, 3.14, 5], {"foo": [1, 3, 5]}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (list, [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]}),
+            (list[Any], [1, 3.14, "spam"], {"foo": [1, 3.14, "spam"]}),
+            (list[int], [1, 3.14, 5], {"foo": [1, 3, 5]}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (list, [1, 3.14, "spam"]),
-        (list[Any], [1, 3.14, "spam"]),
-        (list[int], [1, 3.14, 5]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (list, [1, 3.14, "spam"]),
+            (list[Any], [1, 3.14, "spam"]),
+            (list[int], [1, 3.14, 5]),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
@@ -980,9 +1104,7 @@ class TestListTypeDescriptor:
             (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
         ],
     )
-    def test_setting_to_invalid_value_causes_parsing_error(
-        self, model_type, initial, index, value, expected_errors
-    ):
+    def test_setting_to_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
         l = model_type(foo=initial).foo
         with pytest.raises(ParsingError) as excinfo:
             l[index] = value
@@ -994,9 +1116,7 @@ class TestListTypeDescriptor:
             (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
         ],
     )
-    def test_inserting_invalid_value_causes_parsing_error(
-        self, model_type, initial, index, value, expected_errors
-    ):
+    def test_inserting_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
         l = model_type(foo=initial).foo
         with pytest.raises(ParsingError) as excinfo:
             l.insert(index, value)
@@ -1016,39 +1136,50 @@ class TestSetTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (set, 123, [ErrorFactory.invalid_set(loc, 123)]),
-        (set, "123", [ErrorFactory.invalid_set(loc, "123")]),
-        (set, b"123", [ErrorFactory.invalid_set(loc, b"123")]),
-        (set, [[123]], [ErrorFactory.invalid_set(loc, [[123]])]),
-        (set[int], 123, [ErrorFactory.invalid_set(loc, 123)]),
-        (set[int], "123", [ErrorFactory.invalid_set(loc, "123")]),
-        (set[int], b"123", [ErrorFactory.invalid_set(loc, b"123")]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (set, 123, [ErrorFactory.invalid_set(loc, 123)]),
+            (set, "123", [ErrorFactory.invalid_set(loc, "123")]),
+            (set, b"123", [ErrorFactory.invalid_set(loc, b"123")]),
+            (set, [[123]], [ErrorFactory.invalid_set(loc, [[123]])]),
+            (set[int], 123, [ErrorFactory.invalid_set(loc, 123)]),
+            (set[int], "123", [ErrorFactory.invalid_set(loc, "123")]),
+            (set[int], b"123", [ErrorFactory.invalid_set(loc, b"123")]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, input_value, output_value", [
-        (set, [1, 2, 2, 3, 4], {"foo": [1, 2, 3, 4]}),
-        (set[int], [1, 2, "2", 3, 4], {"foo": [1, 2, 3, 4]}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, output_value",
+        [
+            (set, [1, 2, 2, 3, 4], {"foo": [1, 2, 3, 4]}),
+            (set[int], [1, 2, "2", 3, 4], {"foo": [1, 2, 3, 4]}),
+        ],
+    )
     def test_dump(self, model, output_value):
         assert dump(model) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (set, [1, 2, 2, 3, 4]),
-        (set[int], [1, 2, "2", 3, 4]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (set, [1, 2, 2, 3, 4]),
+            (set[int], [1, 2, "2", 3, 4]),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
     @pytest.mark.parametrize("typ", [set[list], set[123]])
     def test_making_set_with_non_hashable_type_causes_type_error(self, typ):
         with pytest.raises(TypeError) as excinfo:
+
             class Dummy(Model):
                 foo: typ
+
         assert str(excinfo.value) == "'T' must be hashable type to be used with 'set[T]' generic type"
 
     @pytest.mark.parametrize(
@@ -1132,8 +1263,7 @@ class TestModelTypeDescriptor:
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",
-        [
-        ],
+        [],
     )
     def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):
         assert type_descriptor.parse(errors, loc, value) == expected_result
@@ -1150,34 +1280,46 @@ class TestModelTypeDescriptor:
     def test_parse_successfully(self, model, output_value):
         assert model.foo == output_value
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (Dummy, 123, [ErrorFactory.invalid_model(loc, 123, Dummy)]),
-        (Dummy, {"nested": {"a": "spam"}}, [ErrorFactory.invalid_integer(loc + Loc("nested", "a"), "spam")]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (Dummy, 123, [ErrorFactory.invalid_model(loc, 123, Dummy)]),
+            (Dummy, {"nested": {"a": "spam"}}, [ErrorFactory.invalid_integer(loc + Loc("nested", "a"), "spam")]),
+        ],
+    )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
 
-    @pytest.mark.parametrize("typ, filter, input_value, output_value", [
-        (Dummy, lambda l, v: v, {}, {"foo": {"nested": Unset}}),
-        (Dummy, lambda l, v: v if v is not Unset else DISCARD, {}, {"foo": {}}),
-        (Dummy, lambda l, v: v if l.last != "foo" else DISCARD, {}, {}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, filter, input_value, output_value",
+        [
+            (Dummy, lambda l, v: v, {}, {"foo": {"nested": Unset}}),
+            (Dummy, lambda l, v: v if v is not Unset else DISCARD, {}, {"foo": {}}),
+            (Dummy, lambda l, v: v if l.last != "foo" else DISCARD, {}, {}),
+        ],
+    )
     def test_dump(self, model, filter, output_value):
         assert model.dump(Loc(), filter) == output_value
 
-    @pytest.mark.parametrize("typ, input_value", [
-        (Dummy, {"nested": {"a": 123}}),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value",
+        [
+            (Dummy, {"nested": {"a": 123}}),
+        ],
+    )
     def test_validate_successfully(self, model):
         validate(model)
 
-    @pytest.mark.parametrize("typ, input_value, expected_errors", [
-        (Dummy, {"nested": {}}, [ErrorFactory.required_missing(Loc("foo", "nested", "a"))]),
-        (Dummy, {}, [ErrorFactory.required_missing(Loc("foo", "nested"))]),
-        (Dummy, Unset, [ErrorFactory.required_missing(Loc("foo"))]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_errors",
+        [
+            (Dummy, {"nested": {}}, [ErrorFactory.required_missing(Loc("foo", "nested", "a"))]),
+            (Dummy, {}, [ErrorFactory.required_missing(Loc("foo", "nested"))]),
+            (Dummy, Unset, [ErrorFactory.required_missing(Loc("foo"))]),
+        ],
+    )
     def test_validate_with_validation_errors(self, model, expected_errors):
         with pytest.raises(ValidationError) as excinfo:
             validate(model)
