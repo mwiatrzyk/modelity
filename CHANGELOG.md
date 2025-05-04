@@ -1,3 +1,18 @@
+## 0.12.0 (2025-05-04)
+
+### BREAKING CHANGES
+
+- Attribute `__model_prevalidators__` was removed from
+`ModelMeta`.
+- Attribute `__model_postvalidators__` was removed from
+`ModelMeta`.
+- Attribute `__model_field_validators__` was removed from
+`ModelMeta`.
+- Attribute `__model_field_preprocessors__` was removed from
+`ModelMeta`.
+- Attribute `__model_field_postprocessors__` was removed from
+`ModelMeta`.
+
 ## 0.11.0 (2025-05-04)
 
 ### BREAKING CHANGES
