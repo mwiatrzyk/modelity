@@ -1,3 +1,23 @@
+## 0.11.0 (2025-05-04)
+
+### BREAKING CHANGES
+
+- Previously, the Model had `__loc__` property that was
+set when model was assigned to a field in a parent model. Now, this
+behavior was dropped and full location will only be used if the model is
+initialized or validated. Modifying fields will not show absolute
+location when error is reporteds, just the location of the fragment that
+was modified. Now it should be possible to reuse same model instance in
+two different models if needed.
+- When declaring custom type, then
+`__modelity_type_descriptor__` function then it can use any subsequence
+of these arguments: `typ`, `make_type_descriptor` and `type_opts`. For
+example.
+
+### Feat
+
+- remove `__loc__` from Model and container types
+
 ## 0.10.0 (2025-05-01)
 
 ### BREAKING CHANGES
