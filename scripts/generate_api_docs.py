@@ -30,7 +30,13 @@ def write_module_doc(out_path: str, module_name: str):
     buf.write(f"{module_name}\n")
     buf.write("-" * len(module_name) + "\n\n")
     buf.write(f".. automodule:: {module_name}\n")
-    for opt in (":members:", ":undoc-members:", ":show-inheritance:", ":special-members: __call__"):
+    for opt in (
+        ":members:",
+        ":undoc-members:",
+        ":show-inheritance:",
+        ":special-members:",
+        ":exclude-members: __annotations__, __dataclass_fields__, __dataclass_params__, __dict__, __module__, __weakref__, __dataclass_transform__",
+    ):
         buf.write(f"  {opt}\n")
     write_file(out_path, buf.getvalue())
 
