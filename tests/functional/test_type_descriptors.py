@@ -204,14 +204,14 @@ class TestBoolTypeDescriptor:
     @pytest.mark.parametrize(
         "true_literals, false_literals, input_value, expected_errors",
         [
-            (None, None, 3.14, [ErrorFactory.invalid_bool(loc, 3.14)]),
-            (["y"], None, "Y", [ErrorFactory.invalid_bool(loc, "Y", true_literals=set(["y"]))]),
-            (None, ["n"], "N", [ErrorFactory.invalid_bool(loc, "N", false_literals=set(["n"]))]),
+            (None, None, 3.14, [ErrorFactory.bool_parsing_error(loc, 3.14)]),
+            (["y"], None, "Y", [ErrorFactory.bool_parsing_error(loc, "Y", true_literals=set(["y"]))]),
+            (None, ["n"], "N", [ErrorFactory.bool_parsing_error(loc, "N", false_literals=set(["n"]))]),
             (
                 ["y"],
                 ["n"],
                 "N",
-                [ErrorFactory.invalid_bool(loc, "N", true_literals=set(["y"]), false_literals=set(["n"]))],
+                [ErrorFactory.bool_parsing_error(loc, "N", true_literals=set(["y"]), false_literals=set(["n"]))],
             ),
         ],
     )
@@ -281,7 +281,7 @@ class TestDateTimeTypeDescriptor:
     @pytest.mark.parametrize(
         "input_datetime_formats, input_value, expected_errors",
         [
-            (None, 123, [ErrorFactory.invalid_datetime(loc, 123)]),
+            (None, 123, [ErrorFactory.datetime_parsing_error(loc, 123)]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.unsupported_datetime_format(loc, "spam", ["YYYY-MM-DD"])]),
         ],
     )
@@ -334,7 +334,7 @@ class TestDateTypeDescriptor:
     @pytest.mark.parametrize(
         "input_date_formats, input_value, expected_errors",
         [
-            (None, 123, [ErrorFactory.invalid_date(loc, 123)]),
+            (None, 123, [ErrorFactory.date_parsing_error(loc, 123)]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.unsupported_date_format(loc, "spam", ["YYYY-MM-DD"])]),
         ],
     )
@@ -384,7 +384,7 @@ class TestEnumTypeDescriptor:
     @pytest.mark.parametrize(
         "input_value, expected_errors",
         [
-            (4, [ErrorFactory.value_out_of_range(loc, 4, (Dummy.FOO, Dummy.BAR, Dummy.BAZ))]),
+            (4, [ErrorFactory.value_not_allowed(loc, 4, (Dummy.FOO, Dummy.BAR, Dummy.BAZ))]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -425,7 +425,7 @@ class TestLiteralTypeDescriptor:
     @pytest.mark.parametrize(
         "input_value, expected_errors",
         [
-            ("1", [ErrorFactory.value_out_of_range(loc, "1", (1, 3.14, "spam"))]),
+            ("1", [ErrorFactory.value_not_allowed(loc, "1", (1, 3.14, "spam"))]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -464,7 +464,7 @@ class TestNoneTypeDescriptor:
     @pytest.mark.parametrize(
         "input_value, expected_errors",
         [
-            ("spam", [ErrorFactory.value_out_of_range(loc, "spam", (None,))]),
+            ("spam", [ErrorFactory.value_not_allowed(loc, "spam", (None,))]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -502,8 +502,8 @@ class TestIntegerTypeDescriptor:
     @pytest.mark.parametrize(
         "input_value, expected_errors",
         [
-            ("spam", [ErrorFactory.invalid_integer(loc, "spam")]),
-            (None, [ErrorFactory.invalid_integer(loc, None)]),
+            ("spam", [ErrorFactory.integer_parsing_error(loc, "spam")]),
+            (None, [ErrorFactory.integer_parsing_error(loc, None)]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -542,8 +542,8 @@ class TestFloatTypeDescriptor:
     @pytest.mark.parametrize(
         "input_value, expected_errors",
         [
-            ("spam", [ErrorFactory.invalid_float(loc, "spam")]),
-            (None, [ErrorFactory.invalid_float(loc, None)]),
+            ("spam", [ErrorFactory.float_parsing_error(loc, "spam")]),
+            (None, [ErrorFactory.float_parsing_error(loc, None)]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -752,7 +752,7 @@ class TestUnionTypeDescriptor:
                 Union[int, str],
                 None,
                 [
-                    ErrorFactory.invalid_integer(loc, None),
+                    ErrorFactory.integer_parsing_error(loc, None),
                     ErrorFactory.string_value_required(loc, None),
                 ],
             ),
@@ -804,24 +804,24 @@ class TestTupleTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (tuple, 123, [ErrorFactory.invalid_tuple(loc, 123)]),
-            (tuple, "foo", [ErrorFactory.invalid_tuple(loc, "foo")]),
-            (tuple, b"bar", [ErrorFactory.invalid_tuple(loc, b"bar")]),
-            (tuple[int, ...], ["1", "a", "2"], [ErrorFactory.invalid_integer(loc + Loc(1), "a")]),
+            (tuple, 123, [ErrorFactory.tuple_parsing_error(loc, 123)]),
+            (tuple, "foo", [ErrorFactory.tuple_parsing_error(loc, "foo")]),
+            (tuple, b"bar", [ErrorFactory.tuple_parsing_error(loc, b"bar")]),
+            (tuple[int, ...], ["1", "a", "2"], [ErrorFactory.integer_parsing_error(loc + Loc(1), "a")]),
             (
                 tuple[int, float, str],
                 ["foo", "3.14", "spam"],
-                [ErrorFactory.invalid_integer(loc + Loc(0), "foo")],
+                [ErrorFactory.integer_parsing_error(loc + Loc(0), "foo")],
             ),
             (
                 tuple[int, float, str],
                 [1, "3.14"],
-                [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_format(loc, [1, "3.14"], (int, float, str))],
             ),
             (
                 tuple[int, float, str],
                 [1, "3.14", "spam", "more spam"],
-                [ErrorFactory.unsupported_tuple_format(loc, [1, "3.14", "spam", "more spam"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_format(loc, [1, "3.14", "spam", "more spam"], (int, float, str))],
             ),
         ],
     )
@@ -898,15 +898,15 @@ class TestDictTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (dict, "foo", [ErrorFactory.invalid_dict(loc, "foo")]),
-            (dict, 123, [ErrorFactory.invalid_dict(loc, 123)]),
+            (dict, "foo", [ErrorFactory.dict_parsing_error(loc, "foo")]),
+            (dict, 123, [ErrorFactory.dict_parsing_error(loc, 123)]),
             (dict[str, int], {1: 2}, [ErrorFactory.string_value_required(loc, 1)]),
             (
                 dict[str, int],
                 {1: "two"},
-                [ErrorFactory.string_value_required(loc, 1), ErrorFactory.invalid_integer(loc + Loc(1), "two")],
+                [ErrorFactory.string_value_required(loc, 1), ErrorFactory.integer_parsing_error(loc + Loc(1), "two")],
             ),
-            (dict[str, int], {"two": "two"}, [ErrorFactory.invalid_integer(loc + Loc("two"), "two")]),
+            (dict[str, int], {"two": "two"}, [ErrorFactory.integer_parsing_error(loc + Loc("two"), "two")]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -975,12 +975,12 @@ class TestDictTypeDescriptor:
     def test_parsing_error_is_raised_when_setting_invalid_key(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out["spam"] = 3.14
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(Loc(), "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc(), "spam")])
 
     def test_parsing_error_is_raised_when_setting_invalid_value(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out[123] = "spam"
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_float(Loc(123), "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.float_parsing_error(Loc(123), "spam")])
 
     def test_set_item_and_delete_it(self, out: dict):
         out[1] = 2
@@ -1013,14 +1013,14 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (list, None, [ErrorFactory.invalid_list(loc, None)]),
-            (list, 123, [ErrorFactory.invalid_list(loc, 123)]),
-            (list, "spam", [ErrorFactory.invalid_list(loc, "spam")]),
-            (list, b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
-            (list[int], 123, [ErrorFactory.invalid_list(loc, 123)]),
-            (list[int], "spam", [ErrorFactory.invalid_list(loc, "spam")]),
-            (list[int], b"more spam", [ErrorFactory.invalid_list(loc, b"more spam")]),
-            (list[int], ["1", "2", "spam"], [ErrorFactory.invalid_integer(loc + Loc(2), "spam")]),
+            (list, None, [ErrorFactory.list_parsing_error(loc, None)]),
+            (list, 123, [ErrorFactory.list_parsing_error(loc, 123)]),
+            (list, "spam", [ErrorFactory.list_parsing_error(loc, "spam")]),
+            (list, b"more spam", [ErrorFactory.list_parsing_error(loc, b"more spam")]),
+            (list[int], 123, [ErrorFactory.list_parsing_error(loc, 123)]),
+            (list[int], "spam", [ErrorFactory.list_parsing_error(loc, "spam")]),
+            (list[int], b"more spam", [ErrorFactory.list_parsing_error(loc, b"more spam")]),
+            (list[int], ["1", "2", "spam"], [ErrorFactory.integer_parsing_error(loc + Loc(2), "spam")]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -1101,7 +1101,7 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
         ],
     )
     def test_setting_to_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
@@ -1113,7 +1113,7 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.invalid_integer(Loc(0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
         ],
     )
     def test_inserting_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
@@ -1139,13 +1139,13 @@ class TestSetTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (set, 123, [ErrorFactory.invalid_set(loc, 123)]),
-            (set, "123", [ErrorFactory.invalid_set(loc, "123")]),
-            (set, b"123", [ErrorFactory.invalid_set(loc, b"123")]),
-            (set, [[123]], [ErrorFactory.invalid_set(loc, [[123]])]),
-            (set[int], 123, [ErrorFactory.invalid_set(loc, 123)]),
-            (set[int], "123", [ErrorFactory.invalid_set(loc, "123")]),
-            (set[int], b"123", [ErrorFactory.invalid_set(loc, b"123")]),
+            (set, 123, [ErrorFactory.set_parsing_error(loc, 123)]),
+            (set, "123", [ErrorFactory.set_parsing_error(loc, "123")]),
+            (set, b"123", [ErrorFactory.set_parsing_error(loc, b"123")]),
+            (set, [[123]], [ErrorFactory.set_parsing_error(loc, [[123]])]),
+            (set[int], 123, [ErrorFactory.set_parsing_error(loc, 123)]),
+            (set[int], "123", [ErrorFactory.set_parsing_error(loc, "123")]),
+            (set[int], b"123", [ErrorFactory.set_parsing_error(loc, b"123")]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -1217,7 +1217,7 @@ class TestSetTypeDescriptor:
         s = model_type(foo=[]).foo
         with pytest.raises(ParsingError) as excinfo:
             s.add("dummy")
-        assert excinfo.value.errors == tuple([ErrorFactory.invalid_integer(Loc(), "dummy")])
+        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc(), "dummy")])
 
     @pytest.mark.parametrize("typ", [set[int]])
     def test_add_value_and_discard_it(self, model_type):
@@ -1283,8 +1283,8 @@ class TestModelTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (Dummy, 123, [ErrorFactory.invalid_model(loc, 123, Dummy)]),
-            (Dummy, {"nested": {"a": "spam"}}, [ErrorFactory.invalid_integer(loc + Loc("nested", "a"), "spam")]),
+            (Dummy, 123, [ErrorFactory.model_parsing_error(loc, 123, Dummy)]),
+            (Dummy, {"nested": {"a": "spam"}}, [ErrorFactory.integer_parsing_error(loc + Loc("nested", "a"), "spam")]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):

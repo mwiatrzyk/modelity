@@ -49,7 +49,7 @@ be parsed:
       ...
     modelity.exc.ParsingError: parsing failed for type 'Third' with 1 error(-s):
       foo:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The error, however, will not happen if another, valid value will be given:
 
@@ -102,7 +102,7 @@ corresponding index:
       ...
     modelity.exc.ParsingError: parsing failed for type 'TupleExample' with 1 error(-s):
       fixed:
-        unsupported tuple format; supported format: <class 'int'>, <class 'str'> [code=modelity.UNSUPPORTED_TUPLE_FORMAT, value_type=<class 'list'>]
+        invalid tuple format; expected format: <class 'int'>, <class 'str'> [code=modelity.INVALID_TUPLE_FORMAT, value_type=<class 'list'>]
 
 .. doctest::
 
@@ -111,7 +111,7 @@ corresponding index:
       ...
     modelity.exc.ParsingError: parsing failed for type 'TupleExample' with 1 error(-s):
       fixed:
-        unsupported tuple format; supported format: <class 'int'>, <class 'str'> [code=modelity.UNSUPPORTED_TUPLE_FORMAT, value_type=<class 'list'>]
+        invalid tuple format; expected format: <class 'int'>, <class 'str'> [code=modelity.INVALID_TUPLE_FORMAT, value_type=<class 'list'>]
 
 .. doctest::
 
@@ -138,7 +138,7 @@ matter, but all items must be of the same type, or be convertible to that type:
       ...
     modelity.exc.ParsingError: parsing failed for type 'TupleExample' with 1 error(-s):
       unlimited.2:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 .. doctest::
 
@@ -186,7 +186,7 @@ valid type:
       ...
     modelity.exc.ParsingError: parsing failed for type 'ListExample' with 1 error(-s):
       typed.3:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 .. doctest::
 
@@ -217,7 +217,7 @@ type is given, then exception will be raised:
       ...
     modelity.exc.ParsingError: parsing failed for type 'list' with 1 error(-s):
       4:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** lists are
 wrapped with a proxy that is a subclass of
@@ -277,7 +277,7 @@ Or if value is invalid:
       ...
     modelity.exc.ParsingError: parsing failed for type 'DictExample' with 1 error(-s):
       typed.one:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 Typed dict fields can later be modified with type parsing being performed by
 Modelity underneath:
@@ -302,7 +302,7 @@ example:
       ...
     modelity.exc.ParsingError: parsing failed for type 'dict' with 1 error(-s):
       one:
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** dicts are
 wrapped with a proxy that is a subclass of
@@ -359,7 +359,7 @@ after it was initialized with automatic type parsing:
       ...
     modelity.exc.ParsingError: parsing failed for type 'set' with 1 error(-s):
       (empty):
-        not a valid integer number [code=modelity.INVALID_NUMBER, value_type=<class 'str'>]
+        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** sets are
 wrapped with a proxy that is a subclass of
@@ -487,7 +487,7 @@ than 0:
       ...
     modelity.exc.ParsingError: parsing failed for type 'AnnotatedExample' with 1 error(-s):
       foo:
-        the value must be >= 0 [code=modelity.GE_CONSTRAINT_FAILED, value_type=<class 'int'>]
+        the value must be >= 0 [code=modelity.CONSTRAINT_FAILED, value_type=<class 'int'>]
 
 The constraint fails, and it fails at the parsing stage, because checking
 constraints is done during parsing, as such defined constraints are
@@ -542,7 +542,7 @@ validation stage, so such model will now fail validation:
       ...
     modelity.exc.ValidationError: validation of model 'AnnotatedList' failed with 1 error(-s):
       items:
-        the value is too long; maximum length is 4 [code=modelity.MAX_LEN_CONSTRAINT_FAILED, data={'max_len': 4}]
+        the value is too long; maximum length is 4 [code=modelity.CONSTRAINT_FAILED, data={'max_len': 4}]
 
 .. note::
 

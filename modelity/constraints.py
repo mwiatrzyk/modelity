@@ -22,6 +22,14 @@ class Ge:
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_inclusive!r})"
 
+    def __hash__(self):
+        return hash((self.__class__, self.min_inclusive))
+
+    def __eq__(self, other):
+        if type(other) is not self.__class__:
+            return NotImplemented
+        return self.min_inclusive == other.min_inclusive
+
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value >= self.min_inclusive:
             return True

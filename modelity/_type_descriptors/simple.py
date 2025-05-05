@@ -57,7 +57,7 @@ def make_bool_type_descriptor(type_opts: dict) -> ITypeDescriptor:
             if value in false_literals:
                 return False
             errors.append(
-                ErrorFactory.invalid_bool(loc, value, true_literals=true_literals, false_literals=false_literals)
+                ErrorFactory.bool_parsing_error(loc, value, true_literals=true_literals, false_literals=false_literals)
             )
             return Unset
 
@@ -74,7 +74,7 @@ def make_datetime_type_descriptor(type_opts: dict) -> ITypeDescriptor:
             if isinstance(value, datetime):
                 return value
             if not isinstance(value, str):
-                errors.append(ErrorFactory.invalid_datetime(loc, value))
+                errors.append(ErrorFactory.datetime_parsing_error(loc, value))
                 return Unset
             for fmt in compiled_input_formats:
                 try:
@@ -114,7 +114,7 @@ def make_date_type_descriptor(type_opts: dict) -> ITypeDescriptor:
             if isinstance(value, date):
                 return value
             if not isinstance(value, str):
-                errors.append(ErrorFactory.invalid_date(loc, value))
+                errors.append(ErrorFactory.date_parsing_error(loc, value))
                 return Unset
             for fmt in compiled_input_formats:
                 try:
@@ -145,7 +145,7 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
             try:
                 return typ(value)
             except ValueError:
-                errors.append(ErrorFactory.value_out_of_range(loc, value, allowed_values))
+                errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
                 return Unset
 
         def dump(self, loc: Loc, value: Enum, filter: IDumpFilter):
@@ -162,7 +162,7 @@ def make_literal_type_descriptor(typ) -> ITypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value in allowed_values:
                 return value
-            errors.append(ErrorFactory.value_out_of_range(loc, value, allowed_values))
+            errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
             return Unset
 
     allowed_values = get_args(typ)
@@ -176,7 +176,7 @@ def make_none_type_descriptor() -> ITypeDescriptor:
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
-            errors.append(ErrorFactory.value_out_of_range(loc, value, (None,)))
+            errors.append(ErrorFactory.value_not_allowed(loc, value, (None,)))
             return Unset
 
     return NoneTypeDescriptor()
@@ -190,7 +190,7 @@ def make_int_type_descriptor():
             try:
                 return int(value)
             except (ValueError, TypeError):
-                errors.append(ErrorFactory.invalid_integer(loc, value))
+                errors.append(ErrorFactory.integer_parsing_error(loc, value))
                 return Unset
 
     return IntTypeDescriptor()
@@ -204,7 +204,7 @@ def make_float_type_descriptor():
             try:
                 return float(value)
             except (ValueError, TypeError):
-                errors.append(ErrorFactory.invalid_float(loc, value))
+                errors.append(ErrorFactory.float_parsing_error(loc, value))
                 return Unset
 
     return FloatTypeDescriptor()

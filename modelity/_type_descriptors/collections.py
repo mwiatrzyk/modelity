@@ -68,7 +68,7 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
             return value
-        errors.append(ErrorFactory.invalid_dict(loc, value))
+        errors.append(ErrorFactory.dict_parsing_error(loc, value))
         return Unset
 
     def parse_typed(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
@@ -164,7 +164,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value):
             return value
-        errors.append(ErrorFactory.invalid_list(loc, value))
+        errors.append(ErrorFactory.list_parsing_error(loc, value))
         return Unset
 
     def parse_typed(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
@@ -251,7 +251,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value) or isinstance(value, Set):
             return value
-        errors.append(ErrorFactory.invalid_set(loc, value))
+        errors.append(ErrorFactory.set_parsing_error(loc, value))
         return Unset
 
     def parse_any_set(errors: list[Error], loc: Loc, value: Any):
@@ -261,7 +261,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
         try:
             return set(cast(Sequence, result))
         except TypeError:
-            errors.append(ErrorFactory.invalid_set(loc, value))
+            errors.append(ErrorFactory.set_parsing_error(loc, value))
             return Unset
 
     def dump(loc: Loc, value: set, filter: IDumpFilter) -> list:
@@ -307,7 +307,7 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
     def ensure_sequence(errors: list[Error], loc: Loc, value: Any) -> Union[Sequence, UnsetType]:
         if is_neither_str_nor_bytes_sequence(value):
             return value
-        errors.append(ErrorFactory.invalid_tuple(loc, value))
+        errors.append(ErrorFactory.tuple_parsing_error(loc, value))
         return Unset
 
     def dump(loc: Loc, value: tuple, filter: IDumpFilter) -> list:
@@ -354,7 +354,7 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                 return Unset
             result = cast(tuple, result)
             if len(result) != num_type_descriptors:
-                errors.append(ErrorFactory.unsupported_tuple_format(loc, result, args))
+                errors.append(ErrorFactory.invalid_tuple_format(loc, result, args))
                 return Unset
             result = tuple(
                 desc.parse(errors, loc + Loc(i), item)
