@@ -1,3 +1,15 @@
+## 0.13.0 (2025-05-07)
+
+### BREAKING CHANGES
+
+- add separate `UNION_PARSING_ERROR` and handle union parsing errors with single, dedicated error
+- Error code cleanup has been made to reduce the total
+number of built-in error codes and make it more parametric.
+
+### Feat
+
+- add separate `UNION_PARSING_ERROR` and handle union parsing errors with single, dedicated error
+
 ## 0.12.0 (2025-05-04)
 
 ### BREAKING CHANGES
