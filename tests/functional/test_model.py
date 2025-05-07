@@ -301,8 +301,7 @@ class TestModelWithOneField:
                 None,
                 {},
                 [
-                    ErrorFactory.integer_parsing_error(Loc("foo"), {}),
-                    ErrorFactory.string_value_required(Loc("foo"), {}),
+                    ErrorFactory.union_parsing_error(Loc("foo"), {}, (int, str)),
                 ],
             ),
         ],

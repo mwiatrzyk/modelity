@@ -125,15 +125,13 @@ class TestNotification:
                 (
                     123,
                     [
-                        ErrorFactory.list_parsing_error(Loc("params"), 123),
-                        ErrorFactory.dict_parsing_error(Loc("params"), 123),
+                        ErrorFactory.union_parsing_error(Loc("params"), 123, (list, dict)),
                     ],
                 ),
                 (
                     None,
                     [
-                        ErrorFactory.list_parsing_error(Loc("params"), None),
-                        ErrorFactory.dict_parsing_error(Loc("params"), None),
+                        ErrorFactory.union_parsing_error(Loc("params"), None, (list, dict)),
                     ],
                 ),
             ],

@@ -752,8 +752,7 @@ class TestUnionTypeDescriptor:
                 Union[int, str],
                 None,
                 [
-                    ErrorFactory.integer_parsing_error(loc, None),
-                    ErrorFactory.string_value_required(loc, None),
+                    ErrorFactory.union_parsing_error(loc, None, (int, str)),
                 ],
             ),
         ],

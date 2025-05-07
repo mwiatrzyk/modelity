@@ -17,6 +17,9 @@ class ErrorCode:
     #: Error code reported by :meth:`ErrorFactory.parsing_error` method.
     PARSING_ERROR = "modelity.PARSING_ERROR"
 
+    #: Error code reported by :meth:`ErrorFactory.union_parsing_error` method.
+    UNION_PARSING_ERROR = "modelity.UNION_PARSING_ERROR"
+
     #: Error code reported by :meth:`ErrorFactory.invalid_tuple_format` method.
     INVALID_TUPLE_FORMAT = "modelity.INVALID_TUPLE_FORMAT"
 
@@ -110,6 +113,31 @@ class ErrorFactory:
             property of created error.
         """
         return Error(loc, ErrorCode.PARSING_ERROR, msg, value, {"target_type": target_type, **extra_data})
+
+    @classmethod
+    def union_parsing_error(cls, loc: Loc, value: Any, union_types: tuple[type, ...]) -> Error:
+        """Error reported when *value* could not be parsed as one of types
+        given in the union.
+
+        For creating unions, :obj:`typing.Union` is used.
+
+        :param loc:
+            The location of the error.
+
+        :param value:
+            The invalid value.
+
+        :param union_types:
+            The types extracted from the union.
+        """
+        union_types_str = ", ".join(repr(x) for x in union_types)
+        return Error(
+            loc,
+            ErrorCode.UNION_PARSING_ERROR,
+            f"could not parse union value; types tried: {union_types_str}",
+            value,
+            {"union_types": union_types},
+        )
 
     @classmethod
     def dict_parsing_error(cls, loc: Loc, value: Any) -> Error:

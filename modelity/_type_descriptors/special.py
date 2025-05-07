@@ -1,7 +1,7 @@
 from typing import cast, Annotated, Any, Iterator, Union, get_args
 
 from modelity._registry import TypeDescriptorFactoryRegistry
-from modelity.error import Error
+from modelity.error import Error, ErrorFactory
 from modelity.interface import IConstraint, IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.mixins import ExactDumpMixin
@@ -60,7 +60,7 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 result = parser.parse(inner_errors, loc, value)
                 if result is not Unset:
                     return result
-            errors.extend(inner_errors)
+            errors.append(ErrorFactory.union_parsing_error(loc, value, types))
             return Unset
 
         def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
