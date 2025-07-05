@@ -998,6 +998,72 @@ new type, then following will also work fine with a new type:
     {'foo': (1.0, 2.0)}
     >>> validate(model)
 
+.. _registering-3rd-party-types-label:
+
+Registering 3rd party types
+---------------------------
+
+.. versionadded:: 0.14.0
+
+Modelity works on a predefined set of types and any type from beyond of that
+set is unknown to Modelity unless it is explicitly told how to parse, validate
+and dump values of that type. In previous chapter it was presented how to enable
+the handling of a new type by using ``__modelity_type_descriptor__`` hook
+directly in the class definition. The other approach is to use
+:func:`modelity.model.type_descriptor_factory` decorator to register a new
+type. Here's how to use it:
+
+.. testcode::
+
+    from modelity.model import type_descriptor_factory
+
+    @dataclasses.dataclass
+    class Point:  # Let's assume this is a "3rd party" type
+        x: float
+        y: float
+
+    @type_descriptor_factory(Point)
+    def make_point_type_descriptor_factory(typ, make_type_descriptor, type_opts):
+
+        class PointDescriptor:
+
+            def parse(self, errors, loc, value):
+                if not isinstance(value, tuple) or len(value) != 2:
+                    errors.append(Error(loc, "custom.INVALID_POINT", "2-element tuple is required"))
+                    return
+                return typ(*(float_descriptor.parse(errors, loc, x) for x in value))
+
+            def dump(self, loc, value, filter):
+                return (value.x, value.y)
+
+            def validate(self, root, ctx, errors, loc, value):
+                return
+
+        # It is possible to use Modelity built-in types for parsing floats
+        # to reuse existing mechanisms.
+        float_descriptor = make_type_descriptor(float, type_opts)
+        return PointDescriptor()
+
+And since now, the new type becomes visible to Modelity:
+
+.. testcode::
+
+    from modelity.model import Model
+
+    class Dummy(Model):
+        point: Point
+
+.. doctest::
+
+    >>> model = Dummy(point=(1, 2))
+    >>> model
+    Dummy(point=Point(x=1.0, y=2.0))
+
+.. note::
+    Please keep in mind that this decorator should be used before first
+    model class is created or otherwise the type might not be visible to
+    Modelity.
+
 .. _configurable-types-label:
 
 Configurable types

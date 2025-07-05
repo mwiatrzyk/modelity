@@ -120,6 +120,31 @@ def make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITyp
     return registry.make_type_descriptor(typ, type_opts or {})
 
 
+def type_descriptor_factory(typ: Any):
+    """Register type descriptor factory function for type *typ*.
+
+    This decorator can be used to register non user-defined types (f.e. from
+    3rd party libraries) that cannot be added to Modelity typing system via
+    ``__modelity_type_descriptor__`` static function.
+
+    Check :ref:`registering-3rd-party-types-label` for more details.
+
+    .. note:: This decorator must be used before first model is created or
+              otherwise registered type might not be visible.
+
+    .. versionadded:: 0.14.0
+
+    :param typ:
+        The type to register descriptor factory for.
+    """
+    from modelity._type_descriptors.all import registry
+
+    def decorator(func):
+        return registry.register_type_descriptor_factory(typ, func)
+
+    return decorator
+
+
 def field_preprocessor(*field_names: str):
     """Decorate model's method as a field preprocessing hook.
 

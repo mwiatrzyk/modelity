@@ -42,11 +42,14 @@ class TypeDescriptorFactoryRegistry:
     def type_descriptor_factory(self, typ: Any):
 
         def decorator(func):
-            proxy = self._wrap_type_descriptor_factory(func)
-            self._registered_type_descriptors[typ] = proxy
-            return proxy
+            return self.register_type_descriptor_factory(typ, func)
 
         return decorator
+
+    def register_type_descriptor_factory(self, typ: Any, func: Callable) -> ITypeDescriptorFactory:
+        proxy = self._wrap_type_descriptor_factory(func)
+        self._registered_type_descriptors[typ] = proxy
+        return proxy
 
     def make_type_descriptor(self, typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor:
         def call_factory(factory: Callable) -> ITypeDescriptor:
