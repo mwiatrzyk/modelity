@@ -12,7 +12,8 @@ from modelity.interface import (
     DISCARD,
     IBaseHook,
     IDumpFilter,
-    IFieldParsingHook,
+    IFieldPreprocessingHook,
+    IFieldPostprocessingHook,
     IFieldValidationHook,
     IModel,
     IModelValidationHook,
@@ -23,39 +24,6 @@ from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
-
-
-def _make_field_parsing_hook(func: Callable, hook_name: str, field_names: set[str]) -> IFieldParsingHook:
-
-    @functools.wraps(func)
-    def proxy(cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        kw: dict[str, Any] = {}
-        if "cls" in given_params:
-            kw["cls"] = cls
-        if "errors" in given_params:
-            kw["errors"] = errors
-        if "loc" in given_params:
-            kw["loc"] = loc
-        if "value" in given_params:
-            kw["value"] = value
-        try:
-            return func(**kw)
-        except TypeError as e:
-            errors.append(ErrorFactory.exception(loc, str(e), type(e)))
-            return Unset
-
-    sig = inspect.signature(func)
-    given_params = tuple(sig.parameters)
-    supported_params = ("cls", "errors", "loc", "value")
-    if not _utils.is_subsequence(given_params, supported_params):
-        raise TypeError(
-            f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
-        )
-    hook = cast(IFieldParsingHook, proxy)
-    hook.__modelity_hook_id__ = _utils.next_unique_id()
-    hook.__modelity_hook_name__ = hook_name
-    hook.__modelity_hook_field_names__ = set(field_names)
-    return hook
 
 
 def _make_model_validation_hook(func: Callable, hook_name: str) -> IModelValidationHook:
@@ -176,7 +144,36 @@ def field_preprocessor(*field_names: str):
     """
 
     def decorator(func: Callable):
-        return _make_field_parsing_hook(func, "field_preprocessor", set(field_names))
+
+        @functools.wraps(func)
+        def proxy(cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+            kw: dict[str, Any] = {}
+            if "cls" in given_params:
+                kw["cls"] = cls
+            if "errors" in given_params:
+                kw["errors"] = errors
+            if "loc" in given_params:
+                kw["loc"] = loc
+            if "value" in given_params:
+                kw["value"] = value
+            try:
+                return func(**kw)
+            except TypeError as e:
+                errors.append(ErrorFactory.exception(loc, str(e), type(e)))
+                return Unset
+
+        sig = inspect.signature(func)
+        given_params = tuple(sig.parameters)
+        supported_params = ("cls", "errors", "loc", "value")
+        if not _utils.is_subsequence(given_params, supported_params):
+            raise TypeError(
+                f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
+            )
+        hook = cast(IFieldPreprocessingHook, proxy)
+        hook.__modelity_hook_id__ = _utils.next_unique_id()
+        hook.__modelity_hook_name__ = "field_preprocessor"
+        hook.__modelity_hook_field_names__ = set(field_names)
+        return hook
 
     return decorator
 
@@ -213,8 +210,39 @@ def field_postprocessor(*field_names: str):
         If not set, then it will be called for every field.
     """
 
-    def decorator(func: Callable):
-        return _make_field_parsing_hook(func, "field_postprocessor", set(field_names))
+    def decorator(func):
+
+        @functools.wraps(func)
+        def proxy(cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+            kw: dict[str, Any] = {}
+            if "cls" in given_params:
+                kw["cls"] = cls
+            if "self" in given_params:
+                kw["self"] = self
+            if "errors" in given_params:
+                kw["errors"] = errors
+            if "loc" in given_params:
+                kw["loc"] = loc
+            if "value" in given_params:
+                kw["value"] = value
+            try:
+                return func(**kw)
+            except TypeError as e:
+                errors.append(ErrorFactory.exception(loc, str(e), type(e)))
+                return Unset
+
+        sig = inspect.signature(func)
+        given_params = tuple(sig.parameters)
+        supported_params = ("cls", "self", "errors", "loc", "value")
+        if not _utils.is_subsequence(given_params, supported_params):
+            raise TypeError(
+                f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
+            )
+        hook = cast(IFieldPreprocessingHook, proxy)
+        hook.__modelity_hook_id__ = _utils.next_unique_id()
+        hook.__modelity_hook_name__ = "field_postprocessor"
+        hook.__modelity_hook_field_names__ = set(field_names)
+        return hook
 
     return decorator
 
@@ -441,26 +469,32 @@ class ModelMeta(type):
         attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", []))
         return super().__new__(tp, name, bases, attrs)
 
-    def iter_field_parsing_hooks(cls, hook_name: str, field_name: str) -> Iterator[IFieldParsingHook]:
-        """Return iterator yielding field parsing hooks.
+    def iter_field_preprocessing_hooks(cls, field_name: str) -> Iterator[IFieldPreprocessingHook]:
+        """Return iterator yielding field preprocessing hooks for given field name.
 
-        These hooks are executed when fields are initialized with a value, or
-        later modified.
+        .. versionadded:: 0.15.0
 
-        :param hook_name:
-            The name of a hook to filter out.
-
-            Currently, this can be one of the following:
-
-            * ``field_preprocessor`` for preprocessing hooks (running before type parsing),
-            * ``field_postprocessor`` for postprocessing hooks (running after successful type parsing).
-
-        :param field_name:
-            The name of a field to filter hooks for.
+        :param  field_name:
+            The name of a field to find preprocessing hooks for.
         """
         for hook in cls.__model_hooks__:
-            if hook.__modelity_hook_name__ == hook_name:
-                hook = cast(IFieldParsingHook, hook)
+            if hook.__modelity_hook_name__ == "field_preprocessor":
+                hook = cast(IFieldPreprocessingHook, hook)
+                field_names = hook.__modelity_hook_field_names__
+                if len(field_names) == 0 or field_name in field_names:
+                    yield hook
+
+    def iter_field_postprocessing_hooks(cls, field_name: str) -> Iterator[IFieldPostprocessingHook]:
+        """Return iterator yielding field postprocessing hooks for given field name.
+
+        .. versionadded:: 0.15.0
+
+        :param field_name:
+            The name of a field to find postprocessing hooks for.
+        """
+        for hook in cls.__model_hooks__:
+            if hook.__modelity_hook_name__ == "field_postprocessor":
+                hook = cast(IFieldPostprocessingHook, hook)
                 field_names = hook.__modelity_hook_field_names__
                 if len(field_names) == 0 or field_name in field_names:
                     yield hook
@@ -561,11 +595,16 @@ class Model(metaclass=ModelMeta):
 
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []
-        for name, field in self.__class__.__model_fields__.items():
+        fields = self.__class__.__model_fields__
+        for name in fields:
+            setattr(self, name, Unset)
+        set_value = self.__set_value
+        for name, field in fields.items():
             value = kwargs.pop(name, Unset)
             if value is Unset:
                 value = field.compute_default()
-            self.__set_value(field.descriptor, errors, name, value)
+            if value is not Unset:
+                set_value(field.descriptor, errors, name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
 
@@ -592,25 +631,26 @@ class Model(metaclass=ModelMeta):
     def __set_value(self, type_descriptor: ITypeDescriptor, errors: list[Error], name: str, value: Any):
         if value is Unset:
             return super().__setattr__(name, value)
-        cls = self.__class__
         loc = Loc(name)
-        value = self.__apply_field_parsing_hooks(
-            cls.iter_field_parsing_hooks("field_preprocessor", name), errors, loc, value
-        )
+        value = self.__apply_field_preprocessors(errors, loc, value)
         if value is Unset:
             return super().__setattr__(name, value)
         value = type_descriptor.parse(errors, loc, value)
-        value = self.__apply_field_parsing_hooks(
-            cls.iter_field_parsing_hooks("field_postprocessor", name), errors, loc, value
-        )
+        value = self.__apply_field_postprocessors(errors, loc, value)
         return super().__setattr__(name, value)
 
     @classmethod
-    def __apply_field_parsing_hooks(
-        cls, hooks: Iterator[IFieldParsingHook], errors: list[Error], loc: Loc, value: Any
-    ) -> Union[Any, UnsetType]:
-        for hook in hooks:
+    def __apply_field_preprocessors(cls, errors, loc, value):
+        for hook in cls.iter_field_preprocessing_hooks(loc[-1]):
             value = hook(cls, errors, loc, value)  # type: ignore
+            if value is Unset:
+                return Unset
+        return value
+
+    def __apply_field_postprocessors(self, errors, loc, value):
+        cls = self.__class__
+        for hook in cls.iter_field_postprocessing_hooks(loc[-1]):
+            value = hook(cls, self, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
         return value

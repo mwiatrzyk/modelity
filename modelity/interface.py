@@ -169,25 +169,16 @@ class IFieldValidationHook(IBaseHook):
         """
 
 
-class IFieldParsingHook(IBaseHook):
-    """Protocol describing interface of the user-defined field parsing hooks.
+class IFieldPreprocessingHook(IBaseHook):
+    """Protocol describing interface of field-level preprocessing hooks.
 
-    When field is initialized with a value, then just type parsing is normally
-    performed by the Modelity library and based on the results of the parsing
-    itself, Modelity can determine if the value was positively parsed or not.
-    However, built-in parsing is very restrictive and will not perform any
-    cleanup on the input value by its own. Instead, Modelity allows to create
-    two kind of user-defined parsing hooks:
-
-    * **preprocessors**, running **before** the value is parsed,
-    * **postprocessors**, running **after** the parsing and **only** if the
-      parsing **has succeeded**.
-
-    Preprocessors can be used to perform value filtering (like white character
-    stripping), while postprocessors can be used to perform field-specific
-    additional checks each time the value is changed.
-
-    Both hooks share common interface defined by this protocol.
+    Preprocessing is performed for each field that is set or modified and
+    always before type parsing stage. Preprocessors play data filtering role
+    and can be used to perform input data cleanup without which the later
+    parsing stage could not successfully parse type (f.e. numeric string
+    wrapped with spaces). Preprocessors (unlike postprocessors) cannot assume
+    that input value has correct type and therefore need to check this to avoid
+    errors. Preprocessors cannot access model object and other fields.
     """
 
     #: Set containing field names this hook will be applied to.
@@ -197,7 +188,7 @@ class IFieldParsingHook(IBaseHook):
     __modelity_hook_field_names__: set[str]
 
     def __call__(_, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        """Call field processing hook.
+        """Call field's preprocessing hook.
 
         :param cls:
             Model's type.
@@ -211,7 +202,46 @@ class IFieldParsingHook(IBaseHook):
             The location of the currently processed field.
 
         :param value:
-            The processed value.
+            The processed value of any type.
+        """
+
+
+class IFieldPostprocessingHook(IBaseHook):
+    """Protocol describing interface of field-level postprocessing hooks.
+
+    Postprocessing is performed when field is set and always after successful
+    execution of preprocessors (if any) and type parsers defined for that
+    field. Postprocessors are mostly useful for performing field-level
+    validation when model is created or modified, but unlike preprocessing
+    hooks, postprocessors can access model's object and perform side effects,
+    like setting other fields.
+    """
+
+    #: Set containing field names this hook will be applied to.
+    #:
+    #: If this is an empty set, then the hook will be applied to all fields of
+    #: the model it was declared in.
+    __modelity_hook_field_names__: set[str]
+
+    def __call__(_, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        """Call field's postprocessing hook.
+
+        :param cls:
+            Model's type this hook was declared in.
+
+        :param self:
+            Model's instance this hook runs for.
+
+        :param errors:
+            List of errors.
+
+            Can be modified by the hook.
+
+        :param loc:
+            The location of the currently processed field.
+
+        :param value:
+            The value to process.
         """
 
 
