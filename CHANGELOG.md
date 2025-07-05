@@ -1,3 +1,9 @@
+## 0.14.0 (2025-07-05)
+
+### Feat
+
+- add `modelity.model.type_descriptor_factory` decorator for registering 3rd party types
+
 ## 0.13.0 (2025-05-07)
 
 ### BREAKING CHANGES
