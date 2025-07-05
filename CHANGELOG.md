@@ -1,3 +1,13 @@
+## 0.15.0 (2025-07-05)
+
+### BREAKING CHANGES
+
+- postprocessors can now access/set other fields
+
+### Feat
+
+- postprocessors can now access/set other fields
+
 ## 0.14.0 (2025-07-05)
 
 ### Feat
