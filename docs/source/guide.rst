@@ -561,10 +561,11 @@ The **field preprocessing** hook
 To create field preprocessor, :func:`modelity.model.field_preprocessor`
 decorator must be used.
 
-Field preprocessors allow embedding custom function into the
-:term:`data parsing<Data parsing>` stage before actual data parsing takes
-place. This may be useful, for example, to strip white characters from the
-input, like in this example before:
+Field preprocessors allow embedding custom function into the :term:`data parsing<Data parsing>`
+stage before type coercing takes place. Thanks to this it is possible to
+perform filtering of the input data on per-field basis to avoid later type
+parsing errors. For example, a preprocessor for stripping input value from
+white characters may be created like this:
 
 .. testcode::
 
@@ -581,7 +582,7 @@ input, like in this example before:
             return value
 
 The user-defined preprocessor is declared only for *bar* field (1), therefore
-only *bar* field should be stripped from the white characters:
+only *bar* field will be stripped from the white characters:
 
 .. doctest::
 
@@ -595,27 +596,38 @@ only *bar* field should be stripped from the white characters:
 
 Preprocessing hooks, as executed before data parsing, can get called with
 values of any type, therefore :func:`isinstance` checks like in (3) will be
-frequently used to avoid exceptions.
+frequently used to avoid exceptions or unwanted alternations of the input data.
 
 .. important::
 
     In the example above, at (2), the function *_strip* was declared with
     single argument *value* to get the value the field was initialized with.
     There are actually several other argument names with their special
-    meaning. Please proceed to :class:`modelity.interface.IFieldParsingHook`
+    meaning. Please proceed to :class:`modelity.interface.IFieldPreprocessingHook`
     class documentation for more details on this topic.
 
 The **field postprocessing** hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To create field postprocessor, :func:`modelity.model.field_postprocessor`
-decorator must be used.
+General information
+~~~~~~~~~~~~~~~~~~~
 
-This hook is called after successful type parsing and can be used to perform
-additional field-level validation and/or postprocessing on a value we already
-know has the right type. For example, we can use this to normalize vectors
-given by the user of our application, being a sort of 2D object editor in this
-case:
+Postprocessors are the last step of data parsing pipeline and are executed only
+when successful preprocessing and type parsing took place earlier.
+Postprocessors work on a per-field basis, but unlike preprocessors they do have
+an access to model's instance via `self` argument (if defined). The return
+value of a field preprocessor is either passed to a next preprocessor (if more
+than one are defined) or set inside a model as a final value for a field. To
+declare a postprocessor, :func:`modelity.model.field_postprocessor` decorator
+must be used.
+
+Now let's take a dive into possible use cases.
+
+Example 1: Data normalization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Postprocessors known the type of the value they receive from previous parsing
+steps, therefore they can further process it:
 
 .. testcode::
 
@@ -641,6 +653,11 @@ case:
         def _normalize_vector(value: Vec2d):
             return value.normalize()
 
+In the example above, we want `direction` attribute of a `Car` model to always
+contain normalized vector. And now, since the postprocessor was assigned, any
+time a direction is set to a valid value, the postprocessor will execute and
+return normalized vector instead of original one.
+
 Now, let's check how this works:
 
 .. doctest::
@@ -649,6 +666,9 @@ Now, let's check how this works:
     >>> car.direction = Vec2d(x=2, y=2)
     >>> car.direction
     Vec2d(x=0.7071067811865475, y=0.7071067811865475)
+
+Example 2: Nested model validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We can also use field postprocessors for running model validation using
 :func:`modelity.model.validate` function if we need to enforce initialization
@@ -708,6 +728,106 @@ missing:
 This example shows that validation, although optional as requiring explicit
 :func:`modelity.model.validate` function call, can be made required and run
 automatically when needed.
+
+Example 3: Reading from/writing to other model's fields
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 0.15.0
+
+Postprocessors can access model object they are declared in to either perform
+cross field validation (simple cases only), or to write to other fields.
+
+.. important::
+
+    The way how this works strongly depends on field ordering. Modelity
+    processes fields in their declaration order, so fields one wants to read
+    from or write to should be declared BEFORE the field that uses this
+    functionality. Otherwise, the field may not have value yet (when reading),
+    or value set (when writing) will not be permanent.
+
+For example, we can use this feature to check if repeated password is correct:
+
+.. testcode::
+
+    class Account(Model):
+        login: str
+        repeated_password: str  # NOTE: Must be declared BEFORE password to work
+        password: str
+
+        @field_postprocessor("password")
+        def _compare_with_repeated(self, value):
+            if value != self.repeated_password:
+                raise TypeError("the passwords don't match")
+            return value
+
+.. doctest::
+
+    >>> account = Account(login="foo", password="p@ssword", repeated_password="p@ssword")  # OK
+    >>> account
+    Account(login='foo', repeated_password='p@ssword', password='p@ssword')
+
+.. doctest::
+
+    >>> Account(login="foo", password="p@ssword")  # NOK, `repeated_password`` is missing
+    Traceback (most recent call last):
+        ...
+    modelity.exc.ParsingError: parsing failed for type 'Account' with 1 error(-s):
+      password:
+        the passwords don't match [code=modelity.EXCEPTION, value_type=<class 'modelity.unset.UnsetType'>]
+
+.. doctest::
+
+    >>> Account(login="foo", password="p@ssword", repeated_password='password')  # NOK, `repeated_password` is not the same
+    Traceback (most recent call last):
+        ...
+    modelity.exc.ParsingError: parsing failed for type 'Account' with 1 error(-s):
+      password:
+        the passwords don't match [code=modelity.EXCEPTION, value_type=<class 'modelity.unset.UnsetType'>]
+
+Another example shows how to write to other field when a given field is set or
+modified. This can be used to update model's modification time or to perform
+other similar things:
+
+.. testcode::
+
+    from modelity.unset import Unset
+
+    class InMemoryFile(Model):
+        modified: int  # this is just for easier testing; with datetime it would work in exactly the same way
+        created: int
+        name: str
+        data: bytes
+
+        @field_postprocessor("created")
+        def _set_modified(self, value):
+            self.modified = value  # sets `modified` to same value when `created` is changed
+            return value
+
+        @field_postprocessor("name", "data")
+        def _update_modified(self, value):
+            self.modified += 1
+            return value
+
+.. doctest::
+
+    >>> file = InMemoryFile(created=1)
+    >>> file.created
+    1
+    >>> file.modified  # was set implicitly by postprocessor
+    1
+    >>> file.name = "spam.txt"
+    >>> file.data = b"content of spam.txt"
+    >>> file.created
+    1
+    >>> file.modified  # was incremented when `name` and `data` were set
+    3
+
+.. important::
+
+    Please remember to always return a value from postprocessor, or otherwise
+    fields will be set to ``None``. There are no more checks after
+    postprocessing stage, so it is quite easy to break model's integrity if
+    return value is missing or wrong return value was used.
 
 .. _model_prevalidator:
 
