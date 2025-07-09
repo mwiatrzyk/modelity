@@ -342,7 +342,6 @@ def field_info(
     *,
     default: Union[T, UnsetType] = Unset,
     default_factory: Union[Callable[[], T], UnsetType] = Unset,
-    optional: Optional[bool] = None,
     **type_opts,
 ) -> T:
     """Helper for creating :class:`FieldInfo` objects in a way that will
@@ -350,7 +349,7 @@ def field_info(
 
     .. versionadded:: 0.16.0
     """
-    return cast(T, FieldInfo(default=default, default_factory=default_factory, optional=optional, type_opts=type_opts))
+    return cast(T, FieldInfo(default=default, default_factory=default_factory, type_opts=type_opts))
 
 
 @dataclasses.dataclass
@@ -366,14 +365,6 @@ class FieldInfo:
     #: is created, and therefore producing different default values for
     #: different model instances.
     default_factory: Union[Callable[[], Any], UnsetType] = Unset  # type: ignore
-
-    #: Mark the field as optional.
-    #:
-    #: Unlike :class:`typing.Optional`, which allows ``None`` as a valid value,
-    #: this can be used to express more restricted optional that does not allow
-    #: ``None``. This is useful for creating self-exclusive fields that cannot
-    #: coexist in the model.
-    optional: Optional[bool] = None
 
     #: Additional options for type descriptors.
     #:
@@ -405,15 +396,13 @@ class BoundField:
 
         A field is optional if at least one of following criteria is met:
 
-            * it is annotated with :class:`typing.Optional` type annotation
-            * it is annotated with :class:`typing.Union` that allows ``None`` as a valid value
-            * it is assigned with user-defined :class:`FieldInfo` object having
-              :attr:`FieldInfo.optional` set to ``True``.
+        * it is annotated with :class:`typing.Optional` type annotation
+        * it is annotated with :class:`modelity.types.StrictOptional` type annotation
+        * it is annotated with :class:`typing.Union` that allows ``None`` or ``Unset`` as one of valid values
         """
-        if self.field_info is not None and self.field_info.optional:
-            return True
         origin = get_origin(self.typ)
-        return origin is Union and type(None) in get_args(self.typ)
+        args = get_args(self.typ)
+        return origin is Union and (type(None) in args or UnsetType in args)
 
     def compute_default(self) -> Union[Any, UnsetType]:
         """Compute default value for this field."""

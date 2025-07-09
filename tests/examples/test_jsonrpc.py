@@ -1,13 +1,14 @@
 # Example models for the JSONRPC 2.0 protocol
 
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import Model, field_info, model_postvalidator, validate, dump
-from modelity.unset import Unset
+from modelity.types import StrictOptional
+from modelity.unset import Unset, UnsetType
 from modelity.error import ErrorFactory
 
 JSONRPC = Literal["2.0"]
@@ -24,7 +25,7 @@ ID = Union[str, int]
 class Notification(Model):
     jsonrpc: JSONRPC
     method: str
-    params: StructuredType = field_info(optional=True)
+    params: StrictOptional[StructuredType] = Unset
 
 
 class Request(Notification):
@@ -34,13 +35,13 @@ class Request(Notification):
 class Error(Model):
     code: int
     message: str
-    data: AnyType = field_info(optional=True)
+    data: StrictOptional[AnyType] = Unset
 
 
 class Response(Model):
     jsonrpc: JSONRPC
-    result: AnyType = field_info(optional=True)
-    error: Error = field_info(optional=True)
+    result: StrictOptional[AnyType] = Unset
+    error: StrictOptional[Error] = Unset
     id: ID
 
     @model_postvalidator()
@@ -125,13 +126,13 @@ class TestNotification:
                 (
                     123,
                     [
-                        ErrorFactory.union_parsing_error(Loc("params"), 123, (list, dict)),
+                        ErrorFactory.union_parsing_error(Loc("params"), 123, (list, dict, UnsetType)),
                     ],
                 ),
                 (
                     None,
                     [
-                        ErrorFactory.union_parsing_error(Loc("params"), None, (list, dict)),
+                        ErrorFactory.union_parsing_error(Loc("params"), None, (list, dict, UnsetType)),
                     ],
                 ),
             ],

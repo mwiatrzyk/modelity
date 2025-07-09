@@ -5,6 +5,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import BoundField, FieldInfo, Model, has_fields_set, make_type_descriptor
+from modelity.types import StrictOptional
 from modelity.unset import Unset
 
 
@@ -37,21 +38,10 @@ class TestBoundField:
             [
                 (int, False),
                 (Optional[int], True),
+                (StrictOptional[int], True),
             ],
         )
         def test_check_if_field_is_optional(self, uut: BoundField, expected_status):
-            assert uut.optional == expected_status
-
-        @pytest.mark.parametrize(
-            "field_info, expected_status",
-            [
-                (FieldInfo(optional=False), False),
-                (FieldInfo(optional=True), True),
-            ],
-        )
-        def test_check_if_field_is_optional_after_setting_field_info_optional_flag(
-            self, uut: BoundField, expected_status
-        ):
             assert uut.optional == expected_status
 
     class TestComputeDefault:

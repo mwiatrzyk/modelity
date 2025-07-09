@@ -11,7 +11,7 @@ from modelity.exc import UnsupportedTypeError
 from modelity.interface import IDumpFilter, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.mixins import EmptyValidateMixin, ExactDumpMixin, StrDumpMixin
-from modelity.unset import Unset
+from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
 
@@ -33,6 +33,19 @@ _DEFAULT_OUTPUT_DATETIME_FORMAT = "YYYY-MM-DDThh:mm:ssZZZZ"
 _DEFAULT_OUTPUT_DATE_FORMAT = "YYYY-MM-DD"
 
 registry = TypeDescriptorFactoryRegistry()
+
+
+@registry.type_descriptor_factory(UnsetType)
+def make_unset_type_descriptor() -> ITypeDescriptor:
+
+    class UnsetTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+        def parse(self, errors, loc, value):
+            if value is Unset:
+                return value
+            errors.append(ErrorFactory.value_not_allowed(loc, value, (Unset,)))
+            return Unset
+
+    return UnsetTypeDescriptor()
 
 
 @registry.type_descriptor_factory(Any)

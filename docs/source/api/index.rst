@@ -11,4 +11,5 @@ API Reference
   modelity/loc
   modelity/mixins
   modelity/model
+  modelity/types
   modelity/unset
