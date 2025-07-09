@@ -223,7 +223,9 @@ class IFieldPostprocessingHook(IBaseHook):
     #: the model it was declared in.
     __modelity_hook_field_names__: set[str]
 
-    def __call__(_, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+    def __call__(
+        _, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
+    ) -> Union[Any, UnsetType]:
         """Call field's postprocessing hook.
 
         :param cls:

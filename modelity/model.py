@@ -338,6 +338,21 @@ def field_validator(*field_names: str):
     return decorator
 
 
+def field_info(
+    *,
+    default: Union[T, UnsetType] = Unset,
+    default_factory: Union[Callable[[], T], UnsetType] = Unset,
+    optional: Optional[bool] = None,
+    **type_opts,
+) -> T:
+    """Helper for creating :class:`FieldInfo` objects in a way that will
+    satisfy code linters.
+
+    .. versionadded:: 0.16.0
+    """
+    return cast(T, FieldInfo(default=default, default_factory=default_factory, optional=optional, type_opts=type_opts))
+
+
 @dataclasses.dataclass
 class FieldInfo:
     """Class for attaching metadata to model fields."""
@@ -350,7 +365,7 @@ class FieldInfo:
     #: Allows to create default values that are evaluated each time the model
     #: is created, and therefore producing different default values for
     #: different model instances.
-    default_factory: Callable[[], Any] = Unset  # type: ignore
+    default_factory: Union[Callable[[], Any], UnsetType] = Unset  # type: ignore
 
     #: Mark the field as optional.
     #:
@@ -412,8 +427,10 @@ class BoundField:
             if not _utils.is_mutable(default):
                 return default
             return copy.deepcopy(default)
-        else:
+        elif callable(default_factory):
             return default_factory()
+        else:
+            return Unset
 
 
 class ModelMeta(type):

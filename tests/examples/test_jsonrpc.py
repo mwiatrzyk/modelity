@@ -6,7 +6,7 @@ import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, FieldInfo, model_postvalidator, validate, dump
+from modelity.model import Model, field_info, model_postvalidator, validate, dump
 from modelity.unset import Unset
 from modelity.error import ErrorFactory
 
@@ -24,7 +24,7 @@ ID = Union[str, int]
 class Notification(Model):
     jsonrpc: JSONRPC
     method: str
-    params: StructuredType = FieldInfo(optional=True)
+    params: StructuredType = field_info(optional=True)
 
 
 class Request(Notification):
@@ -34,13 +34,13 @@ class Request(Notification):
 class Error(Model):
     code: int
     message: str
-    data: AnyType = FieldInfo(optional=True)
+    data: AnyType = field_info(optional=True)
 
 
 class Response(Model):
     jsonrpc: JSONRPC
-    result: AnyType = FieldInfo(optional=True)
-    error: Error = FieldInfo(optional=True)
+    result: AnyType = field_info(optional=True)
+    error: Error = field_info(optional=True)
     id: ID
 
     @model_postvalidator()
