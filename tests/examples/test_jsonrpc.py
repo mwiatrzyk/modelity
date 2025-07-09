@@ -1,12 +1,12 @@
 # Example models for the JSONRPC 2.0 protocol
 
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, field_info, model_postvalidator, validate, dump
+from modelity.model import Model, model_postvalidator, validate, dump
 from modelity.types import StrictOptional
 from modelity.unset import Unset, UnsetType
 from modelity.error import ErrorFactory

@@ -396,13 +396,25 @@ class BoundField:
 
         A field is optional if at least one of following criteria is met:
 
-        * it is annotated with :class:`typing.Optional` type annotation
-        * it is annotated with :class:`modelity.types.StrictOptional` type annotation
-        * it is annotated with :class:`typing.Union` that allows ``None`` or ``Unset`` as one of valid values
+        * it is annotated with :class:`typing.Optional` type annotation,
+        * it is annotated with :class:`modelity.types.StrictOptional` type annotation,
+        * it is annotated with :class:`typing.Union` that allows ``None`` or ``Unset`` as one of valid values,
+        * it has default value assigned.
         """
+        if self.has_default():
+            return True
         origin = get_origin(self.typ)
         args = get_args(self.typ)
         return origin is Union and (type(None) in args or UnsetType in args)
+
+    def has_default(self) -> bool:
+        """Check if this field has default value set.
+
+        .. versionadded:: 0.16.0
+        """
+        if self.field_info is None:
+            return False
+        return self.field_info.default is not Unset or self.field_info.default_factory is not Unset
 
     def compute_default(self) -> Union[Any, UnsetType]:
         """Compute default value for this field."""

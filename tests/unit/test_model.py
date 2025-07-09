@@ -44,6 +44,14 @@ class TestBoundField:
         def test_check_if_field_is_optional(self, uut: BoundField, expected_status):
             assert uut.optional == expected_status
 
+        @pytest.mark.parametrize("field_info, expected_status", [
+            (FieldInfo(), False),
+            (FieldInfo(default=123), True),
+            (FieldInfo(default_factory=lambda: 123), True),
+        ])
+        def test_field_is_optional_if_default_value_is_assigned(self, uut: BoundField, expected_status):
+            assert uut.optional == expected_status
+
     class TestComputeDefault:
 
         @pytest.mark.parametrize(
