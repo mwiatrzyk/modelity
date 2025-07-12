@@ -1,3 +1,22 @@
+## 0.16.0 (2025-07-12)
+
+### BREAKING CHANGES
+
+- replace `FieldInfo`'s `optional` with `modelity.types.StrictOptional[T]` type
+- Methods for iterating through hooks were dropped from
+the public interface of the `ModelMeta` class and made private. These
+kind of method are very unlikely to be used unless someone wishes to
+implement `Model` base class from scratch.
+- hide `make_type_descriptor` from public interface
+
+### Feat
+
+- add `field_info` helper for creating `FieldInfo` objects in a linter-satisfying way
+- replace `FieldInfo`'s `optional` with `modelity.types.StrictOptional[T]` type
+- field is optional if it has default value set
+- split hook interfaces between model-scoped and field-scoped hooks
+- hide `make_type_descriptor` from public interface
+
 ## 0.15.0 (2025-07-05)
 
 ### BREAKING CHANGES
