@@ -8,7 +8,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.interface import DISCARD
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model, dump, make_type_descriptor, validate
+from modelity.model import FieldInfo, Model, dump, _make_type_descriptor, validate
 from modelity.unset import Unset
 
 import pytest
@@ -722,7 +722,7 @@ class TestUnionTypeDescriptor:
 
     @pytest.fixture
     def type_descriptor(self, typ):
-        return make_type_descriptor(typ)
+        return _make_type_descriptor(typ)
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",
@@ -1258,7 +1258,7 @@ class TestModelTypeDescriptor:
 
     @pytest.fixture
     def type_descriptor(self, typ):
-        return make_type_descriptor(typ)
+        return _make_type_descriptor(typ)
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",

@@ -67,31 +67,6 @@ def _make_model_validation_hook(func: Callable, hook_name: str) -> IModelValidat
     return hook
 
 
-def make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
-    """Make type descriptor for provided type.
-
-    Can be used to create descriptor for any type supported by Modelity
-    library, plus user-defined types if necessary hook is provided in
-    user-defined type.
-
-    :param typ:
-        The type to create descriptor for.
-
-    :param type_opts:
-        Type-specific additional options.
-
-        This can be used to customize the behavior of parsing, dumping and/or
-        validation for a given type *typ*.
-
-        Not all the types use this, so please check
-        :ref:`configurable-types-label` for list of types that can be
-        customized.
-    """
-    from modelity._type_descriptors.all import registry
-
-    return registry.make_type_descriptor(typ, type_opts or {})
-
-
 def type_descriptor_factory(typ: Any):
     """Register type descriptor factory function for type *typ*.
 
@@ -478,7 +453,7 @@ class ModelMeta(type):
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
             bound_field = BoundField(
-                field_name, annotation, make_type_descriptor(annotation, field_info.type_opts), field_info
+                field_name, annotation, _make_type_descriptor(annotation, field_info.type_opts), field_info
             )
             fields[field_name] = bound_field
         for key in dict(attrs):
@@ -854,3 +829,9 @@ def _get_field_postprocessing_hooks(model_class: type[Model], field_name: str) -
         list[IFieldPostprocessingHook],
         _get_field_hooks_by_name(model_class, IFieldPostprocessingHook.__modelity_hook_name__, field_name),
     )
+
+
+def _make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
+    from modelity._type_descriptors.all import registry
+
+    return registry.make_type_descriptor(typ, type_opts or {})

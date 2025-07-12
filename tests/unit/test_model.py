@@ -4,7 +4,7 @@ import pytest
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
-from modelity.model import BoundField, FieldInfo, Model, has_fields_set, make_type_descriptor
+from modelity.model import BoundField, FieldInfo, Model, has_fields_set, _make_type_descriptor
 from modelity.types import StrictOptional
 from modelity.unset import Unset
 
@@ -29,7 +29,7 @@ class TestBoundField:
 
     @pytest.fixture
     def uut(self, name, type, field_info):
-        return BoundField(name, type, make_type_descriptor(type), field_info)
+        return BoundField(name, type, _make_type_descriptor(type), field_info)
 
     class TestOptional:
 
