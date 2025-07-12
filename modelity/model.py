@@ -2,7 +2,7 @@ import copy
 import dataclasses
 import functools
 import inspect
-from typing import Any, Callable, Iterator, Optional, Union, TypeVar, cast, get_args, get_origin
+from typing import Any, Callable, Optional, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
 from modelity import _utils
@@ -12,10 +12,14 @@ from modelity.interface import (
     DISCARD,
     IBaseHook,
     IDumpFilter,
+    IFieldHook,
     IFieldPreprocessingHook,
     IFieldPostprocessingHook,
     IFieldValidationHook,
     IModel,
+    IModelHook,
+    IModelPostvalidationHook,
+    IModelPrevalidationHook,
     IModelValidationHook,
     ITypeDescriptor,
 )
@@ -171,7 +175,7 @@ def field_preprocessor(*field_names: str):
             )
         hook = cast(IFieldPreprocessingHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = "field_preprocessor"
+        hook.__modelity_hook_name__ = IFieldPreprocessingHook.__modelity_hook_name__
         hook.__modelity_hook_field_names__ = set(field_names)
         return hook
 
@@ -238,9 +242,9 @@ def field_postprocessor(*field_names: str):
             raise TypeError(
                 f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
             )
-        hook = cast(IFieldPreprocessingHook, proxy)
+        hook = cast(IFieldPostprocessingHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = "field_postprocessor"
+        hook.__modelity_hook_name__ = IFieldPostprocessingHook.__modelity_hook_name__
         hook.__modelity_hook_field_names__ = set(field_names)
         return hook
 
@@ -257,8 +261,8 @@ def model_prevalidator():
     list of supported arguments that can be used by the decorated method.
     """
 
-    def decorator(func) -> IModelValidationHook:
-        return _make_model_validation_hook(func, "model_prevalidator")
+    def decorator(func) -> IModelPrevalidationHook:
+        return cast(IModelPrevalidationHook, _make_model_validation_hook(func, IModelPrevalidationHook.__modelity_hook_name__))
 
     return decorator
 
@@ -273,8 +277,8 @@ def model_postvalidator():
     list of supported arguments that can be used by the decorated method.
     """
 
-    def decorator(func) -> IModelValidationHook:
-        return _make_model_validation_hook(func, "model_postvalidator")
+    def decorator(func) -> IModelPostvalidationHook:
+        return cast(IModelPostvalidationHook, _make_model_validation_hook(func, IModelPostvalidationHook.__modelity_hook_name__))
 
     return decorator
 
@@ -487,64 +491,6 @@ class ModelMeta(type):
         attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", []))
         return super().__new__(tp, name, bases, attrs)
 
-    def iter_field_preprocessing_hooks(cls, field_name: str) -> Iterator[IFieldPreprocessingHook]:
-        """Return iterator yielding field preprocessing hooks for given field name.
-
-        .. versionadded:: 0.15.0
-
-        :param  field_name:
-            The name of a field to find preprocessing hooks for.
-        """
-        for hook in cls.__model_hooks__:
-            if hook.__modelity_hook_name__ == "field_preprocessor":
-                hook = cast(IFieldPreprocessingHook, hook)
-                field_names = hook.__modelity_hook_field_names__
-                if len(field_names) == 0 or field_name in field_names:
-                    yield hook
-
-    def iter_field_postprocessing_hooks(cls, field_name: str) -> Iterator[IFieldPostprocessingHook]:
-        """Return iterator yielding field postprocessing hooks for given field name.
-
-        .. versionadded:: 0.15.0
-
-        :param field_name:
-            The name of a field to find postprocessing hooks for.
-        """
-        for hook in cls.__model_hooks__:
-            if hook.__modelity_hook_name__ == "field_postprocessor":
-                hook = cast(IFieldPostprocessingHook, hook)
-                field_names = hook.__modelity_hook_field_names__
-                if len(field_names) == 0 or field_name in field_names:
-                    yield hook
-
-    def iter_model_validation_hooks(cls, hook_name: str) -> Iterator[IModelValidationHook]:
-        """Iterator yielding model validation hooks.
-
-        :param hook_name:
-            The name of hooks to filter out.
-
-            Following are currently supported:
-
-            * ``model_prevalidator`` for model-level pre-validation hooks,
-            * ``model_postvalidator`` for model-level post-validation hooks.
-        """
-        for hook in cls.__model_hooks__:
-            if hook.__modelity_hook_name__ == hook_name:
-                yield cast(IModelValidationHook, hook)
-
-    def iter_field_validation_hooks(cls, field_name: str) -> Iterator[IFieldValidationHook]:
-        """Iterator yielding field validation hooks.
-
-        :param field_name:
-            The name of a field to filter hooks for.
-        """
-        for hook in cls.__model_hooks__:
-            if hook.__modelity_hook_name__ == "field_validator":
-                hook = cast(IFieldValidationHook, hook)
-                field_names = hook.__modelity_hook_field_names__
-                if len(field_names) == 0 or field_name in field_names:
-                    yield hook
-
 
 @typing_extensions.dataclass_transform(kw_only_default=True)
 class Model(metaclass=ModelMeta):
@@ -614,15 +560,14 @@ class Model(metaclass=ModelMeta):
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []
         fields = self.__class__.__model_fields__
-        for name in fields:
-            setattr(self, name, Unset)
-        set_value = self.__set_value
         for name, field in fields.items():
             value = kwargs.pop(name, Unset)
             if value is Unset:
                 value = field.compute_default()
             if value is not Unset:
-                set_value(field.descriptor, errors, name, value)
+                self.__set_value(field.descriptor, errors, name, value)
+            else:
+                super().__setattr__(name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
 
@@ -659,7 +604,7 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def __apply_field_preprocessors(cls, errors, loc, value):
-        for hook in cls.iter_field_preprocessing_hooks(loc[-1]):
+        for hook in _get_field_preprocessing_hooks(cls, loc[-1]):
             value = hook(cls, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
@@ -667,7 +612,7 @@ class Model(metaclass=ModelMeta):
 
     def __apply_field_postprocessors(self, errors, loc, value):
         cls = self.__class__
-        for hook in cls.iter_field_postprocessing_hooks(loc[-1]):
+        for hook in _get_field_postprocessing_hooks(cls, loc[-1]):
             value = hook(cls, self, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
@@ -709,18 +654,18 @@ class Model(metaclass=ModelMeta):
         Check :class:`modelity.interface.IModel.validate` method for more details.
         """
         cls = self.__class__
-        for model_prevalidator in cls.iter_model_validation_hooks("model_prevalidator"):
+        for model_prevalidator in _get_model_prevalidation_hooks(cls):
             model_prevalidator(cls, self, root, ctx, errors, loc)  # type: ignore
         for name, field in cls.__model_fields__.items():
             value_loc = loc + Loc(name)
             value = getattr(self, name)
             if value is not Unset:
-                for field_validator in cls.iter_field_validation_hooks(name):
+                for field_validator in _get_field_validation_hooks(cls, name):
                     field_validator(cls, self, root, ctx, errors, value_loc, value)  # type: ignore
                 field.descriptor.validate(root, ctx, errors, value_loc, value)  # type: ignore
             elif not field.optional:
                 errors.append(ErrorFactory.required_missing(value_loc))
-        for model_postvalidator in cls.iter_model_validation_hooks("model_postvalidator"):
+        for model_postvalidator in _get_model_postvalidation_hooks(cls):
             model_postvalidator(cls, self, root, ctx, errors, loc)  # type: ignore
 
 
@@ -853,3 +798,59 @@ def validate(model: Model, ctx: Any = None):
     model.validate(model, ctx, errors, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))
+
+
+@functools.lru_cache
+def _get_model_hooks_by_name(model_class: type[Model], hook_name: str) -> list[IModelHook]:
+    result = []
+    for hook in model_class.__model_hooks__:
+        if hook.__modelity_hook_name__ == hook_name:
+            result.append(hook)
+    return cast(list[IModelHook], result)
+
+
+@functools.lru_cache
+def _get_field_hooks_by_name(model_class: type[Model], hook_name: str, field_name: str) -> list[IFieldHook]:
+    result = []
+    for hook in model_class.__model_hooks__:
+        if hook.__modelity_hook_name__ == hook_name:
+            hook = cast(IFieldHook, hook)
+            field_names = hook.__modelity_hook_field_names__
+            if len(field_names) == 0 or field_name in field_names:
+                result.append(hook)
+    return cast(list[IFieldHook], result)
+
+
+def _get_model_prevalidation_hooks(model_class: type[Model]) -> list[IModelPrevalidationHook]:
+    return cast(
+        list[IModelPrevalidationHook],
+        _get_model_hooks_by_name(model_class, IModelPrevalidationHook.__modelity_hook_name__),
+    )
+
+
+def _get_model_postvalidation_hooks(model_class: type[Model]) -> list[IModelPostvalidationHook]:
+    return cast(
+        list[IModelPostvalidationHook],
+        _get_model_hooks_by_name(model_class, IModelPostvalidationHook.__modelity_hook_name__),
+    )
+
+
+def _get_field_validation_hooks(model_class: type[Model], field_name: str) -> list[IFieldValidationHook]:
+    return cast(
+        list[IFieldValidationHook],
+        _get_field_hooks_by_name(model_class, IFieldValidationHook.__modelity_hook_name__, field_name),
+    )
+
+
+def _get_field_preprocessing_hooks(model_class: type[Model], field_name: str) -> list[IFieldPreprocessingHook]:
+    return cast(
+        list[IFieldPreprocessingHook],
+        _get_field_hooks_by_name(model_class, IFieldPreprocessingHook.__modelity_hook_name__, field_name),
+    )
+
+
+def _get_field_postprocessing_hooks(model_class: type[Model], field_name: str) -> list[IFieldPostprocessingHook]:
+    return cast(
+        list[IFieldPostprocessingHook],
+        _get_field_hooks_by_name(model_class, IFieldPostprocessingHook.__modelity_hook_name__, field_name),
+    )

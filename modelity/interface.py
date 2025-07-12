@@ -17,6 +17,9 @@ DISCARD = object()
 class IModel(Protocol):
     """Protocol describing common interface for data models."""
 
+    #: List of hooks registered for this model.
+    __model_hooks__: list["IBaseHook"]
+
     def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
         """Dump model to a JSON-serializable dict.
 
@@ -50,6 +53,7 @@ class IModel(Protocol):
 
             Check :class:`IDumpFilter` protocol for more details.
         """
+        ...
 
     def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
         """Validate this model.
@@ -79,6 +83,7 @@ class IModel(Protocol):
             This will be empty for root model object, or non-empty if this
             model object is a field value in some outer model object.
         """
+        ...
 
 
 class IBaseHook(Protocol):
@@ -96,7 +101,27 @@ class IBaseHook(Protocol):
     __modelity_hook_name__: str
 
 
-class IModelValidationHook(IBaseHook):
+class IModelHook(IBaseHook):
+    """Base class for hooks operating on entire models.
+
+    .. versionadded:: 0.16.0
+    """
+
+
+class IFieldHook(IBaseHook):
+    """Base class for hooks operating on selected model fields.
+
+    .. versionadded:: 0.16.0
+    """
+
+    #: Set containing field names this hook will be applied to.
+    #:
+    #: If this is an empty set, then the hook will be applied to all fields of
+    #: the model where it was declared.
+    __modelity_hook_field_names__: set[str]
+
+
+class IModelValidationHook(IModelHook):
     """Protocol describing interface of the model-level validation hooks.
 
     Model validators are user-defined functions that run during validation
@@ -130,18 +155,32 @@ class IModelValidationHook(IBaseHook):
         """
 
 
-class IFieldValidationHook(IBaseHook):
-    """Protocol describing interface of the field-level validation hooks.
+class IModelPrevalidationHook(IModelValidationHook):
+    """Interface for hooks that are run just after the validation has started.
+
+    .. versionadded:: 0.16.0
+    """
+
+    __modelity_hook_name__ = "model_prevalidator"
+
+
+class IModelPostvalidationHook(IModelValidationHook):
+    """Interface for hooks that are run just before validation ends.
+
+    .. versionadded:: 0.16.0
+    """
+
+    __modelity_hook_name__ = "model_postvalidator"
+
+
+class IFieldValidationHook(IFieldHook):
+    """Interface of the field-level validation hooks.
 
     Field validators are executed for selected fields and only if those fields
     have values set.
     """
 
-    #: Set containing field names this hook will be applied to.
-    #:
-    #: If this is an empty set, then the hook will be applied to all fields of
-    #: the model it was declared in.
-    __modelity_hook_field_names__: set[str]
+    __modelity_hook_name__ = "field_validator"
 
     def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
         """Perform field validation.
@@ -169,23 +208,16 @@ class IFieldValidationHook(IBaseHook):
         """
 
 
-class IFieldPreprocessingHook(IBaseHook):
-    """Protocol describing interface of field-level preprocessing hooks.
+class IFieldPreprocessingHook(IFieldHook):
+    """Protocol specifying interface of the field-level preprocessing hooks.
 
-    Preprocessing is performed for each field that is set or modified and
-    always before type parsing stage. Preprocessors play data filtering role
-    and can be used to perform input data cleanup without which the later
-    parsing stage could not successfully parse type (f.e. numeric string
-    wrapped with spaces). Preprocessors (unlike postprocessors) cannot assume
-    that input value has correct type and therefore need to check this to avoid
-    errors. Preprocessors cannot access model object and other fields.
+    Preprocessing is performed separately for each field that is set or
+    modified and always before type parsing stage. The role of preprocessing
+    hooks is to filter input data before it gets passed to the parsing stage.
+    Preprocessors cannot access model object or other fields.
     """
 
-    #: Set containing field names this hook will be applied to.
-    #:
-    #: If this is an empty set, then the hook will be applied to all fields of
-    #: the model it was declared in.
-    __modelity_hook_field_names__: set[str]
+    __modelity_hook_name__ = "field_preprocessor"
 
     def __call__(_, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
         """Call field's preprocessing hook.
@@ -206,22 +238,32 @@ class IFieldPreprocessingHook(IBaseHook):
         """
 
 
-class IFieldPostprocessingHook(IBaseHook):
-    """Protocol describing interface of field-level postprocessing hooks.
+class IFieldPostprocessingHook(IFieldHook):
+    """Protocol specifying interface of the field-level postprocessing hooks.
 
-    Postprocessing is performed when field is set and always after successful
-    execution of preprocessors (if any) and type parsers defined for that
-    field. Postprocessors are mostly useful for performing field-level
-    validation when model is created or modified, but unlike preprocessing
-    hooks, postprocessors can access model's object and perform side effects,
-    like setting other fields.
+    Postprocessing stage is executed after successful preprocessing and type
+    parsing stages. First postprocessor in a chain is guaranteed to receive the
+    value of a correct type, so no double checks are needed. If more
+    postprocessors are defined, then N-th postprocessor receives value returned
+    by (N-1)-th postprocessor. Unlike preprocessors, postprocessors can access
+    model instance and other fields but unlike for field validators the model
+    may not be fully initialized yet and this must be taken into account when
+    using this feature.
+
+    .. note::
+        Modelity guarantees that the fields are constructed in same order as
+        the declaration goes in the model class.
+
+    .. important::
+        There are no more checks after postprocessing stage, so theoretically
+        postprocessor are able to change value type to something other than
+        declared in the model. It is important to always return a value from
+        postprocessor and it is highly recommended to not change its type, as
+        it may break some of the built-in functionalities that depend on field
+        type.
     """
 
-    #: Set containing field names this hook will be applied to.
-    #:
-    #: If this is an empty set, then the hook will be applied to all fields of
-    #: the model it was declared in.
-    __modelity_hook_field_names__: set[str]
+    __modelity_hook_name__ = "field_postprocessor"
 
     def __call__(
         _, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
