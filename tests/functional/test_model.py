@@ -10,7 +10,7 @@ from mockify.api import Mock, ordered, satisfied, Raise, Return
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ParsingError, ValidationError
-from modelity.interface import ITypeDescriptor
+from modelity.interface import IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.model import (
     FieldInfo,
@@ -52,10 +52,13 @@ class CustomType:
     @staticmethod
     def __modelity_type_descriptor__(typ, type_opts: dict) -> ITypeDescriptor:
 
-        class CustomTypeDescriptor:
+        class CustomTypeDescriptor(ITypeDescriptor[CustomType]):
 
             def parse(self, errors, loc, value):
                 return typ(value, **type_opts)
+
+            def accept(self, visitor: IModelVisitor, loc: Loc, value: CustomType):
+                visitor.visit_any(loc, value.value)
 
             def dump(self, loc, value, filter) -> Any:
                 return value.value

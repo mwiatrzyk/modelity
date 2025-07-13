@@ -21,6 +21,7 @@ from modelity.interface import (
     IModelPostvalidationHook,
     IModelPrevalidationHook,
     IModelValidationHook,
+    IModelVisitor,
     ITypeDescriptor,
 )
 from modelity.loc import Loc
@@ -237,7 +238,9 @@ def model_prevalidator():
     """
 
     def decorator(func) -> IModelPrevalidationHook:
-        return cast(IModelPrevalidationHook, _make_model_validation_hook(func, IModelPrevalidationHook.__modelity_hook_name__))
+        return cast(
+            IModelPrevalidationHook, _make_model_validation_hook(func, IModelPrevalidationHook.__modelity_hook_name__)
+        )
 
     return decorator
 
@@ -253,7 +256,9 @@ def model_postvalidator():
     """
 
     def decorator(func) -> IModelPostvalidationHook:
-        return cast(IModelPostvalidationHook, _make_model_validation_hook(func, IModelPostvalidationHook.__modelity_hook_name__))
+        return cast(
+            IModelPostvalidationHook, _make_model_validation_hook(func, IModelPostvalidationHook.__modelity_hook_name__)
+        )
 
     return decorator
 
@@ -463,7 +468,7 @@ class ModelMeta(type):
                 hooks.append(attr_value)
                 del attrs[key]
         sort_hooks(hooks)
-        attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", []))
+        attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", [])) + ("__loc__",)
         return super().__new__(tp, name, bases, attrs)
 
 
@@ -533,6 +538,7 @@ class Model(metaclass=ModelMeta):
     """
 
     def __init__(self, **kwargs) -> None:
+        self.__loc__ = Loc()
         errors: list[Error] = []
         fields = self.__class__.__model_fields__
         for name, field in fields.items():
@@ -604,6 +610,17 @@ class Model(metaclass=ModelMeta):
 
     def __delattr__(self, name):
         setattr(self, name, Unset)
+
+    def accept(self, visitor: IModelVisitor):
+        visitor.visit_model_begin(self.__loc__, self)
+        for name, field in self.__class__.__model_fields__.items():
+            loc = self.__loc__ + Loc(name)
+            value = getattr(self, name)
+            if value is Unset:
+                visitor.visit_unset(loc, value)
+            else:
+                field.descriptor.accept(visitor, loc, value)
+        visitor.visit_model_end(self.__loc__, self)
 
     def dump(self, loc: Loc, filter: IDumpFilter) -> dict:
         """Dump model to a JSON-serializable dict.
@@ -739,6 +756,9 @@ def dump(
             def exclude_from_foo_or_when_none(loc: Loc, value: typing.Any) -> bool:
                 return loc[0] == "foo" or value is None
     """
+    from . import helpers
+
+    return helpers.dump(model, exclude_unset=exclude_unset, exclude_none=exclude_none, exclude_if=exclude_if)
 
     def apply_filters(loc, value):
         for f in filters:

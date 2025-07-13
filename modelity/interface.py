@@ -1,4 +1,7 @@
-from typing import Any, Optional, Protocol, Union, TypeVar, Generic
+import abc
+from numbers import Number
+from types import NoneType
+from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
@@ -15,10 +18,24 @@ DISCARD = object()
 
 
 class IModel(Protocol):
-    """Protocol describing common interface for data models."""
+    """Protocol describing common interface for data models.
 
-    #: List of hooks registered for this model.
-    __model_hooks__: list["IBaseHook"]
+    This interface is implicitly implemented by :class:`modelity.model.Model`
+    class.
+    """
+
+    #: The root location of this model.
+    #:
+    #: If the model is located inside some outer model, then this will point to
+    #: a field where this model instance is currently located.
+    __loc__: Loc
+
+    def accept(self, visitor: "IModelVisitor"):
+        """Accept visitor on this model.
+
+        :param visitor:
+            The visitor to use.
+        """
 
     def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
         """Dump model to a JSON-serializable dict.
@@ -342,13 +359,14 @@ class IConstraint(Protocol):
         """
 
 
-class ITypeDescriptor(Protocol, Generic[T]):
+class ITypeDescriptor(abc.ABC, Generic[T]):
     """Protocol describing type.
 
     This interface is used by Modelity internals to parse type, dump it and
     validate.
     """
 
+    @abc.abstractmethod
     def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[T, UnsetType]:
         """Parse instance of type *T* from provided *value*.
 
@@ -368,6 +386,20 @@ class ITypeDescriptor(Protocol, Generic[T]):
 
         :param value:
             The value to parse.
+        """
+
+    @abc.abstractmethod
+    def accept(self, visitor: "IModelVisitor", loc: Loc, value: T):
+        """Accept given model visitor.
+
+        :param visitor:
+            The visitor to accept.
+
+        :param loc:
+            The location of the value inside model.
+
+        :param value:
+            The value to process.
         """
 
     def dump(self, loc: Loc, value: T, filter: IDumpFilter) -> Any:
@@ -450,4 +482,178 @@ class ITypeDescriptorFactory(Protocol):
             provided type.
 
             If not used, then it should be set to an empty dict.
+        """
+
+
+class IModelVisitor(abc.ABC):
+    """Base class for model visitors.
+
+    The visitor mechanism is used by Modelity for validation and serialization.
+    This interface is designed to handle the full range of JSON-compatible
+    types, with additional support for special values like
+    :obj:`modelity.unset.Unset` and unknown types.
+
+    Type descriptors are responsible for narrowing or coercing input values to
+    determine the most appropriate visit method. For example, a date or time
+    object might be converted to a string and then passed to
+    :meth:`visit_string`.
+
+    .. versionadded:: 0.17.0
+    """
+
+    @abc.abstractmethod
+    def visit_model_begin(self, loc: Loc, value: IModel):
+        """Start visiting a model object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_model_end(self, loc: Loc, value: IModel):
+        """Finish visiting a model object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_mapping_begin(self, loc: Loc, value: Mapping):
+        """Start visiting a mapping object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_mapping_end(self, loc: Loc, value: Mapping):
+        """Finish visiting a mapping object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_sequence_begin(self, loc: Loc, value: Sequence):
+        """Start visiting a sequence object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_sequence_end(self, loc: Loc, value: Sequence):
+        """Finish visiting a sequence object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_set_begin(self, loc: Loc, value: Set):
+        """Start visiting a set object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_set_end(self, loc: Loc, value: Set):
+        """Finish visiting a set object.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_string(self, loc: Loc, value: str):
+        """Visit a string value.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_bool(self, loc: Loc, value: bool):
+        """Visit a boolean value.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_number(self, loc: Loc, value: Number):
+        """Visit a number value.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_none(self, loc: Loc, value: NoneType):
+        """Visit a ``None`` value.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_unset(self, loc: Loc, value: UnsetType):
+        """Visit an :obj:`modelity.unset.Unset` value.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_any(self, loc: Loc, value: Any):
+        """Visit any value.
+
+        This method will be called when the type is unknown or when the type
+        did not match any of the other visit methods.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The value or object to visit.
         """

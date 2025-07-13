@@ -7,7 +7,6 @@ from typing import (
     MutableMapping,
     MutableSequence,
     MutableSet,
-    Optional,
     Sequence,
     Union,
     cast,
@@ -18,7 +17,7 @@ from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import DISCARD, IDumpFilter, ITypeDescriptor, ITypeDescriptorFactory
+from modelity.interface import DISCARD, IDumpFilter, IModelVisitor, ITypeDescriptor, ITypeDescriptorFactory
 from modelity.loc import Loc
 from modelity.mixins import EmptyValidateMixin
 from modelity.unset import Unset, UnsetType
@@ -91,22 +90,31 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 result[k] = v
         return result
 
-    class AnyDictTypeDescriptor(EmptyValidateMixin):
+    class AnyDictTypeDescriptor(ITypeDescriptor[Mapping], EmptyValidateMixin):
         def parse(self, errors, loc, value):
             result = ensure_mapping(errors, loc, value)
             if result is Unset:
                 return result
-            return dict(result)
+            return dict(result)  # type: ignore
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Mapping):
+            visitor.visit_any(loc, value)
 
         def dump(self, loc: Loc, value: dict, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-    class TypedDictTypeDescriptor:
+    class TypedDictTypeDescriptor(ITypeDescriptor[Mapping]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
             return MutableMappingProxy(cast(dict, result))
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Mapping):
+            visitor.visit_mapping_begin(loc, value)
+            for k, v in value.items():
+                value_type_descriptor.accept(visitor, loc + Loc(k), v)
+            visitor.visit_mapping_end(loc, value)
 
         def validate(self, root, ctx, errors, loc, value: dict):
             for k, v in value.items():
@@ -185,7 +193,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 result.append(dump_value)
         return result
 
-    class AnyListDescriptor(EmptyValidateMixin):
+    class AnyListDescriptor(ITypeDescriptor[list], EmptyValidateMixin):
 
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
@@ -193,16 +201,25 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 return result
             return list(result)
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
+            visitor.visit_any(loc, value)
+
         def dump(self, loc: Loc, value: list, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-    class TypedListDescriptor:
+    class TypedListDescriptor(ITypeDescriptor[list]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
             result = cast(list, result)
             return MutableSequenceProxy(result)
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
+            visitor.visit_sequence_begin(loc, value)
+            for p, item in enumerate(value):
+                type_descriptor.accept(visitor, loc + Loc(p), item)
+            visitor.visit_sequence_end(loc, value)
 
         def dump(self, loc: Loc, value: list, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
@@ -272,14 +289,17 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
                 result.append(elem)
         return result
 
-    class AnySetDescriptor(EmptyValidateMixin):
+    class AnySetDescriptor(ITypeDescriptor[set], EmptyValidateMixin):
         def parse(self, errors, loc, value):
             return parse_any_set(errors, loc, value)
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: set):
+            visitor.visit_any(loc, value)
 
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-    class TypedSetDescriptor(EmptyValidateMixin):
+    class TypedSetDescriptor(ITypeDescriptor[set], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             seq = ensure_sequence(errors, loc, value)
             if seq is Unset:
@@ -288,6 +308,13 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
             if len(errors) > 0:
                 return Unset
             return MutableSetProxy(result)
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: set):
+            item_loc = loc + Loc.irrelevant()
+            visitor.visit_set_begin(loc, value)
+            for item in value:
+                type_descriptor.accept(visitor, item_loc, item)
+            visitor.visit_set_end(loc, value)
 
         def dump(self, loc: Loc, value: set, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
@@ -318,17 +345,20 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                 result.append(elem)
         return result
 
-    class AnyTupleDescriptor(EmptyValidateMixin):
+    class AnyTupleDescriptor(ITypeDescriptor[tuple], EmptyValidateMixin):
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
             if result is Unset:
                 return result
             return tuple(result)
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: tuple):
+            visitor.visit_any(loc, value)
+
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, filter)
 
-    class AnyLengthTypedTupleDescriptor:
+    class AnyLengthTypedTupleDescriptor(ITypeDescriptor[tuple]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             seq = ensure_sequence(errors, loc, value)
             if seq is Unset:
@@ -340,6 +370,12 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                 return Unset
             return result
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: tuple):
+            visitor.visit_sequence_begin(loc, value)
+            for i, elem in enumerate(value):
+                type_descriptor.accept(visitor, loc + Loc(i), elem)
+            visitor.visit_sequence_end(loc, value)
+
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptor.dump(l, v, filter))
 
@@ -347,7 +383,7 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
             for i, elem in enumerate(value):
                 type_descriptor.validate(root, ctx, errors, loc + Loc(i), elem)
 
-    class FixedLengthTypedTupleDescriptor:
+    class FixedLengthTypedTupleDescriptor(ITypeDescriptor[tuple]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = ensure_sequence(errors, loc, value)
             if result is Unset:
@@ -363,6 +399,12 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
             if len(errors) > 0:
                 return Unset
             return result
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: tuple):
+            visitor.visit_sequence_begin(loc, value)
+            for i, elem, desc in zip(range(len(type_descriptors)), value, type_descriptors):
+                desc.accept(visitor, loc + Loc(i), elem)
+            visitor.visit_sequence_end(loc, value)
 
         def dump(self, loc: Loc, value: tuple, filter: IDumpFilter):
             return dump(loc, value, lambda l, v: type_descriptors[l.last].dump(l, v, filter))

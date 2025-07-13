@@ -79,3 +79,20 @@ class Loc(Sequence):
     def is_empty(self) -> bool:
         """Check if this is an empty location object."""
         return len(self) == 0
+
+    @classmethod
+    def irrelevant(cls) -> "Loc":
+        """Return a special location value indicating that the exact location
+        is irrelevant.
+
+        This is equivalent to ``Loc('_')`` and is typically used in containers
+        like sets or unordered structures, where the concept of position or
+        path does not apply.
+
+        For example, when comparing or storing elements where their precise
+        placement is not semantically meaningful, this sentinel location can be
+        used to fulfill API requirements without implying an actual location.
+
+        .. versionadded:: 0.17.0
+        """
+        return cls("_")

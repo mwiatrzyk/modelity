@@ -3,12 +3,12 @@
 from datetime import date, datetime
 from enum import Enum
 import ipaddress
-from typing import Any, Literal, Optional, TypeVar, get_args
+from numbers import Number
+from typing import Any, Literal, TypeVar, cast, get_args
 
 from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
-from modelity.exc import UnsupportedTypeError
-from modelity.interface import IDumpFilter, ITypeDescriptor
+from modelity.interface import IDumpFilter, IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.mixins import EmptyValidateMixin, ExactDumpMixin, StrDumpMixin
 from modelity.unset import Unset, UnsetType
@@ -36,32 +36,41 @@ registry = TypeDescriptorFactoryRegistry()
 
 
 @registry.type_descriptor_factory(UnsetType)
-def make_unset_type_descriptor() -> ITypeDescriptor:
+def make_unset_type_descriptor():
 
-    class UnsetTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class UnsetTypeDescriptor(ITypeDescriptor[UnsetType], ExactDumpMixin, EmptyValidateMixin):
         def parse(self, errors, loc, value):
             if value is Unset:
                 return value
             errors.append(ErrorFactory.value_not_allowed(loc, value, (Unset,)))
             return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: UnsetType):
+            visitor.visit_unset(loc, value)
+
     return UnsetTypeDescriptor()
 
 
 @registry.type_descriptor_factory(Any)
-def make_any_type_descriptor() -> ITypeDescriptor:
+def make_any_type_descriptor():
 
-    class AnyTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class AnyTypeDescriptor(ITypeDescriptor[Any], EmptyValidateMixin):
         def parse(self, errors, loc, value):
             return value
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_any(loc, value)
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
 
     return AnyTypeDescriptor()
 
 
 @registry.type_descriptor_factory(bool)
-def make_bool_type_descriptor(type_opts: dict) -> ITypeDescriptor:
+def make_bool_type_descriptor(type_opts: dict):
 
-    class BoolTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class BoolTypeDescriptor(ITypeDescriptor[bool], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bool):
                 return value
@@ -74,15 +83,21 @@ def make_bool_type_descriptor(type_opts: dict) -> ITypeDescriptor:
             )
             return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: bool):
+            visitor.visit_bool(loc, value)
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
+
     true_literals = set(type_opts.get("true_literals") or [])
     false_literals = set(type_opts.get("false_literals") or [])
     return BoolTypeDescriptor()
 
 
 @registry.type_descriptor_factory(datetime)
-def make_datetime_type_descriptor(type_opts: dict) -> ITypeDescriptor:
+def make_datetime_type_descriptor(type_opts: dict):
 
-    class DateTimeTypeDescriptor(EmptyValidateMixin):
+    class DateTimeTypeDescriptor(ITypeDescriptor[datetime], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, datetime):
                 return value
@@ -96,6 +111,9 @@ def make_datetime_type_descriptor(type_opts: dict) -> ITypeDescriptor:
                     pass
             errors.append(ErrorFactory.unsupported_datetime_format(loc, value, input_formats))
             return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: datetime):
+            visitor.visit_string(loc, value.strftime(compiled_output_format))
 
         def dump(self, loc: Loc, value: datetime, filter: IDumpFilter):
             return filter(loc, value.strftime(compiled_output_format))
@@ -119,10 +137,10 @@ def make_datetime_type_descriptor(type_opts: dict) -> ITypeDescriptor:
 
 
 @registry.type_descriptor_factory(date)
-def make_date_type_descriptor(type_opts: dict) -> ITypeDescriptor:
+def make_date_type_descriptor(type_opts: dict):
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
-    class DateTypeDescriptor(EmptyValidateMixin):
+    class DateTypeDescriptor(ITypeDescriptor[date], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, date):
                 return value
@@ -136,6 +154,9 @@ def make_date_type_descriptor(type_opts: dict) -> ITypeDescriptor:
                     pass
             errors.append(ErrorFactory.unsupported_date_format(loc, value, input_formats))
             return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: date):
+            visitor.visit_string(loc, value.strftime(compiled_output_format))
 
         def dump(self, loc: Loc, value: date, filter: IDumpFilter):
             return filter(loc, value.strftime(compiled_output_format))
@@ -151,15 +172,18 @@ def make_date_type_descriptor(type_opts: dict) -> ITypeDescriptor:
 
 
 @registry.type_descriptor_factory(Enum)
-def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
+def make_enum_type_descriptor(typ: type[Enum]):
 
-    class EnumTypeDescriptor(EmptyValidateMixin):
+    class EnumTypeDescriptor(ITypeDescriptor[Enum], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return typ(value)
             except ValueError:
                 errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
                 return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Enum):
+            visitor.visit_any(loc, value.value)
 
         def dump(self, loc: Loc, value: Enum, filter: IDumpFilter):
             return value.value
@@ -169,28 +193,41 @@ def make_enum_type_descriptor(typ: type[Enum]) -> ITypeDescriptor:
 
 
 @registry.type_descriptor_factory(Literal)
-def make_literal_type_descriptor(typ) -> ITypeDescriptor:
+def make_literal_type_descriptor(typ):
 
-    class LiteralTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class LiteralTypeDescriptor(ITypeDescriptor[Any], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value in allowed_values:
                 return value
             errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
             return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_any(loc, value)
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
+
     allowed_values = get_args(typ)
     return LiteralTypeDescriptor()
 
 
 @registry.type_descriptor_factory(type(None))
-def make_none_type_descriptor() -> ITypeDescriptor:
+def make_none_type_descriptor():
+    NoneType = type(None)
 
-    class NoneTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class NoneTypeDescriptor(ITypeDescriptor[NoneType], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
             errors.append(ErrorFactory.value_not_allowed(loc, value, (None,)))
             return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: None):
+            visitor.visit_none(loc, value)
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
 
     return NoneTypeDescriptor()
 
@@ -198,7 +235,7 @@ def make_none_type_descriptor() -> ITypeDescriptor:
 @registry.type_descriptor_factory(int)
 def make_int_type_descriptor():
 
-    class IntTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class IntTypeDescriptor(ITypeDescriptor[int], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return int(value)
@@ -206,13 +243,19 @@ def make_int_type_descriptor():
                 errors.append(ErrorFactory.integer_parsing_error(loc, value))
                 return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: int):
+            visitor.visit_number(loc, cast(Number, value))
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
+
     return IntTypeDescriptor()
 
 
 @registry.type_descriptor_factory(float)
 def make_float_type_descriptor():
 
-    class FloatTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class FloatTypeDescriptor(ITypeDescriptor[float], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return float(value)
@@ -220,31 +263,46 @@ def make_float_type_descriptor():
                 errors.append(ErrorFactory.float_parsing_error(loc, value))
                 return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: float):
+            visitor.visit_number(loc, cast(Number, value))
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
+
     return FloatTypeDescriptor()
 
 
 @registry.type_descriptor_factory(str)
-def make_str_type_descriptor() -> ITypeDescriptor:
+def make_str_type_descriptor():
 
-    class StrTypeDescriptor(ExactDumpMixin, EmptyValidateMixin):
+    class StrTypeDescriptor(ITypeDescriptor[str], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: str):
             if isinstance(value, str):
                 return value
             errors.append(ErrorFactory.string_value_required(loc, value))
             return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: str):
+            visitor.visit_string(loc, value)
+
+        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
+            return filter(loc, value)
+
     return StrTypeDescriptor()
 
 
 @registry.type_descriptor_factory(bytes)
-def make_bytes_type_descriptor() -> ITypeDescriptor:
+def make_bytes_type_descriptor():
 
-    class BytesTypeDescriptor(EmptyValidateMixin):
+    class BytesTypeDescriptor(ITypeDescriptor[bytes], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bytes):
                 return value
             errors.append(ErrorFactory.bytes_value_required(loc, value))
             return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: bytes):
+            visitor.visit_string(loc, value.decode())  # TODO: Add support for other formats
 
         def dump(self, loc: Loc, value: bytes, filter: IDumpFilter):
             return filter(loc, value.decode())
@@ -255,7 +313,7 @@ def make_bytes_type_descriptor() -> ITypeDescriptor:
 @registry.type_descriptor_factory(ipaddress.IPv4Address)
 def make_ipv4_address_type_descriptor():
 
-    class IPv4TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
+    class IPv4TypeDescriptor(ITypeDescriptor[ipaddress.IPv4Address], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv4Address):
                 return value
@@ -265,13 +323,19 @@ def make_ipv4_address_type_descriptor():
                 errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv4 address", ipaddress.IPv4Address))
                 return Unset
 
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv4Address):
+            visitor.visit_string(loc, str(value))
+
+        def dump(self, loc: Loc, value: ipaddress.IPv4Address, filter: IDumpFilter) -> Any:
+            return filter(loc, str(value))
+
     return IPv4TypeDescriptor()
 
 
 @registry.type_descriptor_factory(ipaddress.IPv6Address)
 def make_ipv6_address_type_descriptor():
 
-    class IPv6TypeDescriptor(StrDumpMixin, EmptyValidateMixin):
+    class IPv6TypeDescriptor(ITypeDescriptor[ipaddress.IPv6Address], EmptyValidateMixin):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv6Address):
                 return value
@@ -280,5 +344,11 @@ def make_ipv6_address_type_descriptor():
             except ipaddress.AddressValueError:
                 errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv6 address", ipaddress.IPv6Address))
                 return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv6Address):
+            visitor.visit_string(loc, str(value))
+
+        def dump(self, loc: Loc, value: ipaddress.IPv6Address, filter: IDumpFilter) -> Any:
+            return filter(loc, str(value))
 
     return IPv6TypeDescriptor()

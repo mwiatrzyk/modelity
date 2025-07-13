@@ -1,3 +1,6 @@
+from typing import Final
+
+
 class UnsetType:
     """Singleton type for representing unset or undefined values.
 
@@ -22,4 +25,4 @@ class UnsetType:
 
 
 #: Singleton instance of the UnsetType.
-Unset = UnsetType()
+Unset: Final = UnsetType()

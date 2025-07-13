@@ -3,7 +3,7 @@ from typing import Mapping
 from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import IDumpFilter, IModel, ITypeDescriptor
+from modelity.interface import IDumpFilter, IModel, IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Model
 from modelity.unset import Unset
@@ -14,7 +14,7 @@ registry = TypeDescriptorFactoryRegistry()
 @registry.type_descriptor_factory(Model)
 def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
 
-    class ModelTypeDescriptor:
+    class ModelTypeDescriptor(ITypeDescriptor[IModel]):
 
         def parse(self, errors: list[Error], loc: Loc, value: IModel):
             if isinstance(value, typ):
@@ -24,10 +24,14 @@ def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
                 return Unset
             try:
                 obj = typ(**value)
+                obj.__loc__ = loc
                 return obj
             except ParsingError as e:
                 errors.extend(Error(loc + x.loc, x.code, x.msg, x.value, x.data) for x in e.errors)
                 return Unset
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: IModel):
+            value.accept(visitor)
 
         def dump(self, loc: Loc, value: IModel, filter: IDumpFilter):
             return value.dump(loc, filter)
