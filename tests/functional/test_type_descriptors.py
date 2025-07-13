@@ -6,10 +6,10 @@ from typing import Annotated, Any, Literal, Optional, Union
 from modelity.constraints import Ge, Gt, Le, Lt, MaxLen, MinLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
-from modelity.interface import DISCARD
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model, dump, _make_type_descriptor, validate
+from modelity.model import FieldInfo, Model, _make_type_descriptor, validate
 from modelity.unset import Unset
+from modelity.helpers import dump
 
 import pytest
 
@@ -1290,17 +1290,6 @@ class TestModelTypeDescriptor:
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
-
-    @pytest.mark.parametrize(
-        "typ, filter, input_value, output_value",
-        [
-            (Dummy, lambda l, v: v, {}, {"foo": {"nested": Unset}}),
-            (Dummy, lambda l, v: v if v is not Unset else DISCARD, {}, {"foo": {}}),
-            (Dummy, lambda l, v: v if l.last != "foo" else DISCARD, {}, {}),
-        ],
-    )
-    def test_dump(self, model, filter, output_value):
-        assert model.dump(Loc(), filter) == output_value
 
     @pytest.mark.parametrize(
         "typ, input_value",

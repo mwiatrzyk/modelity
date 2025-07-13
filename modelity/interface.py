@@ -17,6 +17,16 @@ T = TypeVar("T")
 DISCARD = object()
 
 
+class IField(Protocol):
+    """Protocol describing single model field."""
+
+    #: Type descriptor for this field.
+    descriptor: "ITypeDescriptor"
+
+    #: Flag telling if this field is optional (``True``) or required (``False``)
+    optional: bool
+
+
 class IModel(Protocol):
     """Protocol describing common interface for data models.
 
@@ -30,77 +40,18 @@ class IModel(Protocol):
     #: a field where this model instance is currently located.
     __loc__: Loc
 
+    #: Mapping with field definitions for this model.
+    __model_fields__: Mapping[str, IField]
+
+    #: List of hooks declared for this model.
+    __model_hooks__: list["IBaseHook"]
+
     def accept(self, visitor: "IModelVisitor"):
         """Accept visitor on this model.
 
         :param visitor:
             The visitor to use.
         """
-
-    def dump(self, loc: Loc, filter: "IDumpFilter") -> dict:
-        """Dump model to a JSON-serializable dict.
-
-        :param loc:
-            The absolute location of this model.
-
-            This will be empty if this is a root model, or non-empty for model
-            object that acts as a field in some outer model.
-
-        :param filter:
-            The filter function.
-
-            It can be used to discard values from the output or to modify the
-            value before it gets written to the output. Check the example below:
-
-            .. testcode::
-
-                from modelity.unset import Unset
-                from modelity.model import Model
-                from modelity.interface import DISCARD
-
-                class Example(Model):
-                    foo: int
-
-                def exclude_unset(loc, value):
-                    return DISCARD if value is Unset else value
-
-            .. doctest::
-
-                >>> example = Example(foo=123)
-
-            Check :class:`IDumpFilter` protocol for more details.
-        """
-        ...
-
-    def validate(self, root: "IModel", ctx: Any, errors: list[Error], loc: Loc):
-        """Validate this model.
-
-        :param root:
-            Reference to the root model.
-
-            Root model is the model for which this method was initially called.
-            This can be used by nested models to access entire model during
-            validation.
-
-        :param ctx:
-            User-defined context object to be shared across all validators.
-
-            It is completely transparent to Modelity, so any value can be used
-            here, but recommended is ``None`` if no context is used.
-
-        :param errors:
-            List to populate with any errors found during validation.
-
-            Should initially be empty and can potentially contain validation
-            errors after this method's execution is done.
-
-        :param loc:
-            The absolute location of the validated model inside a parent model.
-
-            This will be empty for root model object, or non-empty if this
-            model object is a field value in some outer model object.
-        """
-        ...
 
 
 class IBaseHook(Protocol):
@@ -306,30 +257,6 @@ class IFieldPostprocessingHook(IFieldHook):
         """
 
 
-class IDumpFilter(Protocol):
-    """Protocol describing interface of the filter function used by
-    :meth:`modelity.model.Model.dump` method."""
-
-    def __call__(self, loc: Loc, value: Any) -> Any:
-        """Apply the filter to a model's field.
-
-        This method is invoked for each field in the model, regardless of whether
-        the field is set or unset. It should return the serialized value for a
-        field, or :obj:`DISCARD` to discard the field from the serialized
-        output.
-
-        :param loc:
-            The location of the current value in the model.
-
-        :param value:
-            The current value.
-
-        :return:
-            The value to use for a field or :obj:`DISCARD` to discard currently
-            processed value from the serialized output.
-        """
-
-
 class IConstraint(Protocol):
     """Protocol describing constraint callable.
 
@@ -362,30 +289,55 @@ class IConstraint(Protocol):
 class ITypeDescriptor(abc.ABC, Generic[T]):
     """Protocol describing type.
 
-    This interface is used by Modelity internals to parse type, dump it and
-    validate.
+    This interface is used by Modelity internals to enclose type-specific
+    parsing, validation and visitor accepting logic. Whenever a new type is
+    added to a Modelity library it will need a dedicated implementation of this
+    interface.
     """
 
     @abc.abstractmethod
     def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[T, UnsetType]:
-        """Parse instance of type *T* from provided *value*.
+        """Parse object of type *T* from a given *value* of any type.
 
         If parsing is successful, then instance of type *T* is returned, with
-        value parsed from *value*.
+        value parsed from *value*. If *value* already is an instance of type
+        *T* then unchanged *value* can be returned (but does not have to).
 
         If parsing failed, then ``Unset`` is returned and *errors* list is
-        populated with one or more error objects.
+        populated with one or more error objects explaining why the *value*
+        could not be parsed as *T*.
 
         :param errors:
             List of errors.
-
-            Can be modified by parser implementation.
 
         :param loc:
             The location of the *value* inside the model.
 
         :param value:
             The value to parse.
+        """
+
+    @abc.abstractmethod
+    def validate(self, errors: list[Error], loc: Loc, value: T):
+        """Validate value of type *T*.
+
+        This method should be used for types that have to be additionally
+        verified when model is validated. For example, if model's field is
+        mutable and has constraints provided, those constraints will have to be
+        rerun during model validation. If particular type does not need that
+        kind of additional verification, then implementation of this method
+        should be empty.
+
+        :param errors:
+            Mutable list of errors.
+
+        :param loc:
+            The location of the *value* inside the model.
+
+        :param value:
+            The value to validate.
+
+            It is guaranteed to be an instance of type *T*.
         """
 
     @abc.abstractmethod
@@ -400,61 +352,8 @@ class ITypeDescriptor(abc.ABC, Generic[T]):
 
         :param value:
             The value to process.
-        """
 
-    def dump(self, loc: Loc, value: T, filter: IDumpFilter) -> Any:
-        """Dump value to a nearest JSON type.
-
-        This method, for given input, should return one of the following types:
-
-        * :class:`dict` object for mappings,
-        * :class:`list` for sequences, sets and and other iterables,
-        * :class:`int` or :class:`float` for numbers,
-        * :class:`str` for strings or types that are encoded as strings (f.e. date and time),
-        * :class:`bool` for boolean values,
-        * :obj:`None` for null values,
-        * :obj:`DISCARD` sentinel to signal that the value should be discarded.
-
-        :param loc:
-            The location of current value inside a model.
-
-        :param value:
-            The current value.
-
-        :param filter:
-            The value filtering function.
-
-            Check :class:`IDumpFilter` for more details.
-        """
-
-    def validate(self, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: T):
-        """Validate instance of this type inside a model.
-
-        :param root:
-            The reference to the root model.
-
-            This is the model for which validation was initially started.
-
-        :param ctx:
-            The validation context object.
-
-            This is user-defined object that is passed when validation is
-            started and is shared across all validators during validation
-            process. Can be used to pass some additional data that is needed by
-            custom validators. For example, this can be used to validate a
-            field against dynamically changing set of allowed values.
-
-        :param errors:
-            List of errors to populate with any validation errors found.
-
-        :param loc:
-            The location of the *value* inside the model.
-
-        :param value:
-            The value to validate.
-
-            It is guaranteed to be of type *T*, so no additional checks are
-            needed.
+            It is guaranteed to be an instance of type *T*.
         """
 
 

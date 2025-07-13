@@ -3,7 +3,7 @@ implementing :class:`modelity.interface.ITypeDescriptor` protocol."""
 
 from typing import Any
 
-from modelity.interface import IDumpFilter, IModel
+from modelity.interface import IDumpFilter, IModel, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.error import Error
 

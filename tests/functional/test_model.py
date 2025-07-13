@@ -8,7 +8,7 @@ import pytest
 from mockify.api import Mock, ordered, satisfied, Raise, Return
 
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
-from modelity.error import ErrorFactory
+from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ParsingError, ValidationError
 from modelity.interface import IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
@@ -60,11 +60,8 @@ class CustomType:
             def accept(self, visitor: IModelVisitor, loc: Loc, value: CustomType):
                 visitor.visit_any(loc, value.value)
 
-            def dump(self, loc, value, filter) -> Any:
-                return value.value
-
-            def validate(self, root, ctx, errors, loc, value):
-                return
+            def validate(self, errors: list[Error], loc: Loc, value: CustomType):
+                return super().validate(errors, loc, value)
 
         return CustomTypeDescriptor()
 
@@ -505,8 +502,8 @@ class TestModelWithModelField:
     @pytest.mark.parametrize(
         "initial_foo, initial_bar, expected_errors",
         [
-            ({}, "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
-            (SUT.Foo(), "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
+            ({}, "spam", [ErrorFactory.integer_parsing_error(Loc("foo", "bar"), "spam")]),
+            (SUT.Foo(), "spam", [ErrorFactory.integer_parsing_error(Loc("foo", "bar"), "spam")]),
         ],
     )
     def test_when_assigning_incorrect_value_then_parsing_error_is_raised(

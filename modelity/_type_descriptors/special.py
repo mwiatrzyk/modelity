@@ -2,9 +2,8 @@ from typing import cast, Annotated, Any, Iterator, Union, get_args
 
 from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IConstraint, IDumpFilter, IModelVisitor, ITypeDescriptor
+from modelity.interface import IConstraint, IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
-from modelity.mixins import ExactDumpMixin
 from modelity.unset import Unset
 
 registry = TypeDescriptorFactoryRegistry()
@@ -26,10 +25,7 @@ def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             type_descriptor.accept(visitor, loc, value)
 
-        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-            return type_descriptor.dump(loc, value, filter)
-
-        def validate(self, root, ctx, errors, loc, value):
+        def validate(self, errors: list[Error], loc: Loc, value: Any):
             for constraint in constraints:
                 if not constraint(errors, loc, value):
                     return
@@ -54,12 +50,8 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 return visitor.visit_none(loc, value)
             type_descriptor.accept(visitor, loc, value)
 
-        def dump(self, loc: Loc, value: Any, filter: IDumpFilter) -> Any:
-            return filter(loc, value)
-
-        def validate(self, root, ctx, errors, loc, value):
-            if value is not None:
-                type_descriptor.validate(root, ctx, errors, loc, value)
+        def validate(self, errors: list[Error], loc: Loc, value: Any):
+            return super().validate(errors, loc, value)
 
     class UnionTypeDescriptor(ITypeDescriptor[Any]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
@@ -79,15 +71,8 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 if isinstance(value, typ):
                     return descriptor.accept(visitor, loc, value)
 
-        def dump(self, loc: Loc, value: Any, filter: IDumpFilter):
-            for typ, descriptor in zip(types, type_descriptors):
-                if isinstance(value, typ):
-                    return descriptor.dump(loc, value, filter)
-
-        def validate(self, root, ctx, errors, loc, value):
-            for typ, desc in zip(types, type_descriptors):
-                if isinstance(value, typ):
-                    desc.validate(root, ctx, errors, loc, value)
+        def validate(self, errors: list[Error], loc: Loc, value: Any):
+            return super().validate(errors, loc, value)
 
     types = get_args(typ)
     if len(types) == 2 and types[-1] is type(None):

@@ -1,9 +1,9 @@
-from typing import Mapping
+from typing import Any, Mapping
 
 from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import IDumpFilter, IModel, IModelVisitor, ITypeDescriptor
+from modelity.interface import IModel, IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Model
 from modelity.unset import Unset
@@ -16,27 +16,26 @@ def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
 
     class ModelTypeDescriptor(ITypeDescriptor[IModel]):
 
-        def parse(self, errors: list[Error], loc: Loc, value: IModel):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, typ):
+                value.__loc__ = loc
                 return value
             if not isinstance(value, Mapping):
                 errors.append(ErrorFactory.model_parsing_error(loc, value, typ))
                 return Unset
-            try:
-                obj = typ(**value)
-                obj.__loc__ = loc
-                return obj
-            except ParsingError as e:
-                errors.extend(Error(loc + x.loc, x.code, x.msg, x.value, x.data) for x in e.errors)
-                return Unset
+            obj = typ()
+            obj.__loc__ = loc
+            for k, v in value.items():
+                try:
+                    setattr(obj, k, v)
+                except ParsingError as e:
+                    errors.extend(e.errors)
+            return obj
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: IModel):
             value.accept(visitor)
 
-        def dump(self, loc: Loc, value: IModel, filter: IDumpFilter):
-            return value.dump(loc, filter)
-
-        def validate(self, root, ctx, errors, loc, value: IModel):
-            value.validate(root, ctx, errors, loc)
+        def validate(self, errors: list[Error], loc: Loc, value: IModel):
+            return super().validate(errors, loc, value)
 
     return ModelTypeDescriptor()

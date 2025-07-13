@@ -1,5 +1,6 @@
+import functools
 import itertools
-from typing import Any, Callable, Optional, Sequence, TypeVar
+from typing import Any, Callable, Optional, Sequence, TypeVar, cast
 
 T = TypeVar("T")
 

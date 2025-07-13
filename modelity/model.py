@@ -7,17 +7,13 @@ import typing_extensions
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.exc import ParsingError, ValidationError
+from modelity.exc import ParsingError
 from modelity.interface import (
-    DISCARD,
     IBaseHook,
-    IDumpFilter,
-    IFieldHook,
     IFieldPreprocessingHook,
     IFieldPostprocessingHook,
     IFieldValidationHook,
     IModel,
-    IModelHook,
     IModelPostvalidationHook,
     IModelPrevalidationHook,
     IModelValidationHook,
@@ -27,6 +23,7 @@ from modelity.interface import (
 from modelity.loc import Loc
 
 from modelity.unset import Unset, UnsetType
+from modelity.decorators import _get_field_preprocessing_hooks, _get_field_postprocessing_hooks
 
 T = TypeVar("T")
 
@@ -575,7 +572,7 @@ class Model(metaclass=ModelMeta):
     def __set_value(self, type_descriptor: ITypeDescriptor, errors: list[Error], name: str, value: Any):
         if value is Unset:
             return super().__setattr__(name, value)
-        loc = Loc(name)
+        loc = self.__loc__ + Loc(name)
         value = self.__apply_field_preprocessors(errors, loc, value)
         if value is Unset:
             return super().__setattr__(name, value)
@@ -621,44 +618,6 @@ class Model(metaclass=ModelMeta):
             else:
                 field.descriptor.accept(visitor, loc, value)
         visitor.visit_model_end(self.__loc__, self)
-
-    def dump(self, loc: Loc, filter: IDumpFilter) -> dict:
-        """Dump model to a JSON-serializable dict.
-
-        Check :class:`modelity.interface.IModel.dump` method for more details.
-        """
-        out = {}
-        for name, field in self.__class__.__model_fields__.items():
-            field_loc = loc + Loc(name)
-            field_value = filter(field_loc, getattr(self, name))
-            if field_value is not DISCARD:
-                if field_value is Unset:
-                    out[name] = field_value
-                else:
-                    dump_value = field.descriptor.dump(field_loc, field_value, filter)
-                    if dump_value is not DISCARD:
-                        out[name] = dump_value
-        return out
-
-    def validate(self, root: "Model", ctx: Any, errors: list[Error], loc: Loc):
-        """Validate this model.
-
-        Check :class:`modelity.interface.IModel.validate` method for more details.
-        """
-        cls = self.__class__
-        for model_prevalidator in _get_model_prevalidation_hooks(cls):
-            model_prevalidator(cls, self, root, ctx, errors, loc)  # type: ignore
-        for name, field in cls.__model_fields__.items():
-            value_loc = loc + Loc(name)
-            value = getattr(self, name)
-            if value is not Unset:
-                for field_validator in _get_field_validation_hooks(cls, name):
-                    field_validator(cls, self, root, ctx, errors, value_loc, value)  # type: ignore
-                field.descriptor.validate(root, ctx, errors, value_loc, value)  # type: ignore
-            elif not field.optional:
-                errors.append(ErrorFactory.required_missing(value_loc))
-        for model_postvalidator in _get_model_postvalidation_hooks(cls):
-            model_postvalidator(cls, self, root, ctx, errors, loc)  # type: ignore
 
 
 def has_fields_set(model: Model) -> bool:
@@ -760,22 +719,6 @@ def dump(
 
     return helpers.dump(model, exclude_unset=exclude_unset, exclude_none=exclude_none, exclude_if=exclude_if)
 
-    def apply_filters(loc, value):
-        for f in filters:
-            value = f(loc, value)
-            if value is DISCARD:
-                return value
-        return value
-
-    filters = []
-    if exclude_unset:
-        filters.append(lambda l, v: DISCARD if v is Unset else v)
-    if exclude_none:
-        filters.append(lambda l, v: DISCARD if v is None else v)
-    if exclude_if:
-        filters.append(lambda l, v: DISCARD if exclude_if(l, v) else v)
-    return model.dump(Loc(), apply_filters)
-
 
 def validate(model: Model, ctx: Any = None):
     """Validate given model and raise :exc:`modelity.exc.ValidationError` if the
@@ -789,66 +732,8 @@ def validate(model: Model, ctx: Any = None):
 
         Check :meth:`Model.validate` for more information.
     """
-    errors: list[Error] = []
-    model.validate(model, ctx, errors, Loc())
-    if errors:
-        raise ValidationError(model, tuple(errors))
-
-
-@functools.lru_cache
-def _get_model_hooks_by_name(model_class: type[Model], hook_name: str) -> list[IModelHook]:
-    result = []
-    for hook in model_class.__model_hooks__:
-        if hook.__modelity_hook_name__ == hook_name:
-            result.append(hook)
-    return cast(list[IModelHook], result)
-
-
-@functools.lru_cache
-def _get_field_hooks_by_name(model_class: type[Model], hook_name: str, field_name: str) -> list[IFieldHook]:
-    result = []
-    for hook in model_class.__model_hooks__:
-        if hook.__modelity_hook_name__ == hook_name:
-            hook = cast(IFieldHook, hook)
-            field_names = hook.__modelity_hook_field_names__
-            if len(field_names) == 0 or field_name in field_names:
-                result.append(hook)
-    return cast(list[IFieldHook], result)
-
-
-def _get_model_prevalidation_hooks(model_class: type[Model]) -> list[IModelPrevalidationHook]:
-    return cast(
-        list[IModelPrevalidationHook],
-        _get_model_hooks_by_name(model_class, IModelPrevalidationHook.__modelity_hook_name__),
-    )
-
-
-def _get_model_postvalidation_hooks(model_class: type[Model]) -> list[IModelPostvalidationHook]:
-    return cast(
-        list[IModelPostvalidationHook],
-        _get_model_hooks_by_name(model_class, IModelPostvalidationHook.__modelity_hook_name__),
-    )
-
-
-def _get_field_validation_hooks(model_class: type[Model], field_name: str) -> list[IFieldValidationHook]:
-    return cast(
-        list[IFieldValidationHook],
-        _get_field_hooks_by_name(model_class, IFieldValidationHook.__modelity_hook_name__, field_name),
-    )
-
-
-def _get_field_preprocessing_hooks(model_class: type[Model], field_name: str) -> list[IFieldPreprocessingHook]:
-    return cast(
-        list[IFieldPreprocessingHook],
-        _get_field_hooks_by_name(model_class, IFieldPreprocessingHook.__modelity_hook_name__, field_name),
-    )
-
-
-def _get_field_postprocessing_hooks(model_class: type[Model], field_name: str) -> list[IFieldPostprocessingHook]:
-    return cast(
-        list[IFieldPostprocessingHook],
-        _get_field_hooks_by_name(model_class, IFieldPostprocessingHook.__modelity_hook_name__, field_name),
-    )
+    from . import helpers
+    return helpers.validate(model, ctx)
 
 
 def _make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
