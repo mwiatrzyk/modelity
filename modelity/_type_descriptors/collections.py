@@ -47,10 +47,10 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 raise ParsingError(typ, tuple(errors))
 
         def __setitem(self, out: dict, key, value, errors: list[Error]):
-            key = key_type_descriptor.parse(errors, Loc(), key)
+            key = key_type_descriptor.parse(errors, self._loc + Loc.irrelevant(), key)
             if key is Unset:
                 return
-            value = value_type_descriptor.parse(errors, Loc(key), value)
+            value = value_type_descriptor.parse(errors, self._loc + Loc(key), value)
             if value is Unset:
                 return
             out[key] = value
@@ -153,7 +153,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 
         def __parse_item(self, index, value):
             errors = []
-            result = type_descriptor.parse(errors, Loc(index), value)
+            result = type_descriptor.parse(errors, self._loc + Loc(index), value)
             if result is not Unset:
                 return result
             raise ParsingError(typ, tuple(errors))
@@ -236,7 +236,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
 
         def add(self, value):
             errors = []
-            self._data.add(type_descriptor.parse(errors, Loc(), value))
+            self._data.add(type_descriptor.parse(errors, self._loc + Loc.irrelevant(), value))
             if len(errors) > 0:
                 raise ParsingError(typ, tuple(errors))
 
