@@ -1,20 +1,12 @@
 import abc
 from numbers import Number
-from types import NoneType
-from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Callable, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
 from modelity.unset import UnsetType
 
 T = TypeVar("T")
-
-
-#: A sentinel value indicating that the return value or the input arguments
-#: should be discarded by the caller.
-#:
-#: Currently used only by the :meth:`IDumpFilter.__call__` method.
-DISCARD = object()
 
 
 class IField(Protocol):
@@ -44,7 +36,7 @@ class IModel(Protocol):
     __model_fields__: Mapping[str, IField]
 
     #: List of hooks declared for this model.
-    __model_hooks__: list["IBaseHook"]
+    __model_hooks__: list["IModelHook"]
 
     def accept(self, visitor: "IModelVisitor"):
         """Accept visitor on this model.
@@ -54,207 +46,126 @@ class IModel(Protocol):
         """
 
 
-class IBaseHook(Protocol):
-    """Base class for hook protocols."""
+class IModelHook(Protocol):
+    """Protocol describing base interface for model hooks.
 
-    #: The ID number assigned for a hook.
+    Hooks are used to wrap user-defined functions and use them to inject extra
+    logic to either parsing or validation stage of data processing.
+    """
+
+    #: The sequential ID number assigned for this hook.
     #:
-    #: This is sequential number that can be used to order hooks in their
-    #: declaration order.
+    #: This is used to sort hooks by their declaration order when they are
+    #: collected from the model.
     __modelity_hook_id__: int
 
-    #: The name of a hook.
-    #:
-    #: Modelity uses this to group hooks by their functionality.
+    #: The name of this hook.
     __modelity_hook_name__: str
 
 
-class IModelHook(IBaseHook):
-    """Base class for hooks operating on entire models.
+class IModelValidationHook(IModelHook):
+    """Protocol describing interface of the model validation hooks."""
 
-    .. versionadded:: 0.16.0
+    @abc.abstractmethod
+    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
+        pass
+
+
+class IModelFieldHook(IModelHook):
+    """Subclass of :class:`IModelHook` to be used as a base for hooks that
+    operate on field level rather than entire model.
+
+    For instance, hooks of this type will be executed for selected fields only
+    when the field is set, modified or validated (depending on the hook
+    type).
     """
 
-
-class IFieldHook(IBaseHook):
-    """Base class for hooks operating on selected model fields.
-
-    .. versionadded:: 0.16.0
-    """
-
-    #: Set containing field names this hook will be applied to.
+    #: Set containing names of fields this hook will be applied to.
     #:
-    #: If this is an empty set, then the hook will be applied to all fields of
-    #: the model where it was declared.
+    #: If this set is empty, then hook will be applied for all fields.
     __modelity_hook_field_names__: set[str]
 
 
-class IModelValidationHook(IModelHook):
-    """Protocol describing interface of the model-level validation hooks.
+class IFieldPreprocessingHook(IModelFieldHook):
+    """Base class for user-defined preprocessing hooks.
 
-    Model validators are user-defined functions that run during validation
-    phase and can operate at the model level, with access to all model
-    fields no matter if those fields are set or not.
+    Preprocessing is optional and first stage of data processing, executed when
+    field in a model is either set or modified. The role of preprocessors is to
+    prepare data for further stages Preprocessors cannot access model instance
+    and other fields.
     """
 
-    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
-        """Run this model validator.
+    @abc.abstractmethod
+    def __call__(self, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        """Invoke the hook.
+
+        Returned value will be passed to the next preprocessing hook (if any)
+        or to the field's value parser. If preprocessing failed, then
+        :obj:`modelity.unset.Unset` should be returned and error should be
+        added to the *errors* list.
 
         :param cls:
-            Validated model's type.
-
-        :param self:
-            Validated model's object.
-
-        :param root:
-            Root model object.
-
-        :param ctx:
-            User-defined context object.
+            Model type this hook runs for.
 
         :param errors:
-            List of errors to be modified with errors found.
+            Mutable list of errors.
 
         :param loc:
-            The location of the *self* model.
+            The location of the field being processed.
 
-            Will be empty for root model, and non-empty if the model is nested
-            inside some other model.
+        :param value:
+            The value to be preprocessed.
         """
 
 
-class IModelPrevalidationHook(IModelValidationHook):
-    """Interface for hooks that are run just after the validation has started.
+class IFieldPostprocessingHook(IModelFieldHook):
+    """Base class for user-defined postprocessing hooks.
 
-    .. versionadded:: 0.16.0
+    Postprocessing is optional and last stage of data processing, executed
+    after successful parsing of the input data to a type field is expecting.
+    The role of postprocessors is to perform some additional field-specific
+    validation that must be executed every time the field is changed. In
+    addition, postprocessors can also be used to modify the data before it is
+    stored in the model. Postprocessors can access model instance and other
+    fields for as long as the currently postprocessed field is declared
+    **after** the field that is accessed.
     """
 
-    __modelity_hook_name__ = "model_prevalidator"
+    @abc.abstractmethod
+    def __call__(_, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        """Invoke the hook.
+
+        Returned value will either be passed to a next postprocessing hook (if
+        any) or stored as field's final value in the model. If postprocessor
+        fails then :obj:`modelity.unset.Unset` object should be returned and
+        error added to the *errors* list.
+
+        :param cls:
+            Model type this hook runs for.
+
+        :param self_:
+            Model instance.
+
+            Postprocessor can use this to access other fields, but fields
+            declared after the one being postprocessed may not have values
+            assigned yet.
+
+        :param errors:
+            Mutable list of errors.
+
+        :param loc:
+            The location of the field being postprocessed.
+
+        :param value:
+            The value from parsing stage or previous postprocessor.
+        """
 
 
-class IModelPostvalidationHook(IModelValidationHook):
-    """Interface for hooks that are run just before validation ends.
+class IFieldValidationHook(IModelFieldHook):
 
-    .. versionadded:: 0.16.0
-    """
-
-    __modelity_hook_name__ = "model_postvalidator"
-
-
-class IFieldValidationHook(IFieldHook):
-    """Interface of the field-level validation hooks.
-
-    Field validators are executed for selected fields and only if those fields
-    have values set.
-    """
-
-    __modelity_hook_name__ = "field_validator"
-
+    @abc.abstractmethod
     def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-        """Perform field validation.
-
-        :param cls:
-            Model type.
-
-        :param self:
-            The model that owns validated field.
-
-        :param root:
-            The root model.
-
-        :param ctx:
-            User-defined context object.
-
-        :param errors:
-            List of errors to be modified when errors are found.
-
-        :param loc:
-            Field's location in the model.
-
-        :param value:
-            Field's value.
-        """
-
-
-class IFieldPreprocessingHook(IFieldHook):
-    """Protocol specifying interface of the field-level preprocessing hooks.
-
-    Preprocessing is performed separately for each field that is set or
-    modified and always before type parsing stage. The role of preprocessing
-    hooks is to filter input data before it gets passed to the parsing stage.
-    Preprocessors cannot access model object or other fields.
-    """
-
-    __modelity_hook_name__ = "field_preprocessor"
-
-    def __call__(_, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        """Call field's preprocessing hook.
-
-        :param cls:
-            Model's type.
-
-        :param errors:
-            List of errors.
-
-            Can be modified by the hook if the hook fails.
-
-        :param loc:
-            The location of the currently processed field.
-
-        :param value:
-            The processed value of any type.
-        """
-
-
-class IFieldPostprocessingHook(IFieldHook):
-    """Protocol specifying interface of the field-level postprocessing hooks.
-
-    Postprocessing stage is executed after successful preprocessing and type
-    parsing stages. First postprocessor in a chain is guaranteed to receive the
-    value of a correct type, so no double checks are needed. If more
-    postprocessors are defined, then N-th postprocessor receives value returned
-    by (N-1)-th postprocessor. Unlike preprocessors, postprocessors can access
-    model instance and other fields but unlike for field validators the model
-    may not be fully initialized yet and this must be taken into account when
-    using this feature.
-
-    .. note::
-        Modelity guarantees that the fields are constructed in same order as
-        the declaration goes in the model class.
-
-    .. important::
-        There are no more checks after postprocessing stage, so theoretically
-        postprocessor are able to change value type to something other than
-        declared in the model. It is important to always return a value from
-        postprocessor and it is highly recommended to not change its type, as
-        it may break some of the built-in functionalities that depend on field
-        type.
-    """
-
-    __modelity_hook_name__ = "field_postprocessor"
-
-    def __call__(
-        _, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
-    ) -> Union[Any, UnsetType]:
-        """Call field's postprocessing hook.
-
-        :param cls:
-            Model's type this hook was declared in.
-
-        :param self:
-            Model's instance this hook runs for.
-
-        :param errors:
-            List of errors.
-
-            Can be modified by the hook.
-
-        :param loc:
-            The location of the currently processed field.
-
-        :param value:
-            The value to process.
-        """
+        pass
 
 
 class IConstraint(Protocol):
@@ -283,6 +194,35 @@ class IConstraint(Protocol):
 
         :param value:
             The value to be verified with this constraint.
+        """
+
+
+class ISupportsValidate(abc.ABC, Generic[T]):
+    """Interface to be implemented by type descriptors that need to provide
+    some extra type-specific validation logic.
+
+    As an example, let's think of type constraint handling. Constraints can be
+    checked and verified during model construction, but since the model is
+    mutable and can be modified later the constraints may need double checking
+    at validation stage.
+
+    .. versionadded:: 0.17.0
+    """
+
+    @abc.abstractmethod
+    def validate(self, errors: list[Error], loc: Loc, value: T):
+        """Validate value of type *T*.
+
+        :param errors:
+            Mutable list of errors.
+
+        :param loc:
+            The location of the *value* inside the model.
+
+        :param value:
+            The value to validate.
+
+            It is guaranteed to be an instance of type *T*.
         """
 
 
@@ -315,29 +255,6 @@ class ITypeDescriptor(abc.ABC, Generic[T]):
 
         :param value:
             The value to parse.
-        """
-
-    @abc.abstractmethod
-    def validate(self, errors: list[Error], loc: Loc, value: T):
-        """Validate value of type *T*.
-
-        This method should be used for types that have to be additionally
-        verified when model is validated. For example, if model's field is
-        mutable and has constraints provided, those constraints will have to be
-        rerun during model validation. If particular type does not need that
-        kind of additional verification, then implementation of this method
-        should be empty.
-
-        :param errors:
-            Mutable list of errors.
-
-        :param loc:
-            The location of the *value* inside the model.
-
-        :param value:
-            The value to validate.
-
-            It is guaranteed to be an instance of type *T*.
         """
 
     @abc.abstractmethod
@@ -522,7 +439,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_none(self, loc: Loc, value: NoneType):
+    def visit_none(self, loc: Loc, value: None):
         """Visit a ``None`` value.
 
         :param loc:

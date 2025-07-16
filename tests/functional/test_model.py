@@ -61,7 +61,7 @@ class CustomType:
                 visitor.visit_any(loc, value.value)
 
             def validate(self, errors: list[Error], loc: Loc, value: CustomType):
-                return super().validate(errors, loc, value)
+                return
 
         return CustomTypeDescriptor()
 

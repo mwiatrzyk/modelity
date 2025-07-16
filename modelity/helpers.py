@@ -51,7 +51,7 @@ def dump(
     return output
 
 
-def validate(model: IModel, ctx: Any=None):
+def validate(model: IModel, ctx: Any = None):
     errors = []
     visitor = DefaultValidateVisitor(model, errors, ctx)
     model.accept(visitor)

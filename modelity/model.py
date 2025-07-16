@@ -1,68 +1,37 @@
 import copy
 import dataclasses
 import functools
-import inspect
-from typing import Any, Callable, Optional, Union, TypeVar, cast, get_args, get_origin
+from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
 from modelity import _utils
-from modelity.error import Error, ErrorFactory
+from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
-    IBaseHook,
-    IFieldPreprocessingHook,
     IFieldPostprocessingHook,
-    IFieldValidationHook,
+    IFieldPreprocessingHook,
     IModel,
-    IModelPostvalidationHook,
-    IModelPrevalidationHook,
-    IModelValidationHook,
+    IModelHook,
     IModelVisitor,
     ITypeDescriptor,
 )
 from modelity.loc import Loc
 
 from modelity.unset import Unset, UnsetType
-from modelity.decorators import _get_field_preprocessing_hooks, _get_field_postprocessing_hooks
+from modelity.decorators import (
+    #FieldPostprocessingHook,
+    #FieldPreprocessingHook,
+    field_preprocessor,
+    field_postprocessor,
+    _is_model_hook,
+    _get_field_preprocessors,
+    _get_field_postprocessors,
+    model_prevalidator,
+    model_postvalidator,
+    field_validator,
+)
 
 T = TypeVar("T")
-
-
-def _make_model_validation_hook(func: Callable, hook_name: str) -> IModelValidationHook:
-
-    @functools.wraps(func)
-    def proxy(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
-        kw: dict[str, Any] = {}
-        if "cls" in given_params:
-            kw["cls"] = cls
-        if "self" in given_params:
-            kw["self"] = self
-        if "root" in given_params:
-            kw["root"] = root
-        if "ctx" in given_params:
-            kw["ctx"] = ctx
-        if "errors" in given_params:
-            kw["errors"] = errors
-        if "loc" in given_params:
-            kw["loc"] = loc
-        try:
-            func(**kw)
-        except ValueError as e:
-            errors.append(ErrorFactory.exception(loc, str(e), type(e)))
-
-    sig = inspect.signature(func)
-    given_params = tuple(sig.parameters)
-    supported_params = ("cls", "self", "root", "ctx", "errors", "loc")
-    if not _utils.is_subsequence(given_params, supported_params):
-        raise TypeError(
-            f"function {func.__name__!r} has incorrect signature: "
-            f"{_utils.format_signature(given_params)} is not a subsequence of "
-            f"{_utils.format_signature(supported_params)}"
-        )
-    hook = cast(IModelValidationHook, proxy)
-    hook.__modelity_hook_id__ = _utils.next_unique_id()
-    hook.__modelity_hook_name__ = hook_name
-    return hook
 
 
 def type_descriptor_factory(typ: Any):
@@ -86,235 +55,6 @@ def type_descriptor_factory(typ: Any):
 
     def decorator(func):
         return registry.register_type_descriptor_factory(typ, func)
-
-    return decorator
-
-
-def field_preprocessor(*field_names: str):
-    """Decorate model's method as a field preprocessing hook.
-
-    Field preprocessors allow to execute user-defined filtering (like white
-    character stripping) before value is passed further to the type parser.
-
-    Check :class:`modelity.interface.IFieldParsingHook` protocol for more
-    details.
-
-    Here's an example use:
-
-    .. testcode::
-
-        from modelity.model import Model, field_preprocessor
-
-        class FieldPreprocessorExample(Model):
-            foo: str
-
-            @field_preprocessor("foo")
-            def _strip_white_characters(value):
-                if isinstance(value, str):
-                    return value.strip()
-                return value
-
-    :param `*field_names`:
-        List of field names this preprocessor will be called for.
-
-        If not set, then it will be called for every field.
-    """
-
-    def decorator(func: Callable):
-
-        @functools.wraps(func)
-        def proxy(cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-            kw: dict[str, Any] = {}
-            if "cls" in given_params:
-                kw["cls"] = cls
-            if "errors" in given_params:
-                kw["errors"] = errors
-            if "loc" in given_params:
-                kw["loc"] = loc
-            if "value" in given_params:
-                kw["value"] = value
-            try:
-                return func(**kw)
-            except TypeError as e:
-                errors.append(ErrorFactory.exception(loc, str(e), type(e)))
-                return Unset
-
-        sig = inspect.signature(func)
-        given_params = tuple(sig.parameters)
-        supported_params = ("cls", "errors", "loc", "value")
-        if not _utils.is_subsequence(given_params, supported_params):
-            raise TypeError(
-                f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
-            )
-        hook = cast(IFieldPreprocessingHook, proxy)
-        hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = IFieldPreprocessingHook.__modelity_hook_name__
-        hook.__modelity_hook_field_names__ = set(field_names)
-        return hook
-
-    return decorator
-
-
-def field_postprocessor(*field_names: str):
-    """Decorate model's method as field postprocessing hook.
-
-    Field postprocessors are executed just after value parsing and only if the
-    parsing was successful. Postprocessing is the last step of value processing
-    and can be used to perform additional user-defined and field-specific
-    validation. Value returned by postprocessor is used as input value for
-    another postprocessor if there are many postprocessors defined for a single
-    field. Value returned by last postprocessor becomes final field's value.
-
-    Check :class:`modelity.interface.IFieldParsingHook` protocol for the list
-    of supported arguments and their meaning.
-
-    Here's an example use:
-
-    .. testcode::
-
-        from modelity.model import Model, field_postprocessor
-
-        class FieldPostprocessorExample(Model):
-            foo: str
-
-            @field_postprocessor("foo")
-            def _strip_white_characters(value):
-                return value.strip()  # The 'value' is guaranteed to be str when this gets called
-
-    :param `*field_names`:
-        List of field names this postprocessor will be called for.
-
-        If not set, then it will be called for every field.
-    """
-
-    def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-            kw: dict[str, Any] = {}
-            if "cls" in given_params:
-                kw["cls"] = cls
-            if "self" in given_params:
-                kw["self"] = self
-            if "errors" in given_params:
-                kw["errors"] = errors
-            if "loc" in given_params:
-                kw["loc"] = loc
-            if "value" in given_params:
-                kw["value"] = value
-            try:
-                return func(**kw)
-            except TypeError as e:
-                errors.append(ErrorFactory.exception(loc, str(e), type(e)))
-                return Unset
-
-        sig = inspect.signature(func)
-        given_params = tuple(sig.parameters)
-        supported_params = ("cls", "self", "errors", "loc", "value")
-        if not _utils.is_subsequence(given_params, supported_params):
-            raise TypeError(
-                f"field processor {func.__name__!r} has incorrect signature: {_utils.format_signature(given_params)} is not a subsequence of {_utils.format_signature(supported_params)}"
-            )
-        hook = cast(IFieldPostprocessingHook, proxy)
-        hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = IFieldPostprocessingHook.__modelity_hook_name__
-        hook.__modelity_hook_field_names__ = set(field_names)
-        return hook
-
-    return decorator
-
-
-def model_prevalidator():
-    """Decorate model's method as a model prevalidator.
-
-    Prevalidators run before any other validators (including built-in ones),
-    during the initial stage of model validation.
-
-    Check :class:`modelity.interface.IModelValidationHook` protocol for the
-    list of supported arguments that can be used by the decorated method.
-    """
-
-    def decorator(func) -> IModelPrevalidationHook:
-        return cast(
-            IModelPrevalidationHook, _make_model_validation_hook(func, IModelPrevalidationHook.__modelity_hook_name__)
-        )
-
-    return decorator
-
-
-def model_postvalidator():
-    """Decorate model's method as a model postvalidator.
-
-    Postvalidators run after all other validators, during the final stage of
-    model validation.
-
-    Check :class:`modelity.interface.IModelValidationHook` protocol for the
-    list of supported arguments that can be used by the decorated method.
-    """
-
-    def decorator(func) -> IModelPostvalidationHook:
-        return cast(
-            IModelPostvalidationHook, _make_model_validation_hook(func, IModelPostvalidationHook.__modelity_hook_name__)
-        )
-
-    return decorator
-
-
-def field_validator(*field_names: str):
-    """Decorate model's method as a field validator.
-
-    Unlike model pre- and postvalidators, operating in the model scope, field
-    validators are only executed if the field has value assigned. And since the
-    value must pass parsing step, field validators can safely assume that the
-    value already has correct type.
-
-    Check :class:`modelity.interface.IFieldValidationHook` protocol for the
-    list of supported method arguments and their meaning.
-
-    :param `*field_names`:
-        Names of fields to run this validator for.
-
-        Leave empty to run for all fields defined in the current model.
-    """
-
-    def decorator(func) -> IFieldValidationHook:
-
-        @functools.wraps(func)
-        def proxy(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-            kw: dict[str, Any] = {}
-            if "cls" in given_params:
-                kw["cls"] = cls
-            if "self" in given_params:
-                kw["self"] = self
-            if "root" in given_params:
-                kw["root"] = root
-            if "ctx" in given_params:
-                kw["ctx"] = ctx
-            if "errors" in given_params:
-                kw["errors"] = errors
-            if "loc" in given_params:
-                kw["loc"] = loc
-            if "value" in given_params:
-                kw["value"] = value
-            try:
-                func(**kw)
-            except ValueError as e:
-                errors.append(ErrorFactory.exception(loc, str(e), type(e)))
-
-        sig = inspect.signature(func)
-        supported_params = ("cls", "self", "root", "ctx", "errors", "loc", "value")
-        given_params = tuple(sig.parameters)
-        if not _utils.is_subsequence(given_params, supported_params):
-            raise TypeError(
-                f"function {func.__name__!r} has incorrect signature: "
-                f"{_utils.format_signature(given_params)} is not a subsequence of "
-                f"{_utils.format_signature(supported_params)}"
-            )
-        hook = cast(IFieldValidationHook, proxy)
-        hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = "field_validator"
-        hook.__modelity_hook_field_names__ = set(field_names)
-        return hook
 
     return decorator
 
@@ -430,22 +170,18 @@ class ModelMeta(type):
     #:
     #: The name of a field is used as a key, while :class:`BoundField` class
     #: instance is used as a value.
-    __model_fields__: dict[str, BoundField]
+    __model_fields__: Mapping[str, BoundField]
 
     #: List of user-defined hooks.
     #:
     #: Hooks are registered using decorators defined in the
     #: :mod:`modelity.model` module. A hook registered in base class is also
     #: inherited by child class.
-    __model_hooks__: list[IBaseHook]
+    __model_hooks__: Sequence[IModelHook]
 
     def __new__(tp, name: str, bases: tuple, attrs: dict):
-
-        def sort_hooks(target_list: list[IBaseHook]):
-            target_list.sort(key=lambda x: x.__modelity_hook_id__)
-
         attrs["__model_fields__"] = fields = {}  # type: ignore
-        attrs["__model_hooks__"] = hooks = []  # type: ignore
+        attrs["__model_hooks__"] = hooks = list[IModelHook]()
         for base in bases:
             fields.update(getattr(base, "__model_fields__", {}))
             hooks.extend(getattr(base, "__model_hooks__", []))
@@ -460,11 +196,10 @@ class ModelMeta(type):
             fields[field_name] = bound_field
         for key in dict(attrs):
             attr_value = attrs[key]
-            hook_name = getattr(attr_value, "__modelity_hook_name__", None)
-            if hook_name is not None and callable(attr_value):
+            if _is_model_hook(attr_value):
                 hooks.append(attr_value)
                 del attrs[key]
-        sort_hooks(hooks)
+        hooks.sort(key=lambda x: x.__modelity_hook_id__)
         attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", [])) + ("__loc__",)
         return super().__new__(tp, name, bases, attrs)
 
@@ -537,7 +272,7 @@ class Model(metaclass=ModelMeta):
     def __init__(self, **kwargs) -> None:
         self.__loc__ = Loc()
         errors: list[Error] = []
-        fields = self.__class__.__model_fields__
+        fields = self.__model_fields__
         for name, field in fields.items():
             value = kwargs.pop(name, Unset)
             if value is Unset:
@@ -550,7 +285,7 @@ class Model(metaclass=ModelMeta):
             raise ParsingError(self.__class__, tuple(errors))
 
     def __repr__(self):
-        kv = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__model_fields__)
+        kv = (f"{k}={getattr(self, k)!r}" for k in self.__model_fields__)
         return f"{self.__class__.__qualname__}({', '.join(kv)})"
 
     def __eq__(self, value):
@@ -582,7 +317,7 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def __apply_field_preprocessors(cls, errors, loc, value):
-        for hook in _get_field_preprocessing_hooks(cls, loc[-1]):
+        for hook in _get_field_preprocessors(cls, loc[-1]):
             value = hook(cls, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
@@ -590,14 +325,14 @@ class Model(metaclass=ModelMeta):
 
     def __apply_field_postprocessors(self, errors, loc, value):
         cls = self.__class__
-        for hook in _get_field_postprocessing_hooks(cls, loc[-1]):
+        for hook in _get_field_postprocessors(cls, loc[-1]):
             value = hook(cls, self, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
         return value
 
     def __setattr__(self, name: str, value: Any) -> None:
-        field = self.__class__.__model_fields__.get(name)
+        field = self.__model_fields__.get(name)
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
@@ -733,6 +468,7 @@ def validate(model: Model, ctx: Any = None):
         Check :meth:`Model.validate` for more information.
     """
     from . import helpers
+
     return helpers.validate(model, ctx)
 
 

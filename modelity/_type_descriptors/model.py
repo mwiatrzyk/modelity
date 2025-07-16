@@ -35,7 +35,4 @@ def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
         def accept(self, visitor: IModelVisitor, loc: Loc, value: IModel):
             value.accept(visitor)
 
-        def validate(self, errors: list[Error], loc: Loc, value: IModel):
-            return super().validate(errors, loc, value)
-
     return ModelTypeDescriptor()

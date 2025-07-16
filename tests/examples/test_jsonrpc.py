@@ -25,7 +25,7 @@ ID = Union[str, int]
 class Notification(Model):
     jsonrpc: JSONRPC
     method: str
-    params: StrictOptional[StructuredType] = Unset
+    params: StrictOptional[StructuredType]
 
 
 class Request(Notification):
@@ -35,13 +35,13 @@ class Request(Notification):
 class Error(Model):
     code: int
     message: str
-    data: StrictOptional[AnyType] = Unset
+    data: StrictOptional[AnyType]
 
 
 class Response(Model):
     jsonrpc: JSONRPC
-    result: StrictOptional[AnyType] = Unset
-    error: StrictOptional[Error] = Unset
+    result: StrictOptional[AnyType]
+    error: StrictOptional[Error]
     id: ID
 
     @model_postvalidator()

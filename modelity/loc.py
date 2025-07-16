@@ -1,4 +1,4 @@
-from typing import Any, Sequence, Union, cast
+from typing import Any, Sequence, cast
 
 
 class Loc(Sequence):

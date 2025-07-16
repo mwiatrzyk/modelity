@@ -2,7 +2,7 @@ from typing import cast, Annotated, Any, Iterator, Union, get_args
 
 from modelity._registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IConstraint, IModelVisitor, ITypeDescriptor
+from modelity.interface import IConstraint, IModelVisitor, ISupportsValidate, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -12,7 +12,7 @@ registry = TypeDescriptorFactoryRegistry()
 @registry.type_descriptor_factory(Annotated)
 def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
 
-    class AnnotatedTypeDescriptor(ITypeDescriptor[Any]):
+    class AnnotatedTypeDescriptor(ITypeDescriptor[Any], ISupportsValidate[Any]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = type_descriptor.parse(errors, loc, value)
             if result is Unset:
@@ -50,9 +50,6 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 return visitor.visit_none(loc, value)
             type_descriptor.accept(visitor, loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return super().validate(errors, loc, value)
-
     class UnionTypeDescriptor(ITypeDescriptor[Any]):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             for t in types:
@@ -70,9 +67,6 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
             for typ, descriptor in zip(types, type_descriptors):
                 if isinstance(value, typ):
                     return descriptor.accept(visitor, loc, value)
-
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return super().validate(errors, loc, value)
 
     types = get_args(typ)
     if len(types) == 2 and types[-1] is type(None):

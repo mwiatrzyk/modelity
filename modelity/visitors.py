@@ -1,16 +1,36 @@
+"""Built-in implementations of the :class:`modelity.interface.IModelVisitor`
+interface.
+
+.. versionadded:: 0.17.0
+"""
+
 import collections
 from numbers import Number
 from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModel, IModelVisitor
+from modelity.interface import IModel, IModelVisitor, ISupportsValidate
 from modelity.loc import Loc
 from modelity.model import BoundField, Model
-from modelity.unset import Unset, UnsetType
-from modelity.decorators import _get_model_prevalidation_hooks, _get_model_postvalidation_hooks, _get_field_validation_hooks
+from modelity.unset import UnsetType
+from modelity.decorators import (
+    #FieldValidationHook,
+    #ModelPostvalidationHook,
+    #ModelPrevalidationHook,
+    #list_field_hooks,
+    #list_model_hooks,
+    _get_model_prevalidators,
+    _get_model_postvalidators,
+    _get_field_validators,
+)
 
 
 class DefaultDumpVisitor(IModelVisitor):
+    """Default visitor for dumping models into dicts.
+
+    :param out:
+        The output dict to populate with data.
+    """
 
     def __init__(self, out: dict):
         self._out = out
@@ -75,8 +95,24 @@ class DefaultDumpVisitor(IModelVisitor):
 
 
 class DefaultValidateVisitor(IModelVisitor):
+    """Default visitor for model validation.
 
-    def __init__(self, root: IModel, errors: list[Error], ctx: Any=None):
+    :param root:
+        The root model.
+
+    :param errors:
+        The list of errors.
+
+        Will be populated with validation errors (if any).
+
+    :param ctx:
+        User-defined validation context.
+
+        It is shared across all validation hooks and can be used as a source of
+        external user-specific data needed for validation.
+    """
+
+    def __init__(self, root: IModel, errors: list[Error], ctx: Any = None):
         self._root = root
         self._errors = errors
         self._ctx = ctx
@@ -85,12 +121,12 @@ class DefaultValidateVisitor(IModelVisitor):
     def visit_model_begin(self, loc: Loc, value: IModel):
         self._stack.append(value)
         model_cls = value.__class__
-        for model_prevalidator in _get_model_prevalidation_hooks(model_cls):
+        for model_prevalidator in _get_model_prevalidators(model_cls):
             model_prevalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
 
     def visit_model_end(self, loc: Loc, value: IModel):
         model_cls = value.__class__
-        for model_postvalidator in _get_model_postvalidation_hooks(model_cls):
+        for model_postvalidator in _get_model_postvalidators(model_cls):
             model_postvalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
         self._stack.pop()
 
@@ -150,12 +186,21 @@ class DefaultValidateVisitor(IModelVisitor):
             model = cast(IModel, self._stack[-2])
             field = cast(BoundField, top)
         model_cls = model.__class__
-        for field_validator in _get_field_validation_hooks(model_cls, field.name):
+        for field_validator in _get_field_validators(model_cls, field.name):
             field_validator(model_cls, model, self._root, self._ctx, self._errors, loc, value)  # type: ignore
-        field.descriptor.validate(self._errors, loc, value)
+        if isinstance(field.descriptor, ISupportsValidate):
+            field.descriptor.validate(self._errors, loc, value)
 
 
 class ConstantExcludingModelVisitorProxy:
+    """Visitor proxy that skips values that are equal to constant provided.
+
+    :param target:
+        The wrapped model visitor.
+
+    :param constant:
+        The constant to exclude.
+    """
 
     def __init__(self, target: IModelVisitor, constant: Any):
         self._target = target
@@ -172,6 +217,18 @@ class ConstantExcludingModelVisitorProxy:
 
 
 class ConditionalExcludingModelVisitorProxy:
+    """Visitor proxy that skips values if provided exclude function returns
+    ``True``.
+
+    :param target:
+        The wrapped model visitor.
+
+    :param exclude_if:
+        The exclusion function.
+
+        Takes ``(loc, value)`` as arguments and must return ``True`` to exclude
+        object or ``False`` otherwise.
+    """
 
     def __init__(self, target: IModelVisitor, exclude_if: Callable[[Loc, Any], bool]):
         self._target = target

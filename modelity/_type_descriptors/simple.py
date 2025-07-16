@@ -47,9 +47,6 @@ def make_unset_type_descriptor():
         def accept(self, visitor: IModelVisitor, loc: Loc, value: UnsetType):
             visitor.visit_unset(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: UnsetType):
-            return super().validate(errors, loc, value)
-
     return UnsetTypeDescriptor()
 
 
@@ -62,9 +59,6 @@ def make_any_type_descriptor():
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             visitor.visit_any(loc, value)
-
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return super().validate(errors, loc, value)
 
     return AnyTypeDescriptor()
 
@@ -87,9 +81,6 @@ def make_bool_type_descriptor(type_opts: dict):
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: bool):
             visitor.visit_bool(loc, value)
-
-        def validate(self, errors: list[Error], loc: Loc, value: bool):
-            return super().validate(errors, loc, value)
 
     true_literals = set(type_opts.get("true_literals") or [])
     false_literals = set(type_opts.get("false_literals") or [])
@@ -116,9 +107,6 @@ def make_datetime_type_descriptor(type_opts: dict):
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: datetime):
             visitor.visit_string(loc, value.strftime(compiled_output_format))
-
-        def validate(self, errors: list[Error], loc: Loc, value: datetime):
-            return super().validate(errors, loc, value)
 
     def compile_format(fmt: str) -> str:
         return (
@@ -160,9 +148,6 @@ def make_date_type_descriptor(type_opts: dict):
         def accept(self, visitor: IModelVisitor, loc: Loc, value: date):
             visitor.visit_string(loc, value.strftime(compiled_output_format))
 
-        def validate(self, errors: list[Error], loc: Loc, value: date):
-            return super().validate(errors, loc, value)
-
     def compile_format(fmt: str) -> str:
         return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
@@ -187,9 +172,6 @@ def make_enum_type_descriptor(typ: type[Enum]):
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Enum):
             visitor.visit_any(loc, value.value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: Enum):
-            return super().validate(errors, loc, value)
-
     allowed_values = tuple(typ)
     return EnumTypeDescriptor()
 
@@ -206,9 +188,6 @@ def make_literal_type_descriptor(typ):
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             visitor.visit_any(loc, value)
-
-        def validate(self, errors: list[Error], loc: Loc, value: Any):
-            return super().validate(errors, loc, value)
 
     allowed_values = get_args(typ)
     return LiteralTypeDescriptor()
@@ -228,9 +207,6 @@ def make_none_type_descriptor():
         def accept(self, visitor: IModelVisitor, loc: Loc, value: None):
             visitor.visit_none(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: None):
-            return super().validate(errors, loc, value)
-
     return NoneTypeDescriptor()
 
 
@@ -247,9 +223,6 @@ def make_int_type_descriptor():
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: int):
             visitor.visit_number(loc, cast(Number, value))
-
-        def validate(self, errors: list[Error], loc: Loc, value: int):
-            return super().validate(errors, loc, value)
 
     return IntTypeDescriptor()
 
@@ -268,9 +241,6 @@ def make_float_type_descriptor():
         def accept(self, visitor: IModelVisitor, loc: Loc, value: float):
             visitor.visit_number(loc, cast(Number, value))
 
-        def validate(self, errors: list[Error], loc: Loc, value: float):
-            return super().validate(errors, loc, value)
-
     return FloatTypeDescriptor()
 
 
@@ -287,9 +257,6 @@ def make_str_type_descriptor():
         def accept(self, visitor: IModelVisitor, loc: Loc, value: str):
             visitor.visit_string(loc, value)
 
-        def validate(self, errors: list[Error], loc: Loc, value: str):
-            return super().validate(errors, loc, value)
-
     return StrTypeDescriptor()
 
 
@@ -305,9 +272,6 @@ def make_bytes_type_descriptor():
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: bytes):
             visitor.visit_string(loc, value.decode())  # TODO: Add support for other formats
-
-        def validate(self, errors: list[Error], loc: Loc, value: bytes):
-            return super().validate(errors, loc, value)
 
     return BytesTypeDescriptor()
 
@@ -328,9 +292,6 @@ def make_ipv4_address_type_descriptor():
         def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv4Address):
             visitor.visit_string(loc, str(value))
 
-        def validate(self, errors: list[Error], loc: Loc, value: ipaddress.IPv4Address):
-            return super().validate(errors, loc, value)
-
     return IPv4TypeDescriptor()
 
 
@@ -349,8 +310,5 @@ def make_ipv6_address_type_descriptor():
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv6Address):
             visitor.visit_string(loc, str(value))
-
-        def validate(self, errors: list[Error], loc: Loc, value: ipaddress.IPv6Address):
-            return super().validate(errors, loc, value)
 
     return IPv6TypeDescriptor()
