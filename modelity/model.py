@@ -1,7 +1,7 @@
 import copy
 import dataclasses
 import functools
-from typing import Any, Callable, Mapping, MutableMapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
+from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
 from modelity._internal import utils as _utils, hooks as _int_hooks
@@ -69,7 +69,7 @@ class FieldInfo:
 
 
 @dataclasses.dataclass
-class BoundField:
+class Field:
     """Field created from annotation."""
 
     #: Field's name.
@@ -139,21 +139,23 @@ class ModelMeta(type):
     :class:`Model` class instances.
     """
 
-    #: Dict containing all fields declared for a model.
+    #: Mapping containing all fields declared for a model.
     #:
-    #: The name of a field is used as a key, while :class:`BoundField` class
-    #: instance is used as a value.
-    __model_fields__: Mapping[str, BoundField]
+    #: The name of a field is used as a key, while :class:`Field` class
+    #: instance is used as a value. The order reflects order of annotations in
+    #: the created model class.
+    __model_fields__: Mapping[str, Field]
 
-    #: List of user-defined hooks.
+    #: Sequence of user-defined hooks.
     #:
     #: Hooks are registered using decorators defined in the
-    #: :mod:`modelity.model` module. A hook registered in base class is also
-    #: inherited by child class.
+    #: :mod:`modelity.hooks` module. A hook registered in a base class is also
+    #: inherited by a child class. The order of this sequence reflects hook
+    #: declaration order.
     __model_hooks__: Sequence[IModelHook]
 
     def __new__(tp, name: str, bases: tuple, attrs: dict):
-        attrs["__model_fields__"] = fields = {}  # type: ignore
+        attrs["__model_fields__"] = fields = dict[str, Field]()
         attrs["__model_hooks__"] = hooks = list[IModelHook]()
         for base in bases:
             fields.update(getattr(base, "__model_fields__", {}))
@@ -165,7 +167,7 @@ class ModelMeta(type):
             field_info = attrs.pop(field_name, Unset)
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
-            bound_field = BoundField(
+            bound_field = Field(
                 field_name, annotation, _make_type_descriptor(annotation, field_info.type_opts), field_info
             )
             fields[field_name] = bound_field
@@ -244,8 +246,10 @@ class Model(metaclass=ModelMeta):
     Check :ref:`quickstart` or :ref:`guide` for more examples.
     """
 
+    #: A per-instance view of :attr:`ModelMeta.__model_fields__` attribute.
     __model_fields__: Mapping[str, IField]
 
+    #: A per-instance view of :attr:`ModelMeta.__model_hooks__` attribute
     __model_hooks__: Sequence[IModelHook]
 
     def __init__(self, **kwargs) -> None:

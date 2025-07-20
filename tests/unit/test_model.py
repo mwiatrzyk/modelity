@@ -4,12 +4,12 @@ import pytest
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
-from modelity.model import BoundField, FieldInfo, Model, has_fields_set, _make_type_descriptor
+from modelity.model import Field, FieldInfo, Model, has_fields_set, _make_type_descriptor
 from modelity.types import StrictOptional
 from modelity.unset import Unset
 
 
-class TestBoundField:
+class TestField:
 
     @pytest.fixture
     def name(self):
@@ -29,7 +29,7 @@ class TestBoundField:
 
     @pytest.fixture
     def uut(self, name, type, field_info):
-        return BoundField(name, type, _make_type_descriptor(type), field_info)
+        return Field(name, type, _make_type_descriptor(type), field_info)
 
     class TestOptional:
 
@@ -41,7 +41,7 @@ class TestBoundField:
                 (StrictOptional[int], True),
             ],
         )
-        def test_check_if_field_is_optional(self, uut: BoundField, expected_status):
+        def test_check_if_field_is_optional(self, uut: Field, expected_status):
             assert uut.optional == expected_status
 
         @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ class TestBoundField:
                 (FieldInfo(default_factory=lambda: 123), True),
             ],
         )
-        def test_field_is_optional_if_default_value_is_assigned(self, uut: BoundField, expected_status):
+        def test_field_is_optional_if_default_value_is_assigned(self, uut: Field, expected_status):
             assert uut.optional == expected_status
 
     class TestComputeDefault:
@@ -68,7 +68,7 @@ class TestBoundField:
                 (FieldInfo(123, lambda: 456), 123),
             ],
         )
-        def test_compute_default(self, uut: BoundField, expected_default):
+        def test_compute_default(self, uut: Field, expected_default):
             assert uut.compute_default() == expected_default
 
         @pytest.mark.parametrize(
@@ -80,7 +80,7 @@ class TestBoundField:
                 bytearray(),
             ],
         )
-        def test_mutable_defaults_are_deep_copied(self, uut: BoundField, default):
+        def test_mutable_defaults_are_deep_copied(self, uut: Field, default):
             assert uut.compute_default() is not default
 
 

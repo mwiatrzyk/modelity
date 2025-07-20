@@ -12,7 +12,7 @@ from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IField, IModel, IModelVisitor, ISupportsValidate
 from modelity.loc import Loc
-from modelity.model import BoundField, Model
+from modelity.model import Field, Model
 from modelity.unset import UnsetType
 
 
@@ -183,11 +183,11 @@ class DefaultValidateVisitor(IModelVisitor):
     def _pop_field(self):
         self._stack.pop()
 
-    def _get_current_model_and_field(self, loc: Loc) -> tuple[IModel, BoundField]:
+    def _get_current_model_and_field(self, loc: Loc) -> tuple[IModel, Field]:
         top = self._stack[-1]
         if isinstance(top, Model):
             return cast(IModel, top), top.__class__.__model_fields__[loc.last]
-        return cast(IModel, self._stack[-2]), cast(BoundField, top)
+        return cast(IModel, self._stack[-2]), cast(Field, top)
 
     def _validate_field(self, loc: Loc, value: Any):
         model, field = self._get_current_model_and_field(loc)
