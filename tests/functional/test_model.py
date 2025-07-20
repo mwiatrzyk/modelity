@@ -15,7 +15,6 @@ from modelity.loc import Loc
 from modelity.model import (
     FieldInfo,
     Model,
-    dump,
     field_postprocessor,
     field_preprocessor,
     field_validator,
@@ -24,6 +23,7 @@ from modelity.model import (
     validate,
 )
 from modelity.unset import Unset
+from modelity.helpers import dump
 
 
 class EDummy(Enum):

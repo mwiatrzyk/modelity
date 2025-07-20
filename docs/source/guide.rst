@@ -423,11 +423,11 @@ Or with mappings that will be parsed into instances of that model:
     Address(address_line1=Unset, address_line2=Unset, city='Springfield', state_province=Unset, postal_code=Unset, country_code=Unset)
 
 Such nested models are automatically serialized when
-:func:`modelity.model.dump` is used:
+:func:`modelity.helpers.dump` helper is used:
 
 .. doctest::
 
-    >>> from modelity.model import dump
+    >>> from modelity.helpers import dump
     >>> dump(john, exclude_unset=True)
     {'name': 'John', 'surname': 'Doe', 'home_address': {'address_line1': '123 Maple Street', 'city': 'Springfield', 'state_province': 'IL', 'postal_code': '62704', 'country_code': 'US'}}
     >>> dump(company, exclude_unset=True)
@@ -1110,7 +1110,7 @@ new type, then following will also work fine with a new type:
 
 .. doctest::
 
-    >>> from modelity.model import dump, validate
+    >>> from modelity.helpers import dump, validate
     >>> dump(model)
     {'foo': [1.0, 2.0]}
     >>> validate(model)
@@ -1286,7 +1286,7 @@ Now let's serialize the model to see that the output format was also used:
 
 .. doctest::
 
-    >>> from modelity.model import dump
+    >>> from modelity.helpers import dump
     >>> dump(entry)
     {'created': '12-31-2024 11:22:33'}
 
@@ -1337,6 +1337,6 @@ also taken into account:
 
 .. doctest::
 
-    >>> from modelity.model import dump
+    >>> from modelity.helpers import dump
     >>> dump(entry)
     {'created': '12-31-2024'}

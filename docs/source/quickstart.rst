@@ -317,7 +317,7 @@ And so are the full models created earlier:
 Parsing data from an untrusted source
 -------------------------------------
 
-Modelity provides :func:`modelity.model.load` helper especially designed for
+Modelity provides :func:`modelity.helpers.load` helper especially designed for
 loading data from an untrusted source, like JSON file or JSON object received
 from API call. The helper automatically performs both stages and there are 3
 possible outcomes depicted in subsections below.
@@ -329,7 +329,7 @@ When parsing was successful, then valid model instance is returned:
 
 .. doctest::
 
-    >>> from modelity.model import load
+    >>> from modelity.helpers import load
     >>> untrusted_valid_data = {
     ...     "name": "Jack",
     ...     "surname": "Black",
@@ -350,7 +350,7 @@ incorrect or impossible to parse types:
 
 .. doctest::
 
-    >>> from modelity.model import load
+    >>> from modelity.helpers import load
     >>> untrusted_valid_data = {
     ...     "name": True,
     ...     "surname": "Black",
@@ -378,7 +378,7 @@ fail:
 
 .. doctest::
 
-    >>> from modelity.model import load
+    >>> from modelity.helpers import load
     >>> untrusted_valid_data = {
     ...     "surname": "Black",
     ...     "dob": "1999-01-31",
@@ -401,12 +401,12 @@ possible. Modelity, however, does not convert models to JSON string directly
 (there are separate tools for that), but to a :class:`dict` objects that
 ideally should already be JSON-encodable.
 
-To convert model to the dict, a :func:`modelity.model.dump` function must be
+To convert model to the dict, a :func:`modelity.helpers.dump` function must be
 used:
 
 .. doctest::
 
-    >>> from modelity.model import dump
+    >>> from modelity.helpers import dump
     >>> dump(full)
     {'name': 'Bridget', 'second_name': 'Rose', 'surname': 'Jones', 'dob': '1969-11-09'}
 

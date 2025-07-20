@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Callable, ClassVar, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Callable, ClassVar, Iterator, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
@@ -44,12 +44,17 @@ class IModel(Protocol):
     # #: List of hooks declared for this model.
     __model_hooks__: Sequence["IModelHook"]
 
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over names of fields that have value assigned."""
+        ...
+
     def accept(self, visitor: "IModelVisitor"):
         """Accept visitor on this model.
 
         :param visitor:
             The visitor to use.
         """
+        ...
 
 
 class IModelHook(Protocol):
