@@ -1,4 +1,4 @@
-from modelity._registry import TypeDescriptorFactoryRegistry
+from modelity._internal.registry import TypeDescriptorFactoryRegistry
 
 from . import simple, special, collections, model
 

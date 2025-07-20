@@ -1,6 +1,6 @@
 from typing import cast, Annotated, Any, Iterator, Union, get_args
 
-from modelity._registry import TypeDescriptorFactoryRegistry
+from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IConstraint, IModelVisitor, ISupportsValidate, ITypeDescriptor
 from modelity.loc import Loc
@@ -23,7 +23,9 @@ def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
             return result
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_supports_validate_begin(loc, value)
             type_descriptor.accept(visitor, loc, value)
+            visitor.visit_supports_validate_end(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             for constraint in constraints:

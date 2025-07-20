@@ -1,5 +1,6 @@
 from typing import Any, Callable, Optional, cast
 
+from modelity.error import Error
 from modelity.exc import ValidationError
 from modelity.interface import IModel, IModelVisitor
 from modelity.loc import Loc
@@ -39,8 +40,8 @@ def dump(
         Should return ``True`` to drop the value from resulting dict, or
         ``False`` to leave it.
     """
-    output = {}
-    visitor = DefaultDumpVisitor(output)
+    output: dict = {}
+    visitor: IModelVisitor = DefaultDumpVisitor(output)
     if exclude_unset:
         visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, Unset))
     if exclude_none:
@@ -52,7 +53,7 @@ def dump(
 
 
 def validate(model: IModel, ctx: Any = None):
-    errors = []
+    errors: list[Error] = []
     visitor = DefaultValidateVisitor(model, errors, ctx)
     model.accept(visitor)
     if errors:

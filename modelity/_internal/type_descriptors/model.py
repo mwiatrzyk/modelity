@@ -1,6 +1,6 @@
 from typing import Any, Mapping
 
-from modelity._registry import TypeDescriptorFactoryRegistry
+from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IModel, IModelVisitor, ITypeDescriptor

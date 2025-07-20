@@ -2,7 +2,7 @@ import functools
 import inspect
 from typing import Any, Callable, Optional, get_origin
 
-from modelity import _utils
+from modelity._internal import utils as _utils
 from modelity.exc import UnsupportedTypeError
 from modelity.interface import ITypeDescriptor, ITypeDescriptorFactory
 

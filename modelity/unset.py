@@ -1,5 +1,15 @@
 from typing import Final
 
+from typing_extensions import TypeGuard
+
+
+def is_unset(obj: object) -> TypeGuard["UnsetType"]:
+    """Check if *obj* is instance of :class:`UnsetType` type.
+
+    .. versionadded:: 0.17.0
+    """
+    return obj is Unset
+
 
 class UnsetType:
     """Singleton type for representing unset or undefined values.

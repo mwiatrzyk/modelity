@@ -6,7 +6,7 @@ import ipaddress
 from numbers import Number
 from typing import Any, Literal, TypeVar, cast, get_args
 
-from modelity._registry import TypeDescriptorFactoryRegistry
+from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc

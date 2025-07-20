@@ -8,33 +8,24 @@ import collections
 from numbers import Number
 from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
+from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModel, IModelVisitor, ISupportsValidate
+from modelity.interface import IField, IModel, IModelVisitor, ISupportsValidate
 from modelity.loc import Loc
 from modelity.model import BoundField, Model
 from modelity.unset import UnsetType
-from modelity.decorators import (
-    #FieldValidationHook,
-    #ModelPostvalidationHook,
-    #ModelPrevalidationHook,
-    #list_field_hooks,
-    #list_model_hooks,
-    _get_model_prevalidators,
-    _get_model_postvalidators,
-    _get_field_validators,
-)
 
 
 class DefaultDumpVisitor(IModelVisitor):
-    """Default visitor for dumping models into dicts.
+    """Default visitor for serializing models into JSON-compatible dicts.
 
     :param out:
-        The output dict to populate with data.
+        The output dict to be updated.
     """
 
     def __init__(self, out: dict):
         self._out = out
-        self._stack = collections.deque()
+        self._stack = collections.deque[Any]()
 
     def visit_model_begin(self, loc: Loc, value: IModel):
         self._stack.append(dict())
@@ -64,6 +55,12 @@ class DefaultDumpVisitor(IModelVisitor):
     def visit_set_end(self, loc: Loc, value: Set):
         self._add(loc, self._stack.pop())
 
+    def visit_supports_validate_begin(self, loc: Loc, value: Any):
+        pass
+
+    def visit_supports_validate_end(self, loc: Loc, value: Any):
+        pass
+
     def visit_string(self, loc: Loc, value: str):
         self._add(loc, value)
 
@@ -91,7 +88,7 @@ class DefaultDumpVisitor(IModelVisitor):
         if isinstance(top, dict):
             top[loc.last] = value
         else:
-            top.append(value)  # There are no more options, so let it fail if something is changed here
+            top.append(value)
 
 
 class DefaultValidateVisitor(IModelVisitor):
@@ -109,24 +106,25 @@ class DefaultValidateVisitor(IModelVisitor):
         User-defined validation context.
 
         It is shared across all validation hooks and can be used as a source of
-        external user-specific data needed for validation.
+        external data needed during validation but not directly available in
+        the model.
     """
 
     def __init__(self, root: IModel, errors: list[Error], ctx: Any = None):
         self._root = root
         self._errors = errors
         self._ctx = ctx
-        self._stack = collections.deque()
+        self._stack = collections.deque[Any]()
 
     def visit_model_begin(self, loc: Loc, value: IModel):
         self._stack.append(value)
         model_cls = value.__class__
-        for model_prevalidator in _get_model_prevalidators(model_cls):
+        for model_prevalidator in _int_hooks.get_model_prevalidators(model_cls):
             model_prevalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
 
     def visit_model_end(self, loc: Loc, value: IModel):
         model_cls = value.__class__
-        for model_postvalidator in _get_model_postvalidators(model_cls):
+        for model_postvalidator in _int_hooks.get_model_postvalidators(model_cls):
             model_postvalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
         self._stack.pop()
 
@@ -148,6 +146,14 @@ class DefaultValidateVisitor(IModelVisitor):
     def visit_set_end(self, loc: Loc, value: Set):
         self._pop_field()
 
+    def visit_supports_validate_begin(self, loc: Loc, value: Any):
+        pass
+
+    def visit_supports_validate_end(self, loc: Loc, value: Any):
+        _, field = self._get_current_model_and_field(loc)
+        if isinstance(field.descriptor, ISupportsValidate):
+            field.descriptor.validate(self._errors, loc, value)
+
     def visit_string(self, loc: Loc, value: str):
         self._validate_field(loc, value)
 
@@ -159,7 +165,7 @@ class DefaultValidateVisitor(IModelVisitor):
 
     def visit_unset(self, loc: Loc, value: UnsetType):
         model: IModel = self._stack[-1]
-        field = model.__model_fields__[loc.last]
+        field = model.__class__.__model_fields__[loc.last]
         if not field.optional:
             self._errors.append(ErrorFactory.required_missing(loc))
 
@@ -177,19 +183,17 @@ class DefaultValidateVisitor(IModelVisitor):
     def _pop_field(self):
         self._stack.pop()
 
-    def _validate_field(self, loc: Loc, value: Any):
+    def _get_current_model_and_field(self, loc: Loc) -> tuple[IModel, BoundField]:
         top = self._stack[-1]
         if isinstance(top, Model):
-            model = cast(IModel, top)
-            field = top.__model_fields__[loc.last]
-        else:
-            model = cast(IModel, self._stack[-2])
-            field = cast(BoundField, top)
+            return cast(IModel, top), top.__class__.__model_fields__[loc.last]
+        return cast(IModel, self._stack[-2]), cast(BoundField, top)
+
+    def _validate_field(self, loc: Loc, value: Any):
+        model, field = self._get_current_model_and_field(loc)
         model_cls = model.__class__
-        for field_validator in _get_field_validators(model_cls, field.name):
+        for field_validator in _int_hooks.get_field_validators(model_cls, field.name):
             field_validator(model_cls, model, self._root, self._ctx, self._errors, loc, value)  # type: ignore
-        if isinstance(field.descriptor, ISupportsValidate):
-            field.descriptor.validate(self._errors, loc, value)
 
 
 class ConstantExcludingModelVisitorProxy:

@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Callable, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Callable, ClassVar, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity.error import Error
 from modelity.loc import Loc
@@ -11,6 +11,12 @@ T = TypeVar("T")
 
 class IField(Protocol):
     """Protocol describing single model field."""
+
+    #: Field's name.
+    name: str
+
+    #: Field's type annotation.
+    typ: Any
 
     #: Type descriptor for this field.
     descriptor: "ITypeDescriptor"
@@ -32,11 +38,11 @@ class IModel(Protocol):
     #: a field where this model instance is currently located.
     __loc__: Loc
 
-    #: Mapping with field definitions for this model.
+    # #: Mapping with field definitions for this model.
     __model_fields__: Mapping[str, IField]
 
-    #: List of hooks declared for this model.
-    __model_hooks__: list["IModelHook"]
+    # #: List of hooks declared for this model.
+    __model_hooks__: Sequence["IModelHook"]
 
     def accept(self, visitor: "IModelVisitor"):
         """Accept visitor on this model.
@@ -336,7 +342,7 @@ class IModelVisitor(abc.ABC):
             The location of the value being visited.
 
         :param value:
-            The object to visit.
+            The visited object.
         """
 
     @abc.abstractmethod
@@ -358,7 +364,7 @@ class IModelVisitor(abc.ABC):
             The location of the value being visited.
 
         :param value:
-            The object to visit.
+            The visited object.
         """
 
     @abc.abstractmethod
@@ -380,7 +386,7 @@ class IModelVisitor(abc.ABC):
             The location of the value being visited.
 
         :param value:
-            The object to visit.
+            The visited object.
         """
 
     @abc.abstractmethod
@@ -402,7 +408,32 @@ class IModelVisitor(abc.ABC):
             The location of the value being visited.
 
         :param value:
+            The visited object..
+        """
+
+    @abc.abstractmethod
+    def visit_supports_validate_begin(self, loc: Loc, value: Any):
+        """Start visiting a type supporting per-type validation.
+
+        This will be called by type descriptors that implement
+        :class:`ISupportsValidate` interface.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
             The object to visit.
+        """
+
+    @abc.abstractmethod
+    def visit_supports_validate_end(self, loc: Loc, value: Any):
+        """Finish visiting a type supporting per-type validation.
+
+        :param loc:
+            The location of the value being visited.
+
+        :param value:
+            The visited object.
         """
 
     @abc.abstractmethod

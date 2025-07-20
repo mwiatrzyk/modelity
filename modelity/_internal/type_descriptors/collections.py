@@ -13,13 +13,13 @@ from typing import (
     get_args,
 )
 
-from modelity._registry import TypeDescriptorFactoryRegistry
-from modelity._utils import is_neither_str_nor_bytes_sequence
+from modelity._internal.registry import TypeDescriptorFactoryRegistry
+from modelity._internal.utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IModelVisitor, ITypeDescriptor, ITypeDescriptorFactory
 from modelity.loc import Loc
-from modelity.unset import Unset, UnsetType
+from modelity.unset import Unset, UnsetType, is_unset
 
 registry = TypeDescriptorFactoryRegistry()
 
@@ -172,9 +172,9 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
-            if result is Unset:
+            if is_unset(result):
                 return result
-            return list(result)
+            return list(cast(Sequence, result))
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
             visitor.visit_any(loc, value)

@@ -1,6 +1,5 @@
 import dataclasses
 from datetime import date, datetime
-from numbers import Number
 from typing import Any, Optional, Sequence
 
 from modelity.loc import Loc

@@ -1,16 +1,14 @@
 import copy
 import dataclasses
 import functools
-from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
+from typing import Any, Callable, Mapping, MutableMapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
-from modelity import _utils
+from modelity._internal import utils as _utils, hooks as _int_hooks
 from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
-    IFieldPostprocessingHook,
-    IFieldPreprocessingHook,
-    IModel,
+    IField,
     IModelHook,
     IModelVisitor,
     ITypeDescriptor,
@@ -18,14 +16,12 @@ from modelity.interface import (
 from modelity.loc import Loc
 
 from modelity.unset import Unset, UnsetType
-from modelity.decorators import (
+from modelity.hooks import (
     #FieldPostprocessingHook,
     #FieldPreprocessingHook,
     field_preprocessor,
     field_postprocessor,
-    _is_model_hook,
-    _get_field_preprocessors,
-    _get_field_postprocessors,
+    #_is_model_hook,
     model_prevalidator,
     model_postvalidator,
     field_validator,
@@ -33,30 +29,7 @@ from modelity.decorators import (
 
 T = TypeVar("T")
 
-
-def type_descriptor_factory(typ: Any):
-    """Register type descriptor factory function for type *typ*.
-
-    This decorator can be used to register non user-defined types (f.e. from
-    3rd party libraries) that cannot be added to Modelity typing system via
-    ``__modelity_type_descriptor__`` static function.
-
-    Check :ref:`registering-3rd-party-types-label` for more details.
-
-    .. note:: This decorator must be used before first model is created or
-              otherwise registered type might not be visible.
-
-    .. versionadded:: 0.14.0
-
-    :param typ:
-        The type to register descriptor factory for.
-    """
-    from modelity._type_descriptors.all import registry
-
-    def decorator(func):
-        return registry.register_type_descriptor_factory(typ, func)
-
-    return decorator
+_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__"}
 
 
 def field_info(
@@ -187,6 +160,8 @@ class ModelMeta(type):
             hooks.extend(getattr(base, "__model_hooks__", []))
         annotations = attrs.pop("__annotations__", {})
         for field_name, annotation in annotations.items():
+            if field_name in _IGNORED_FIELD_NAMES:
+                continue
             field_info = attrs.pop(field_name, Unset)
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
@@ -196,11 +171,11 @@ class ModelMeta(type):
             fields[field_name] = bound_field
         for key in dict(attrs):
             attr_value = attrs[key]
-            if _is_model_hook(attr_value):
+            if _int_hooks.is_model_hook(attr_value):
                 hooks.append(attr_value)
                 del attrs[key]
         hooks.sort(key=lambda x: x.__modelity_hook_id__)
-        attrs["__slots__"] = tuple(annotations) + tuple(attrs.get("__slots__", [])) + ("__loc__",)
+        attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", [])) + ("__loc__",)
         return super().__new__(tp, name, bases, attrs)
 
 
@@ -269,10 +244,14 @@ class Model(metaclass=ModelMeta):
     Check :ref:`quickstart` or :ref:`guide` for more examples.
     """
 
+    __model_fields__: Mapping[str, IField]
+
+    __model_hooks__: Sequence[IModelHook]
+
     def __init__(self, **kwargs) -> None:
         self.__loc__ = Loc()
         errors: list[Error] = []
-        fields = self.__model_fields__
+        fields = self.__class__.__model_fields__
         for name, field in fields.items():
             value = kwargs.pop(name, Unset)
             if value is Unset:
@@ -317,7 +296,7 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def __apply_field_preprocessors(cls, errors, loc, value):
-        for hook in _get_field_preprocessors(cls, loc[-1]):
+        for hook in _int_hooks.get_field_preprocessors(cls, loc[-1]):
             value = hook(cls, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
@@ -325,14 +304,14 @@ class Model(metaclass=ModelMeta):
 
     def __apply_field_postprocessors(self, errors, loc, value):
         cls = self.__class__
-        for hook in _get_field_postprocessors(cls, loc[-1]):
+        for hook in _int_hooks.get_field_postprocessors(cls, loc[-1]):
             value = hook(cls, self, errors, loc, value)  # type: ignore
             if value is Unset:
                 return Unset
         return value
 
     def __setattr__(self, name: str, value: Any) -> None:
-        field = self.__model_fields__.get(name)
+        field = self.__class__.__model_fields__.get(name)
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
@@ -473,6 +452,6 @@ def validate(model: Model, ctx: Any = None):
 
 
 def _make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
-    from modelity._type_descriptors.all import registry
+    from modelity._internal.type_descriptors.all import registry
 
     return registry.make_type_descriptor(typ, type_opts or {})

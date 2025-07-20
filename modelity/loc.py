@@ -2,10 +2,7 @@ from typing import Any, Sequence, cast
 
 
 class Loc(Sequence):
-    """Class for storing location of the field in the model tree.
-
-    This is basically a :class:`tuple`-like type but with some addons and
-    customizations.
+    """A tuple-like type for storing location of the value in the model tree.
 
     Examples:
 

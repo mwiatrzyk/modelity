@@ -216,7 +216,7 @@ type is given, then exception will be raised:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'list' with 1 error(-s):
-      4:
+      typed.4:
         could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** lists are
@@ -301,7 +301,7 @@ example:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'dict' with 1 error(-s):
-      one:
+      typed.one:
         could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** dicts are
@@ -358,7 +358,7 @@ after it was initialized with automatic type parsing:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'set' with 1 error(-s):
-      (empty):
+      typed._:
         could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
 
 The other mutating methods will also behave like this, as **typed** sets are
@@ -722,7 +722,7 @@ missing:
     Traceback (most recent call last):
       ...
     modelity.exc.ValidationError: validation of model 'Vec2d' failed with 1 error(-s):
-      y:
+      direction.y:
         this field is required [code=modelity.REQUIRED_MISSING, data={}]
 
 This example shows that validation, although optional as requiring explicit
@@ -1067,11 +1067,8 @@ To let Modelity know how to process the type we need to create
                         return
                     return typ(*(float_descriptor.parse(errors, loc, x) for x in value))
 
-                def dump(self, loc, value, filter):
-                    return (value.x, value.y)
-
-                def validate(self, root, ctx, errors, loc, value):
-                    return
+                def accept(self, visitor, loc, value):
+                    visitor.visit_any(loc, (value.x, value.y))
 
             # It is possible to use Modelity built-in types for parsing floats
             # to reuse existing mechanisms.
@@ -1115,7 +1112,7 @@ new type, then following will also work fine with a new type:
 
     >>> from modelity.model import dump, validate
     >>> dump(model)
-    {'foo': (1.0, 2.0)}
+    {'foo': [1.0, 2.0]}
     >>> validate(model)
 
 .. _registering-3rd-party-types-label:
@@ -1125,17 +1122,22 @@ Registering 3rd party types
 
 .. versionadded:: 0.14.0
 
+.. versionchanged:: 0.17.0
+
+    The ``type_descriptor_factory`` hook was moved to :mod:`modelity.hooks`
+    module.
+
 Modelity works on a predefined set of types and any type from beyond of that
 set is unknown to Modelity unless it is explicitly told how to parse, validate
 and dump values of that type. In previous chapter it was presented how to enable
 the handling of a new type by using ``__modelity_type_descriptor__`` hook
 directly in the class definition. The other approach is to use
-:func:`modelity.model.type_descriptor_factory` decorator to register a new
+:func:`modelity.hooks.type_descriptor_factory` decorator to register a new
 type. Here's how to use it:
 
 .. testcode::
 
-    from modelity.model import type_descriptor_factory
+    from modelity.hooks import type_descriptor_factory
 
     @dataclasses.dataclass
     class Point:  # Let's assume this is a "3rd party" type
@@ -1153,11 +1155,9 @@ type. Here's how to use it:
                     return
                 return typ(*(float_descriptor.parse(errors, loc, x) for x in value))
 
-            def dump(self, loc, value, filter):
-                return (value.x, value.y)
-
-            def validate(self, root, ctx, errors, loc, value):
-                return
+            def accept(self, visitor, loc, value):
+                print(locals())
+                return visitor.visit_any(loc, (value.x, value.y))
 
         # It is possible to use Modelity built-in types for parsing floats
         # to reuse existing mechanisms.

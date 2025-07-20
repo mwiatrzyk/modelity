@@ -1,8 +1,11 @@
+"""Module containing definitions of decorator functions that can be used to
+inject user-defined hooks into model's data processing chain."""
+
 import functools
 import inspect
-from typing import Any, Callable, Iterator, Sequence, cast, Union, TypeVar
+from typing import Any, Callable, Sequence, cast, Union, TypeVar
 
-from modelity import _utils
+from modelity._internal import utils as _utils
 from modelity.error import Error, ErrorFactory
 from modelity.interface import (
     IFieldPostprocessingHook,
@@ -232,6 +235,31 @@ def field_validator(*field_names: str):
     return decorator
 
 
+def type_descriptor_factory(typ: Any):
+    """Register type descriptor factory function for type *typ*.
+
+    This decorator can be used to register non user-defined types (f.e. from
+    3rd party libraries) that cannot be added to Modelity typing system via
+    ``__modelity_type_descriptor__`` static function.
+
+    Check :ref:`registering-3rd-party-types-label` for more details.
+
+    .. note:: This decorator must be used before first model is created or
+              otherwise registered type might not be visible.
+
+    .. versionadded:: 0.14.0
+
+    :param typ:
+        The type to register descriptor factory for.
+    """
+    from modelity._internal.type_descriptors.all import registry
+
+    def decorator(func):
+        return registry.register_type_descriptor_factory(typ, func)
+
+    return decorator
+
+
 def _make_model_validator(func: Callable, hook_name: str) -> IModelValidationHook:
 
     @functools.wraps(func)
@@ -261,75 +289,6 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelValidationHoo
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_name__ = hook_name
     return hook
-
-
-def list_model_hooks(model_type: type[IModel], hook_type: type[MH]) -> list[MH]:
-    """Get an ordered list of model hooks declared in provided model type.
-
-    If no hooks are found, then empty list is returned.
-
-    :param model_type:
-        Model class to look for hooks in.
-
-    :param hook_type:
-        The type of model hook to look for.
-    """
-    found = []
-    for hook in model_type.__model_hooks__:
-        if isinstance(hook, IModelHook) and isinstance(hook, hook_type):
-            found.append(hook)
-    return found
-
-
-def _is_model_hook(func: Callable) -> bool:
-    return hasattr(func, "__modelity_hook_id__") and hasattr(func, "__modelity_hook_name__")
-
-
-def _iter_field_hooks(model_type: type[IModel], hook_name: str, field_name: str) -> Iterator[IModelFieldHook]:
-    for model_hook in _iter_model_hooks(model_type, hook_name):
-        field_hook = cast(IModelFieldHook, model_hook)
-        try:
-            hook_field_names = field_hook.__modelity_hook_field_names__
-        except AttributeError:
-            continue  # Not a field hook
-        if not hook_field_names or field_name in hook_field_names:
-            yield field_hook
-
-
-def _iter_model_hooks(model_type: type[IModel], hook_name: str) -> Iterator[IModelHook]:
-    for model_hook in model_type.__model_hooks__:
-        if model_hook.__modelity_hook_name__ == hook_name:
-            yield model_hook
-
-
-@functools.lru_cache()
-def _list_model_hooks(model_type: type[IModel], hook_name: str) -> list[IModelHook]:
-    return list(_iter_model_hooks(model_type, hook_name))
-
-
-@functools.lru_cache()
-def _list_field_hooks(model_type: type[IModel], hook_name: str, field_name: str) -> list[IModelFieldHook]:
-    return list(_iter_field_hooks(model_type, hook_name, field_name))
-
-
-def _get_field_preprocessors(model_type: type[IModel], field_name: str) -> list[IFieldPreprocessingHook]:
-    return cast(list[IFieldPreprocessingHook], _list_field_hooks(model_type, field_preprocessor.__name__, field_name))
-
-
-def _get_field_postprocessors(model_type: type[IModel], field_name: str) -> list[IFieldPostprocessingHook]:
-    return cast(list[IFieldPostprocessingHook], _list_field_hooks(model_type, field_postprocessor.__name__, field_name))
-
-
-def _get_model_prevalidators(model_type: type[IModel]) -> list[IModelValidationHook]:
-    return cast(list[IModelValidationHook], _list_model_hooks(model_type, model_prevalidator.__name__))
-
-
-def _get_model_postvalidators(model_type: type[IModel]) -> list[IModelValidationHook]:
-    return cast(list[IModelValidationHook], _list_model_hooks(model_type, model_postvalidator.__name__))
-
-
-def _get_field_validators(model_type: type[IModel], field_name: str) -> list[IFieldValidationHook]:
-    return cast(list[IFieldValidationHook], _list_field_hooks(model_type, field_validator.__name__, field_name))
 
 
 def _extract_and_validate_given_param_names(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
