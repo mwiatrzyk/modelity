@@ -14,22 +14,11 @@ from modelity.interface import (
     ITypeDescriptor,
 )
 from modelity.loc import Loc
-
 from modelity.unset import Unset, UnsetType
-from modelity.hooks import (
-    #FieldPostprocessingHook,
-    #FieldPreprocessingHook,
-    field_preprocessor,
-    field_postprocessor,
-    #_is_model_hook,
-    model_prevalidator,
-    model_postvalidator,
-    field_validator,
-)
 
 T = TypeVar("T")
 
-_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__"}
+_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__", "__loc__"}
 
 
 def field_info(

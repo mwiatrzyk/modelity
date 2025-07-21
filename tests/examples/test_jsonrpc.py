@@ -6,7 +6,8 @@ import pytest
 
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model, model_postvalidator
+from modelity.model import Model
+from modelity.hooks import model_postvalidator
 from modelity.helpers import dump, validate
 from modelity.types import StrictOptional
 from modelity.unset import Unset, UnsetType

@@ -12,9 +12,8 @@ from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ParsingError, ValidationError
 from modelity.interface import IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
-from modelity.model import (
-    FieldInfo,
-    Model,
+from modelity.model import FieldInfo, Model
+from modelity.hooks import (
     field_postprocessor,
     field_preprocessor,
     field_validator,

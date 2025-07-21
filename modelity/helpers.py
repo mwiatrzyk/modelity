@@ -109,6 +109,17 @@ def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
 
 
 def validate(model: IModel, ctx: Any = None):
+    """Validate provided model.
+
+    :param model:
+        The model to validate.
+
+    :param ctx:
+        The user defined validation context.
+
+        See :ref:`validation-with-context` for more information about this
+        feature.
+    """
     errors: list[Error] = []
     visitor = DefaultValidateVisitor(model, errors, ctx)
     model.accept(visitor)

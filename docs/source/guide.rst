@@ -558,7 +558,7 @@ Customizing models with user-defined hooks
 The **field preprocessing** hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To create field preprocessor, :func:`modelity.model.field_preprocessor`
+To create field preprocessor, :func:`modelity.hooks.field_preprocessor`
 decorator must be used.
 
 Field preprocessors allow embedding custom function into the :term:`data parsing<Data parsing>`
@@ -569,7 +569,8 @@ white characters may be created like this:
 
 .. testcode::
 
-    from modelity.model import Model, field_preprocessor
+    from modelity.model import Model
+    from modelity.hooks import field_preprocessor
 
     class FieldPreprocessorExample(Model):
         foo: str
@@ -618,7 +619,7 @@ Postprocessors work on a per-field basis, but unlike preprocessors they do have
 an access to model's instance via `self` argument (if defined). The return
 value of a field preprocessor is either passed to a next preprocessor (if more
 than one are defined) or set inside a model as a final value for a field. To
-declare a postprocessor, :func:`modelity.model.field_postprocessor` decorator
+declare a postprocessor, :func:`modelity.hooks.field_postprocessor` decorator
 must be used.
 
 Now let's take a dive into possible use cases.
@@ -633,7 +634,8 @@ steps, therefore they can further process it:
 
     import math
 
-    from modelity.model import Model, field_postprocessor
+    from modelity.model import Model
+    from modelity.hooks import field_postprocessor
 
     class Vec2d(Model):
         x: float
@@ -691,7 +693,8 @@ normalization:
 
     import math
 
-    from modelity.model import Model, field_postprocessor
+    from modelity.model import Model
+    from modelity.hooks import field_postprocessor
     from modelity.helpers import validate
 
     class Vec2d(Model):
@@ -835,7 +838,7 @@ other similar things:
 The **model_prevalidator** hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To create model prevalidator, :func:`modelity.model.model_prevalidator`
+To create model prevalidator, :func:`modelity.hooks.model_prevalidator`
 decorator must be used.
 
 This hook is executed during validation, for the model it was declared in, and
@@ -844,7 +847,8 @@ even if defined for the nested model. Here's an example:
 
 .. testcode::
 
-    from modelity.model import Model, model_prevalidator
+    from modelity.model import Model
+    from modelity.hooks import model_prevalidator
     from modelity.helpers import validate
 
     class Outer(Model):
@@ -891,7 +895,7 @@ model's fields from nested model's instances:
 The **model_postvalidator** hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To create model postvalidator, :func:`modelity.model.model_postvalidator` decorator
+To create model postvalidator, :func:`modelity.hooks.model_postvalidator` decorator
 must be used.
 
 Model postvalidators, unlike :ref:`prevalidators<model_prevalidator>` from the previous
@@ -903,7 +907,8 @@ example, to control the number of validation errors the model can produce:
 
 .. testcode::
 
-    from modelity.model import Model, model_postvalidator
+    from modelity.model import Model
+    from modelity.hooks import model_postvalidator
     from modelity.helpers import validate
 
     class ModelPostvalidatorExample(Model):
@@ -950,7 +955,7 @@ The **field_validator** hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To declare model method as field validator, it has to be decorated with
-:func:`modelity.model.field_validator` decorator.
+:func:`modelity.hooks.field_validator` decorator.
 
 Field validators, just like model pre- and postvalidators, are executed when
 model is validated, but only for fields they are declared for, and only if the
@@ -958,7 +963,8 @@ field has value set. Here's an example:
 
 .. testcode::
 
-    from modelity.model import Model, field_validator
+    from modelity.model import Model
+    from modelity.hooks import field_validator
     from modelity.helpers import validate
 
     class UserAccount(Model):

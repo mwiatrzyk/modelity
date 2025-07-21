@@ -1,7 +1,8 @@
 import datetime
 from typing import Optional
 
-from modelity.model import Model, FieldInfo, field_postprocessor
+from modelity.model import Model, FieldInfo
+from modelity.hooks import field_postprocessor
 from modelity.unset import Unset
 
 
