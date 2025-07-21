@@ -140,7 +140,7 @@ And if the field was not set to a valid value, then
 .. important::
 
     It is recommended to always check validity of the model by running
-    :func:`modelity.model.validate` function after modifications are done.
+    :func:`modelity.helpers.validate` function after modifications are done.
 
 Clearing fields
 ^^^^^^^^^^^^^^^
@@ -268,7 +268,7 @@ the model with data (for example, as the user is filling in the form in the UI)
 with no need for any additional mechanism, and validate it once all the data
 was entered. That's why Modelity will not complain about missing required
 fields in the constructor; it simply defers this check until
-:func:`modelity.model.validate` function is called.
+:func:`modelity.helpers.validate` function is called.
 
 Let's now see how these 2 stages work in practice.
 
@@ -276,7 +276,7 @@ First, let's check if the ``empty`` model created above is valid:
 
 .. doctest::
 
-    >>> from modelity.model import validate
+    >>> from modelity.helpers import validate
     >>> validate(empty)
     Traceback (most recent call last):
       ...

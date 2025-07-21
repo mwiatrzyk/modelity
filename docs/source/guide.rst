@@ -438,7 +438,7 @@ validated when :meth:`modelity.model.validate` is used on the parent model:
 
 .. doctest::
 
-    >>> from modelity.model import validate
+    >>> from modelity.helpers import validate
     >>> validate(company)
     Traceback (most recent call last):
       ...
@@ -536,7 +536,7 @@ validation stage, so such model will now fail validation:
 
 .. doctest::
 
-    >>> from modelity.model import validate
+    >>> from modelity.helpers import validate
     >>> validate(m)
     Traceback (most recent call last):
       ...
@@ -691,7 +691,8 @@ normalization:
 
     import math
 
-    from modelity.model import Model, field_postprocessor, validate
+    from modelity.model import Model, field_postprocessor
+    from modelity.helpers import validate
 
     class Vec2d(Model):
         x: float
@@ -843,7 +844,8 @@ even if defined for the nested model. Here's an example:
 
 .. testcode::
 
-    from modelity.model import Model, model_prevalidator, validate
+    from modelity.model import Model, model_prevalidator
+    from modelity.helpers import validate
 
     class Outer(Model):
 
@@ -901,7 +903,8 @@ example, to control the number of validation errors the model can produce:
 
 .. testcode::
 
-    from modelity.model import Model, model_postvalidator, validate
+    from modelity.model import Model, model_postvalidator
+    from modelity.helpers import validate
 
     class ModelPostvalidatorExample(Model):
         foo: int
@@ -955,7 +958,8 @@ field has value set. Here's an example:
 
 .. testcode::
 
-    from modelity.model import Model, field_validator, validate
+    from modelity.model import Model, field_validator
+    from modelity.helpers import validate
 
     class UserAccount(Model):
         username: str

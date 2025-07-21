@@ -183,67 +183,33 @@ class ModelMeta(type):
 
 @typing_extensions.dataclass_transform(kw_only_default=True)
 class Model(metaclass=ModelMeta):
-    """Base class for creating models.
+    """Base class for data models.
 
-    To create a model using Modelity, you have to import this class, inherit
-    from it, and provide fields in similar way as you would using
-    :mod:`dataclasses` module. Here's an example:
-
-    .. testcode::
-
-        import datetime
-
-        from modelity.model import Model
-
-        class Book(Model):
-            title: str
-            author: str
-            publisher: str
-            page_count: int
-            date_published: datetime.date
-
-    And now, the class can be instantiated in similar way as dataclass with a
-    difference that all fields in Modelity models are implicitly optional to
-    allow gradual initialization like in example below:
+    Each custom data model will have to inherit from this class and declare set
+    of fields using type annotations. Here's a very simple example of creating
+    such data model and how to later work with it:
 
     .. doctest::
 
-        >>> book = Book()  # This will not fail
-        >>> book.title = "My First Book"
-        >>> book.author = "John Doe"
-        >>> book.publisher = "Dummy Publishing Ltd."
-        >>> book.page_count = 200
-        >>> book.date_published = "2024-07-31"  # Model initialization completed
-
-    .. note::
-
-        Keyword args are also supported, so the initialization from above is
-        equal to this:
-
-        .. doctest::
-
-            >>> book_via_kw = Book(
-            ...     title="My First Book",
-            ...     author="John Doe",
-            ...     publisher="Dummy Publishing Ltd.",
-            ...     page_count=200,
-            ...     date_published="2024-07-31"
-            ... )
-            >>> book == book_via_kw
-            True
-
-    Now, to validate the model, you have to use :func:`modelity.model.validate`
-    helper:
-
-    .. doctest::
-
-        >>> from modelity.model import validate
-        >>> validate(book)  # OK, as all required fields are set
-
-    This class implicitly implements :class:`modelity.interface.IModel`
-    protocol.
-
-    Check :ref:`quickstart` or :ref:`guide` for more examples.
+        >>> from modelity.model import Model
+        >>> from modelity.helpers import validate
+        >>> class Dummy(Model):  # Model declaration
+        ...     foo: int
+        ...     bar: str
+        ...     baz: bool
+        >>> dummy = Dummy(foo='123', bar='spam')  # Model instantiation (with any number of arguments allowed)
+        >>> dummy
+        Dummy(foo=123, bar='spam', baz=Unset)
+        >>> validate(dummy)  # Validation will fail, as required field `baz` is missing
+        Traceback (most recent call last):
+            ...
+        modelity.exc.ValidationError: validation of model 'Dummy' failed with 1 error(-s):
+          baz:
+            this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        >>> dummy.baz = True  # Now the last field is also set (models are mutable)
+        >>> validate(dummy)  # Now the model is valid
+        >>> dummy
+        Dummy(foo=123, bar='spam', baz=True)
     """
 
     #: A per-instance view of :attr:`ModelMeta.__model_fields__` attribute.
@@ -336,23 +302,6 @@ class Model(metaclass=ModelMeta):
             else:
                 field.descriptor.accept(visitor, loc, value)
         visitor.visit_model_end(self.__loc__, self)
-
-
-def validate(model: Model, ctx: Any = None):
-    """Validate given model and raise :exc:`modelity.exc.ValidationError` if the
-    model is invalid.
-
-    :param model:
-        The model to validate.
-
-    :param ctx:
-        User-defined context object.
-
-        Check :meth:`Model.validate` for more information.
-    """
-    from . import helpers
-
-    return helpers.validate(model, ctx)
 
 
 def _make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
