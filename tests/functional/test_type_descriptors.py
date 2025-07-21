@@ -7,9 +7,10 @@ from modelity.constraints import Ge, Gt, Le, Lt, MaxLen, MinLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model, _make_type_descriptor
+from modelity.model import FieldInfo, Model
 from modelity.unset import Unset
 from modelity.helpers import dump, validate
+from modelity._internal.model import make_type_descriptor
 
 import pytest
 
@@ -722,7 +723,7 @@ class TestUnionTypeDescriptor:
 
     @pytest.fixture
     def type_descriptor(self, typ):
-        return _make_type_descriptor(typ)
+        return make_type_descriptor(typ)
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",
@@ -1258,7 +1259,7 @@ class TestModelTypeDescriptor:
 
     @pytest.fixture
     def type_descriptor(self, typ):
-        return _make_type_descriptor(typ)
+        return make_type_descriptor(typ)
 
     @pytest.mark.parametrize(
         "typ, value, expected_result, expected_errors",

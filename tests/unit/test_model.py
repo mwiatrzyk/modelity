@@ -4,10 +4,11 @@ import pytest
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
-from modelity.model import Field, FieldInfo, Model, _make_type_descriptor
+from modelity.model import Field, FieldInfo, Model
 from modelity.types import StrictOptional
 from modelity.unset import Unset
 from modelity.helpers import has_fields_set
+from modelity._internal.model import make_type_descriptor
 
 
 class TestField:
@@ -30,7 +31,7 @@ class TestField:
 
     @pytest.fixture
     def uut(self, name, type, field_info):
-        return Field(name, type, _make_type_descriptor(type), field_info)
+        return Field(name, type, make_type_descriptor(type), field_info)
 
     class TestOptional:
 

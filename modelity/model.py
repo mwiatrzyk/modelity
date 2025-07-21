@@ -4,7 +4,7 @@ import functools
 from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
-from modelity._internal import utils as _utils, hooks as _int_hooks
+from modelity._internal import utils as _utils, hooks as _int_hooks, model as _int_model
 from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
@@ -168,7 +168,7 @@ class ModelMeta(type):
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
             bound_field = Field(
-                field_name, annotation, _make_type_descriptor(annotation, field_info.type_opts), field_info
+                field_name, annotation, _int_model.make_type_descriptor(annotation, field_info.type_opts), field_info
             )
             fields[field_name] = bound_field
         for key in dict(attrs):
@@ -302,9 +302,3 @@ class Model(metaclass=ModelMeta):
             else:
                 field.descriptor.accept(visitor, loc, value)
         visitor.visit_model_end(self.__loc__, self)
-
-
-def _make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
-    from modelity._internal.type_descriptors.all import registry
-
-    return registry.make_type_descriptor(typ, type_opts or {})
