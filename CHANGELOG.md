@@ -1,3 +1,24 @@
+## 0.17.0 (2025-07-27)
+
+### BREAKING CHANGES
+
+- model validation is now made via visitors
+- extract decorators from `model` to `hooks` module
+- model serialization via `dump` now uses visitors
+- rename `BoundField` to `Field`
+- `modelity.model.dump` function was moved to `modelity.helpers` module
+- the function `modelity.model.validate` was moved to `modelity.helpers`
+- all hooks are now imported from `modelity.hooks` module
+
+### Feat
+
+- model validation is now made via visitors
+- use absolute locations in mapping, list and set containers
+- extract decorators from `model` to `hooks` module
+- add `modelity.api` import helper allowing to import public names from all submodules
+- add `ModelLoader` helper
+- `IConstraint` now inherits from `abc.ABC` and must be used explicitly
+
 ## 0.16.0 (2025-07-12)
 
 ### BREAKING CHANGES
