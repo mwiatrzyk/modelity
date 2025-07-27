@@ -1,5 +1,4 @@
 import functools
-import inspect
 from typing import Any, Callable, Optional, get_origin
 
 from modelity import _utils
@@ -17,23 +16,16 @@ class TypeDescriptorFactoryRegistry:
         @functools.wraps(func)
         def proxy(typ: Any, make_type_descriptor: ITypeDescriptorFactory, type_opts: Optional[dict]) -> ITypeDescriptor:
             kw: dict[str, Any] = {}
-            if "typ" in given_params:
+            if "typ" in given_param_names:
                 kw["typ"] = typ
-            if "make_type_descriptor" in given_params:
+            if "make_type_descriptor" in given_param_names:
                 kw["make_type_descriptor"] = make_type_descriptor
-            if "type_opts" in given_params:
+            if "type_opts" in given_param_names:
                 kw["type_opts"] = type_opts
             return func(**kw)
 
-        sig = inspect.signature(func)
-        supported_params = ("typ", "make_type_descriptor", "type_opts")
-        given_params = tuple(sig.parameters)
-        if not _utils.is_subsequence(given_params, supported_params):
-            raise TypeError(
-                f"function {func.__name__!r} has incorrect signature: "
-                f"{_utils.format_signature(given_params)} is not a subsequence of "
-                f"{_utils.format_signature(supported_params)}"
-            )
+        supported_param_names = ("typ", "make_type_descriptor", "type_opts")
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
         return proxy
 
     def attach(self, other: "TypeDescriptorFactoryRegistry"):

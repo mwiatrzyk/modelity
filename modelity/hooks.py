@@ -2,8 +2,7 @@
 inject user-defined hooks into model's data processing chain."""
 
 import functools
-import inspect
-from typing import Any, Callable, Sequence, cast, Union, TypeVar, overload
+from typing import Any, Callable, cast, Union, TypeVar
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
@@ -15,8 +14,6 @@ from modelity.interface import (
     IModelHook,
     IModelFieldHook,
     IModelValidationHook,
-    ITypeDescriptor,
-    ITypeDescriptorFactory,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
@@ -117,7 +114,7 @@ def field_preprocessor(*field_names: str):
                 return Unset
 
         supported_param_names = ("cls", "errors", "loc", "value")
-        given_param_names = _extract_and_validate_given_param_names(func, supported_param_names)
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
         hook = cast(IFieldPreprocessingHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_preprocessor.__name__
@@ -223,7 +220,7 @@ def field_postprocessor(*field_names: str):
                 return Unset
 
         supported_param_names = ("cls", "self", "errors", "loc", "value")
-        given_param_names = _extract_and_validate_given_param_names(func, supported_param_names)
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
         hook = cast(IFieldPostprocessingHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_postprocessor.__name__
@@ -376,7 +373,7 @@ def field_validator(*field_names: str):
                 errors.append(ErrorFactory.exception(loc, str(e), type(e)))
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
-        given_param_names = _extract_and_validate_given_param_names(func, supported_param_names)
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
         hook = cast(IFieldValidationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_validator.__name__
@@ -437,19 +434,8 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelValidationHoo
             errors.append(ErrorFactory.exception(loc, str(e), type(e)))
 
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
-    given_param_names = _extract_and_validate_given_param_names(func, supported_param_names)
+    given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
     hook = cast(IModelValidationHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_name__ = hook_name
     return hook
-
-
-def _extract_and_validate_given_param_names(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
-    sig = inspect.signature(func)
-    given_param_names = tuple(sig.parameters)
-    if not _utils.is_subsequence(given_param_names, supported_param_names):
-        raise TypeError(
-            f"hook function {func.__name__!r} has incorrect signature: "
-            f"{_utils.format_signature(given_param_names)} is not a subsequence of {_utils.format_signature(supported_param_names)}"
-        )
-    return set(given_param_names)

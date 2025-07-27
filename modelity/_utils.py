@@ -1,5 +1,6 @@
 """General purpose common utility functions."""
 
+import inspect
 import itertools
 from typing import Any, Callable, Sequence, TypeVar, Union, overload
 
@@ -46,6 +47,30 @@ def is_neither_str_nor_bytes_sequence(obj: object) -> bool:
 def format_signature(sig: Sequence[str]) -> str:
     """Format function's signature as string."""
     return f"({', '.join(sig)})"
+
+
+def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
+    """For given function, extract param names it was declared in and return as
+    set if it is a subsequence of *supported_param_names*, or otherwise raise
+    :exc:`TypeError` exception.
+
+    :param func:
+        The function to get given param names for.
+
+    :param supported_param_names:
+        Sequence of supported param names.
+
+        The *func* must be declared with params being a subsequence of this
+        sequence.
+    """
+    sig = inspect.signature(func)
+    given_param_names = tuple(sig.parameters)
+    if not is_subsequence(given_param_names, supported_param_names):
+        raise TypeError(
+            f"function {func.__name__!r} has incorrect signature: "
+            f"{format_signature(given_param_names)} is not a subsequence of {format_signature(supported_param_names)}"
+        )
+    return set(given_param_names)
 
 
 class ExportList(list):
