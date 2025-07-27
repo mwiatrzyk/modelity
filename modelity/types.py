@@ -2,6 +2,8 @@ from typing import TypeVar, Union
 
 from modelity.unset import UnsetType
 
+__all__ = ["StrictOptional"]
+
 T = TypeVar("T")
 
 

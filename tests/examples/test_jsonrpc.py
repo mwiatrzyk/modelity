@@ -4,14 +4,19 @@ from typing import Literal, Union
 
 import pytest
 
-from modelity.exc import ParsingError, ValidationError
-from modelity.loc import Loc
-from modelity.model import Model
-from modelity.hooks import model_postvalidator
-from modelity.helpers import dump, validate
-from modelity.types import StrictOptional
-from modelity.unset import Unset, UnsetType
-from modelity.error import ErrorFactory
+from modelity.api import (
+    ParsingError,
+    ValidationError,
+    Loc,
+    Model,
+    model_postvalidator,
+    dump,
+    validate,
+    StrictOptional,
+    Unset,
+    UnsetType,
+    ErrorFactory,
+)
 
 JSONRPC = Literal["2.0"]
 
@@ -27,7 +32,7 @@ ID = Union[str, int]
 class Notification(Model):
     jsonrpc: JSONRPC
     method: str
-    params: StrictOptional[StructuredType]
+    params: StrictOptional[StructuredType] = Unset
 
 
 class Request(Notification):
@@ -37,13 +42,13 @@ class Request(Notification):
 class Error(Model):
     code: int
     message: str
-    data: StrictOptional[AnyType]
+    data: StrictOptional[AnyType] = Unset
 
 
 class Response(Model):
     jsonrpc: JSONRPC
-    result: StrictOptional[AnyType]
-    error: StrictOptional[Error]
+    result: StrictOptional[AnyType] = Unset
+    error: StrictOptional[Error] = Unset
     id: ID
 
     @model_postvalidator()

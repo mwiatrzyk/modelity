@@ -1,8 +1,12 @@
 from typing import Any, Optional
 
+from modelity import _utils
 from modelity.error import Error
 
+__all__ = export = _utils.ExportList()  # type: ignore
 
+
+@export
 class ModelityError(Exception):
     """Base class for Modelity-specific exceptions."""
 
@@ -14,6 +18,7 @@ class ModelityError(Exception):
         return self.__message_template__.format(self=self)
 
 
+@export
 class ModelError(ModelityError):
     """Common base class for errors that model may raise during either parsing,
     or validation phases.
@@ -35,6 +40,7 @@ class ModelError(ModelityError):
         self.errors = errors
 
 
+@export
 class ParsingError(ModelError):
     """Exception raised when type parser fails to parse input value into
     instance of desired type."""
@@ -67,6 +73,7 @@ class ParsingError(ModelError):
         return f"parsing failed for type {self.typ_name!r} with {len(self.errors)} error(-s):\n{self.formatted_errors}"
 
 
+@export
 class ValidationError(ModelError):
     """Exception raised when model validation failed.
 
@@ -95,6 +102,7 @@ class ValidationError(ModelError):
         return "\n".join(out)
 
 
+@export
 class UnsupportedTypeError(ModelityError):
     """Raised when model is declared with a field of a type that is not
     supported by the current version of Modelity library."""

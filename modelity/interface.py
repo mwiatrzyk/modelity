@@ -1,14 +1,18 @@
 import abc
 from numbers import Number
-from typing import Any, Callable, ClassVar, Iterator, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Iterator, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
 
+from modelity import _utils
 from modelity.error import Error
 from modelity.loc import Loc
 from modelity.unset import UnsetType
 
+__all__ = export = _utils.ExportList()  # type: ignore
+
 T = TypeVar("T")
 
 
+@export
 class IField(Protocol):
     """Protocol describing single model field."""
 
@@ -25,6 +29,7 @@ class IField(Protocol):
     optional: bool
 
 
+@export
 class IModel(Protocol):
     """Protocol describing common interface for data models.
 
@@ -57,6 +62,7 @@ class IModel(Protocol):
         ...
 
 
+@export
 class IModelHook(Protocol):
     """Protocol describing base interface for model hooks.
 
@@ -74,6 +80,7 @@ class IModelHook(Protocol):
     __modelity_hook_name__: str
 
 
+@export
 class IModelValidationHook(IModelHook):
     """Protocol describing interface of the model validation hooks."""
 
@@ -82,6 +89,7 @@ class IModelValidationHook(IModelHook):
         pass
 
 
+@export
 class IModelFieldHook(IModelHook):
     """Subclass of :class:`IModelHook` to be used as a base for hooks that
     operate on field level rather than entire model.
@@ -97,6 +105,7 @@ class IModelFieldHook(IModelHook):
     __modelity_hook_field_names__: set[str]
 
 
+@export
 class IFieldPreprocessingHook(IModelFieldHook):
     """Base class for user-defined preprocessing hooks.
 
@@ -129,6 +138,7 @@ class IFieldPreprocessingHook(IModelFieldHook):
         """
 
 
+@export
 class IFieldPostprocessingHook(IModelFieldHook):
     """Base class for user-defined postprocessing hooks.
 
@@ -143,7 +153,9 @@ class IFieldPostprocessingHook(IModelFieldHook):
     """
 
     @abc.abstractmethod
-    def __call__(_, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+    def __call__(
+        _, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
+    ) -> Union[Any, UnsetType]:
         """Invoke the hook.
 
         Returned value will either be passed to a next postprocessing hook (if
@@ -172,6 +184,7 @@ class IFieldPostprocessingHook(IModelFieldHook):
         """
 
 
+@export
 class IFieldValidationHook(IModelFieldHook):
 
     @abc.abstractmethod
@@ -179,6 +192,7 @@ class IFieldValidationHook(IModelFieldHook):
         pass
 
 
+@export
 class IConstraint(Protocol):
     """Protocol describing constraint callable.
 
@@ -208,6 +222,7 @@ class IConstraint(Protocol):
         """
 
 
+@export
 class ISupportsValidate(abc.ABC, Generic[T]):
     """Interface to be implemented by type descriptors that need to provide
     some extra type-specific validation logic.
@@ -237,6 +252,7 @@ class ISupportsValidate(abc.ABC, Generic[T]):
         """
 
 
+@export
 class ITypeDescriptor(abc.ABC, Generic[T]):
     """Protocol describing type.
 
@@ -285,6 +301,7 @@ class ITypeDescriptor(abc.ABC, Generic[T]):
         """
 
 
+@export
 class ITypeDescriptorFactory(Protocol):
     """Protocol describing type descriptor factory function.
 
@@ -312,6 +329,7 @@ class ITypeDescriptorFactory(Protocol):
         """
 
 
+@export
 class IModelVisitor(abc.ABC):
     """Base class for model visitors.
 

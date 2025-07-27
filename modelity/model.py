@@ -4,7 +4,7 @@ import functools
 from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
-from modelity._internal import utils as _utils, hooks as _int_hooks, model as _int_model
+from modelity._internal import hooks as _int_hooks, model as _int_model
 from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
@@ -15,12 +15,16 @@ from modelity.interface import (
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
+from modelity import _utils
+
+__all__ = export = _utils.ExportList()  # type: ignore
 
 T = TypeVar("T")
 
 _IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__", "__loc__"}
 
 
+@export
 def field_info(
     *,
     default: Union[T, UnsetType] = Unset,
@@ -35,6 +39,7 @@ def field_info(
     return cast(T, FieldInfo(default=default, default_factory=default_factory, type_opts=type_opts))
 
 
+@export
 @dataclasses.dataclass
 class FieldInfo:
     """Class for attaching metadata to model fields."""
@@ -57,6 +62,7 @@ class FieldInfo:
     type_opts: dict = dataclasses.field(default_factory=dict)
 
 
+@export
 @dataclasses.dataclass
 class Field:
     """Field created from annotation."""
@@ -117,6 +123,7 @@ class Field:
             return Unset
 
 
+@export
 class ModelMeta(type):
     """Metaclass for models.
 
@@ -170,6 +177,7 @@ class ModelMeta(type):
         return super().__new__(tp, name, bases, attrs)
 
 
+@export
 @typing_extensions.dataclass_transform(kw_only_default=True)
 class Model(metaclass=ModelMeta):
     """Base class for data models.

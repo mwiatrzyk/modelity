@@ -8,6 +8,7 @@ import collections
 from numbers import Number
 from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
+from modelity import _utils
 from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IField, IModel, IModelVisitor, ISupportsValidate
@@ -15,7 +16,10 @@ from modelity.loc import Loc
 from modelity.model import Field, Model
 from modelity.unset import UnsetType
 
+__all__ = export = _utils.ExportList()  # type: ignore
 
+
+@export
 class DefaultDumpVisitor(IModelVisitor):
     """Default visitor for serializing models into JSON-compatible dicts.
 
@@ -91,6 +95,7 @@ class DefaultDumpVisitor(IModelVisitor):
             top.append(value)
 
 
+@export
 class DefaultValidateVisitor(IModelVisitor):
     """Default visitor for model validation.
 
@@ -196,6 +201,7 @@ class DefaultValidateVisitor(IModelVisitor):
             field_validator(model_cls, model, self._root, self._ctx, self._errors, loc, value)  # type: ignore
 
 
+@export
 class ConstantExcludingModelVisitorProxy:
     """Visitor proxy that skips values that are equal to constant provided.
 
@@ -220,6 +226,7 @@ class ConstantExcludingModelVisitorProxy:
         return proxy
 
 
+@export
 class ConditionalExcludingModelVisitorProxy:
     """Visitor proxy that skips values if provided exclude function returns
     ``True``.

@@ -2,10 +2,14 @@ import dataclasses
 from datetime import date, datetime
 from typing import Any, Optional, Sequence
 
+from modelity import _utils
 from modelity.loc import Loc
 from modelity.unset import Unset
 
+__all__ = export = _utils.ExportList()  # type: ignore
 
+
+@export
 class ErrorCode:
     """Class containing constants with all built-in error codes.
 
@@ -44,6 +48,7 @@ class ErrorCode:
     UNSUPPORTED_VALUE_TYPE = "modelity.UNSUPPORTED_VALUE_TYPE"
 
 
+@export
 @dataclasses.dataclass
 class Error:
     """Object containing details of the single error.
@@ -87,6 +92,7 @@ class Error:
         return type(self.value)
 
 
+@export
 class ErrorFactory:
     """Class grouping factory methods for creating built-in errors."""
 

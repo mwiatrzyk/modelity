@@ -1,5 +1,6 @@
 from typing import Any, Callable, Optional, TypeVar, cast
 
+from modelity import _utils
 from modelity.error import Error
 from modelity.exc import ValidationError
 from modelity.interface import IModel, IModelVisitor
@@ -12,9 +13,13 @@ from modelity.visitors import (
     DefaultValidateVisitor,
 )
 
+__all__ = export = _utils.ExportList()  # type: ignore
+
+
 MT = TypeVar("MT", bound=IModel)
 
 
+@export
 def has_fields_set(model: IModel) -> bool:
     """Check if *model* has at least one field set.
 
@@ -24,6 +29,7 @@ def has_fields_set(model: IModel) -> bool:
     return next(iter(model), None) is not None
 
 
+@export
 def dump(
     model: IModel,
     exclude_unset: bool = False,
@@ -32,24 +38,27 @@ def dump(
 ) -> dict:
     """Serialize given model to a dict.
 
-    Underneath this helper uses :class:`modelity.visitors.DefaultDumpVisitor`
-    visitor to do the heavy lifting and just orchestrates the call, building
-    visitor based on arguments given.
+    This helper is designed to handle most common dump scenarios, like skipping
+    unset fields or optional field set to ``None``. More advanced behavior can
+    be achieved by implementing custom
+    :class:`modelity.interface.IModelVisitor` interface and running
+    :meth:`modelity.model.Model.accept` method directly.
 
     :param model:
         The model to serialize.
 
     :param exclude_unset:
-        Exclude fields set to :obj:`modelity.unset.Unset` value from resulting dict.
+        Exclude unset fields.
 
     :param exclude_none:
-        Exclude fields set to ``None`` value from resulting dict.
+        Exclude fields set to ``None``.
 
     :param exclude_if:
         Conditional function executed for every model location and value.
 
         Should return ``True`` to drop the value from resulting dict, or
-        ``False`` to leave it.
+        ``False`` to leave it. Can be used to achieve exclusion based on
+        location and/or value.
     """
     output: dict = {}
     visitor: IModelVisitor = DefaultDumpVisitor(output)
@@ -63,17 +72,16 @@ def dump(
     return output
 
 
+@export
 def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
-    """Parse and validate given data using provided model type.
+    """Parse and validate given raw data using provided model type.
 
     This is a helper function meant to be used to create models from data that
-    is coming from an untrusted source, like API request etc.
+    is coming from an untrusted source, like API request, JSON file etc.
 
     On success, this function returns new instance of the given *model_type*.
 
-    On failure, this function raises either :exc:`modelity.exc.ParsingError`
-    (if it failed at parsing stage), or :exc:`modelity.model.ValidationError`
-    (if it failed at model validation stage).
+    On failure, this function raises :exc:`modelity.exc.ModelError`.
 
     Here's an example:
 
@@ -99,26 +107,26 @@ def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
         The data to be parsed.
 
     :param ctx:
-        User-defined validation context.
-
-        Check :meth:`Model.validate` for more information.
+        The user-defined validation context.
     """
     obj = model_type(**data)
     validate(obj, ctx=ctx)
     return obj
 
 
+@export
 def validate(model: IModel, ctx: Any = None):
     """Validate provided model.
+
+    On success, this method raises no exception and returns ``None``.
+
+    On failure, :exc:`modelity.exc.ValidationError` exception is raised.
 
     :param model:
         The model to validate.
 
     :param ctx:
-        The user defined validation context.
-
-        See :ref:`validation-with-context` for more information about this
-        feature.
+        The user-defined validation context.
     """
     errors: list[Error] = []
     visitor = DefaultValidateVisitor(model, errors, ctx)

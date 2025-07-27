@@ -6,7 +6,15 @@ from pydantic import field_validator
 from typing_extensions import TypeGuard
 
 from modelity.hooks import field_postprocessor, field_preprocessor, model_postvalidator, model_prevalidator
-from modelity.interface import IFieldPostprocessingHook, IFieldPreprocessingHook, IFieldValidationHook, IModel, IModelFieldHook, IModelHook, IModelValidationHook
+from modelity.interface import (
+    IFieldPostprocessingHook,
+    IFieldPreprocessingHook,
+    IFieldValidationHook,
+    IModel,
+    IModelFieldHook,
+    IModelHook,
+    IModelValidationHook,
+)
 
 
 def is_model_hook(obj: object) -> TypeGuard[IModelHook]:

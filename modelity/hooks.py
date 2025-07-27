@@ -5,7 +5,7 @@ import functools
 import inspect
 from typing import Any, Callable, Sequence, cast, Union, TypeVar
 
-from modelity._internal import utils as _utils
+from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.interface import (
     IFieldPostprocessingHook,
@@ -19,11 +19,14 @@ from modelity.interface import (
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
+__all__ = export = _utils.ExportList()  # type: ignore
+
 MH = TypeVar("MH", bound=IModelHook)
 
 FH = TypeVar("FH", bound=IModelFieldHook)
 
 
+@export
 def field_preprocessor(*field_names: str):
     """Decorate model's method as a field preprocessing hook.
 
@@ -84,6 +87,7 @@ def field_preprocessor(*field_names: str):
     return decorator
 
 
+@export
 def field_postprocessor(*field_names: str):
     """Decorate model's method as field postprocessing hook.
 
@@ -148,6 +152,7 @@ def field_postprocessor(*field_names: str):
     return decorator
 
 
+@export
 def model_prevalidator():
     """Decorate model's method as a model prevalidator.
 
@@ -164,6 +169,7 @@ def model_prevalidator():
     return decorator
 
 
+@export
 def model_postvalidator():
     """Decorate model's method as a model postvalidator.
 
@@ -180,6 +186,7 @@ def model_postvalidator():
     return decorator
 
 
+@export
 def field_validator(*field_names: str):
     """Decorate model's method as a field validator.
 
@@ -235,6 +242,7 @@ def field_validator(*field_names: str):
     return decorator
 
 
+@export
 def type_descriptor_factory(typ: Any):
     """Register type descriptor factory function for type *typ*.
 

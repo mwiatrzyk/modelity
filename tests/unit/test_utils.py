@@ -1,6 +1,6 @@
 import pytest
 
-from modelity._internal.utils import is_subsequence
+from modelity._utils import is_subsequence
 
 
 @pytest.mark.parametrize(

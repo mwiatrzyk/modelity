@@ -14,7 +14,7 @@ from typing import (
 )
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
-from modelity._internal.utils import is_neither_str_nor_bytes_sequence
+from modelity._utils import is_neither_str_nor_bytes_sequence
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import IModelVisitor, ITypeDescriptor, ITypeDescriptorFactory

@@ -1,7 +1,7 @@
 """General purpose common utility functions."""
 
 import itertools
-from typing import Any, Sequence, TypeVar
+from typing import Any, Callable, Sequence, TypeVar, Union, overload
 
 T = TypeVar("T")
 
@@ -46,3 +46,18 @@ def is_neither_str_nor_bytes_sequence(obj: object) -> bool:
 def format_signature(sig: Sequence[str]) -> str:
     """Format function's signature as string."""
     return f"({', '.join(sig)})"
+
+
+class ExportList(list):
+    """Helper for making ``__all__`` lists automatically by decorating public
+    names."""
+
+    @overload
+    def __call__(self, type_or_func: type[T]) -> type[T]: ...
+
+    @overload
+    def __call__(self, type_or_func: Callable) -> Callable: ...
+
+    def __call__(self, type_or_func: Union[Callable, type[T]]) -> Union[Callable, type[T]]:
+        self.append(type_or_func.__name__)
+        return type_or_func

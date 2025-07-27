@@ -6,13 +6,11 @@ T = TypeVar("T")
 
 
 @overload
-def make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]:
-    ...
+def make_type_descriptor(typ: type[T], type_opts: Optional[dict] = None) -> ITypeDescriptor[T]: ...
 
 
 @overload
-def make_type_descriptor(typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor:
-    ...
+def make_type_descriptor(typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor: ...
 
 
 def make_type_descriptor(typ: Any, type_opts: Optional[dict] = None) -> ITypeDescriptor:

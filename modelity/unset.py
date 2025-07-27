@@ -2,15 +2,12 @@ from typing import Final
 
 from typing_extensions import TypeGuard
 
+from modelity import _utils
 
-def is_unset(obj: object) -> TypeGuard["UnsetType"]:
-    """Check if *obj* is instance of :class:`UnsetType` type.
-
-    .. versionadded:: 0.17.0
-    """
-    return obj is Unset
+__all__ = export = _utils.ExportList(["Unset"])  # type: ignore
 
 
+@export
 class UnsetType:
     """Singleton type for representing unset or undefined values.
 
@@ -34,5 +31,14 @@ class UnsetType:
         return False
 
 
+@export
+def is_unset(obj: object) -> TypeGuard[UnsetType]:
+    """Check if *obj* is instance of :class:`UnsetType` type.
+
+    .. versionadded:: 0.17.0
+    """
+    return obj is Unset
+
+
 #: Singleton instance of the UnsetType.
-Unset: Final = UnsetType()
+Unset = UnsetType()
