@@ -87,7 +87,8 @@ def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
 
     .. testcode::
 
-        from modelity.model import Model, load
+        from modelity.model import Model
+        from modelity.helpers import load
 
         class Example(Model):
             foo: int
@@ -157,7 +158,7 @@ class ModelLoader(Generic[MT]):
 
         >>> one = DummyLoader(a=1, b="spam")
         >>> one
-        Dummy(a=1, b='spams')
+        Dummy(a=1, b='spam')
 
     .. versionadded:: 0.17.0
 

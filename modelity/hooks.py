@@ -3,7 +3,7 @@ inject user-defined hooks into model's data processing chain."""
 
 import functools
 import inspect
-from typing import Any, Callable, Sequence, cast, Union, TypeVar
+from typing import Any, Callable, Sequence, cast, Union, TypeVar, overload
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
@@ -15,11 +15,15 @@ from modelity.interface import (
     IModelHook,
     IModelFieldHook,
     IModelValidationHook,
+    ITypeDescriptor,
+    ITypeDescriptorFactory,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
+
+T = TypeVar("T")
 
 MH = TypeVar("MH", bound=IModelHook)
 
@@ -28,21 +32,44 @@ FH = TypeVar("FH", bound=IModelFieldHook)
 
 @export
 def field_preprocessor(*field_names: str):
-    """Decorate model's method as a field preprocessing hook.
+    """Decorate model's method as a field-level preprocessing hook.
 
-    Field preprocessors allow to execute user-defined filtering (like white
-    character stripping) before value is passed further to the type parser.
+    Value returned by preprocessor is either passed to the next preprocessor
+    (if any) or to the type parser assigned for the field that is being set or
+    modified.
 
-    Check :class:`modelity.interface.IFieldParsingHook` protocol for more
-    details.
+    The decorated method can be defined with no arguments, or with any
+    subsequence of the following arguments:
+
+    **cls**
+        The model type.
+
+    **errors**
+        Mutable list of errors.
+
+        Can be extended by the preprocessor if preprocessing phase fails.
+        Alternatively, preprocessor can raise :exc:`TypeError` exception that
+        will automatically be converted into error and added to this list.
+
+    **loc**
+        The currently preprocessed model location.
+
+        This is instance of the :class:`modelity.loc.Loc` type.
+
+    **value**
+        The input value for this preprocessor.
+
+        This will either be user's input value, or the output value of previous
+        preprocessor (if any).
 
     Here's an example use:
 
     .. testcode::
 
-        from modelity.model import Model, field_preprocessor
+        from modelity.model import Model
+        from modelity.hooks import field_preprocessor
 
-        class FieldPreprocessorExample(Model):
+        class Dummy(Model):
             foo: str
 
             @field_preprocessor("foo")
@@ -51,10 +78,23 @@ def field_preprocessor(*field_names: str):
                     return value.strip()
                 return value
 
-    :param `*field_names`:
-        List of field names this preprocessor will be called for.
+    .. doctest::
 
-        If not set, then it will be called for every field.
+        >>> dummy = Dummy(foo='  spam  ')
+        >>> dummy
+        Dummy(foo='spam')
+
+    Check :ref:`guide-processing-preprocessing` for more details on how to use
+    this hook.
+
+    :param `*field_names`:
+        List of field names.
+
+        This can be left empty if the hook needs to be run for every field.
+
+        Since hooks are inherited, this also includes subclasses of the
+        model the hook was declared in and it is not checked in any way if
+        field names are correct.
     """
 
     def decorator(func: Callable):
@@ -89,23 +129,57 @@ def field_preprocessor(*field_names: str):
 
 @export
 def field_postprocessor(*field_names: str):
-    """Decorate model's method as field postprocessing hook.
+    """Decorate model's method as a field-level postprocessing hook.
 
-    Field postprocessors are executed just after value parsing and only if the
-    parsing was successful. Postprocessing is the last step of value processing
-    and can be used to perform additional user-defined and field-specific
-    validation. Value returned by postprocessor is used as input value for
-    another postprocessor if there are many postprocessors defined for a single
-    field. Value returned by last postprocessor becomes final field's value.
+    Value returned by this kind of hook is either passed to a next
+    postprocessor (if any), or stored as model's field final value. No
+    additional type checking takes place after postprocessing stage, so the
+    user must pay attention to this.
 
-    Check :class:`modelity.interface.IFieldParsingHook` protocol for the list
-    of supported arguments and their meaning.
+    The decorated method can be defined with no arguments, or with any
+    subsequence of the following arguments:
+
+    **cls**
+        The model type.
+
+    **self**
+        The instance of the model that is currently being created or modified.
+
+        This allows the hook to access other model's fields in a read-write way
+        and can be used to either set related fields, or perform some
+        additional on-field-change validation.
+
+        .. important::
+
+            The user needs to pay attention when accessing other fields, as
+            those may have not been initialized yet. Modelity processes data
+            field by field in field declaration order, so this must be taken
+            into account when this functionality is used.
+
+    **errors**
+        Mutable list of errors.
+
+        Can be extended by the postprocessor if postprocessing phase fails.
+        Alternatively, postprocessor can raise :exc:`TypeError` exception that
+        will automatically be converted into error and added to this list.
+
+    **loc**
+        The currently preprocessed model location.
+
+        This is instance of the :class:`modelity.loc.Loc` type.
+
+    **value**
+        The input value for this postprocessor.
+
+        This will either be the output value of the type parser, or the output
+        value of previous postprocessor (if any).
 
     Here's an example use:
 
     .. testcode::
 
-        from modelity.model import Model, field_postprocessor
+        from modelity.model import Model
+        from modelity.hooks import field_postprocessor
 
         class FieldPostprocessorExample(Model):
             foo: str
@@ -114,10 +188,17 @@ def field_postprocessor(*field_names: str):
             def _strip_white_characters(value):
                 return value.strip()  # The 'value' is guaranteed to be str when this gets called
 
-    :param `*field_names`:
-        List of field names this postprocessor will be called for.
+    Check :ref:`guide-processing-postprocessing` for more details on how to use
+    this hook.
 
-        If not set, then it will be called for every field.
+    :param `*field_names`:
+        List of field names.
+
+        This can be left empty if the hook needs to be run for every field.
+
+        Since hooks are inherited, this also includes subclasses of the
+        model the hook was declared in and it is not checked in any way if
+        field names are correct.
     """
 
     def decorator(func):
@@ -154,13 +235,47 @@ def field_postprocessor(*field_names: str):
 
 @export
 def model_prevalidator():
-    """Decorate model's method as a model prevalidator.
+    """Decorate model's method as a model-level prevalidation hook.
 
-    Prevalidators run before any other validators (including built-in ones),
-    during the initial stage of model validation.
+    The decorated method can be defined with no arguments, or with any
+    subsequence of the following arguments:
 
-    Check :class:`modelity.interface.IModelValidationHook` protocol for the
-    list of supported arguments that can be used by the decorated method.
+    **cls**
+        The model type.
+
+    **self**
+        The current model.
+
+        Different than *root* means that this is a nested model.
+
+    **root**
+        The root model instance.
+
+        This is the model for which :meth:`modelity.helpers.validate` was
+        called. Can be used to access entire model when performing validation.
+
+    **ctx**
+        The user-defined validation context.
+
+        Check :ref:`guide-validation-using_context` for more details.
+
+    **errors**
+        Mutable list of errors.
+
+        Can be extended by this hook to signal validation errors.
+        Alternatively, :exc:`ValueError` exception can be raised and will
+        automatically be converted into error and added to this list.
+
+    **loc**
+        The location of the currently validated model.
+
+        Will be empty if this is a root model, or non-empty if this model is
+        nested inside another model.
+
+        This is instance of the :class:`modelity.loc.Loc` type.
+
+    Check :ref:`guide-validation-model_prevalidation` for more details on how
+    to use this hook.
     """
 
     def decorator(func):
@@ -171,13 +286,13 @@ def model_prevalidator():
 
 @export
 def model_postvalidator():
-    """Decorate model's method as a model postvalidator.
+    """Decorate model's method as a model-level postvalidation hook.
 
-    Postvalidators run after all other validators, during the final stage of
-    model validation.
+    The arguments for the decorated method are exactly the same as for
+    :func:`model_prevalidation` hook.
 
-    Check :class:`modelity.interface.IModelValidationHook` protocol for the
-    list of supported arguments that can be used by the decorated method.
+    Check :ref:`guide-validation-model_postvalidation` for more details on how
+    to use this hook.
     """
 
     def decorator(func):
@@ -188,22 +303,51 @@ def model_postvalidator():
 
 @export
 def field_validator(*field_names: str):
-    """Decorate model's method as a field validator.
+    """Decorate model's method as a field-level validator.
 
-    Unlike model pre- and postvalidators, operating in the model scope, field
-    validators are only executed if the field has value assigned. And since the
-    value must pass parsing step, field validators can safely assume that the
-    value already has correct type.
+    This hook is executed for given field names only (or all fields, if the
+    list of names is empty), if and only if the field is set and always in
+    between model-level pre- and postvalidators.
 
-    Check :class:`modelity.interface.IFieldValidationHook` protocol for the
-    list of supported method arguments and their meaning.
+    **cls**
+        The model type.
 
-    :param `*field_names`:    func: Callable
-    supported_param_names: tuple[str, ...]
-    given_param_names: set[str]
-        Names of fields to run this validator for.
+    **self**
+        The current model.
 
-        Leave empty to run for all fields defined in the current model.
+        Different than *root* means that this is a nested model.
+
+    **root**
+        The root model instance.
+
+        This is the model for which :meth:`modelity.helpers.validate` was
+        called. Can be used to access entire model when performing validation.
+
+    **ctx**
+        The user-defined validation context.
+
+        Check :ref:`guide-validation-using_context` for more details.
+
+    **errors**
+        Mutable list of errors.
+
+        Can be extended by this hook to signal validation errors.
+        Alternatively, :exc:`ValueError` exception can be raised and will
+        automatically be converted into error and added to this list.
+
+    **loc**
+        The location of the currently validated model.
+
+        Will be empty if this is a root model, or non-empty if this model is
+        nested inside another model.
+
+        This is instance of the :class:`modelity.loc.Loc` type.
+
+    **value**
+        Field's value to validate.
+
+    Check :ref:`guide-validation-field_validation` for more details on how
+    to use this hook.
     """
 
     def decorator(func):
@@ -252,8 +396,9 @@ def type_descriptor_factory(typ: Any):
 
     Check :ref:`registering-3rd-party-types-label` for more details.
 
-    .. note:: This decorator must be used before first model is created or
-              otherwise registered type might not be visible.
+    .. note::
+        This decorator must be used before first model is created or otherwise
+        registered type might not be visible.
 
     .. versionadded:: 0.14.0
 
@@ -262,7 +407,7 @@ def type_descriptor_factory(typ: Any):
     """
     from modelity._internal.type_descriptors.all import registry
 
-    def decorator(func):
+    def decorator(func, /):
         return registry.register_type_descriptor_factory(typ, func)
 
     return decorator

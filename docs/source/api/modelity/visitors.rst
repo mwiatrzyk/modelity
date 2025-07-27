@@ -1,7 +1,7 @@
-modelity.mixins
----------------
+modelity.visitors
+-----------------
 
-.. automodule:: modelity.mixins
+.. automodule:: modelity.visitors
   :members:
   :undoc-members:
   :show-inheritance:

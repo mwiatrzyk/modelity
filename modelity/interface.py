@@ -302,14 +302,17 @@ class ITypeDescriptor(abc.ABC, Generic[T]):
 
 
 @export
-class ITypeDescriptorFactory(Protocol):
-    """Protocol describing type descriptor factory function.
+class ITypeDescriptorFactory(Protocol, Generic[T]):
+    """Protocol describing type descriptor factories.
 
     These functions are used to create instances of :class:`ITypeDescriptor`
     for provided type and type options.
+
+    .. versionchanged:: 0.17.0
+        This protocol was made generic.
     """
 
-    def __call__(self, typ: Any, type_opts: dict) -> ITypeDescriptor:
+    def __call__(self, typ: Any, type_opts: dict) -> ITypeDescriptor[T]:
         """Create type descriptor for a given type.
 
         :param typ:
@@ -327,6 +330,7 @@ class ITypeDescriptorFactory(Protocol):
 
             If not used, then it should be set to an empty dict.
         """
+        ...
 
 
 @export
