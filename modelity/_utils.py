@@ -52,12 +52,9 @@ class ExportList(list):
     """Helper for making ``__all__`` lists automatically by decorating public
     names."""
 
-    @overload
-    def __call__(self, type_or_func: type[T]) -> type[T]: ...
-
-    @overload
-    def __call__(self, type_or_func: Callable) -> Callable: ...
-
-    def __call__(self, type_or_func: Union[Callable, type[T]]) -> Union[Callable, type[T]]:
-        self.append(type_or_func.__name__)
+    def __call__(self, type_or_func: T) -> T:
+        name = getattr(type_or_func, "__name__", None)
+        if name is None:
+            raise TypeError(f"cannot export {type_or_func!r}; the '__name__' property is undefined")
+        self.append(name)
         return type_or_func

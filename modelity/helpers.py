@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
 from modelity import _utils
 from modelity.error import Error
@@ -133,3 +133,53 @@ def validate(model: IModel, ctx: Any = None):
     model.accept(visitor)
     if errors:
         raise ValidationError(model, tuple(errors))
+
+
+@export
+class ModelLoader(Generic[MT]):
+    """Similar to :func:`load` function, but allows to create loader for given
+    model type and then create instances of that model using keyword args.
+
+    Example use:
+
+    .. testcode::
+
+        from modelity.model import Model
+        from modelity.helpers import ModelLoader
+
+        class Dummy(Model):
+            a: int
+            b: str
+
+        DummyLoader = ModelLoader(Dummy)
+
+    .. doctest::
+
+        >>> one = DummyLoader(a=1, b="spam")
+        >>> one
+        Dummy(a=1, b='spams')
+
+    .. versionadded:: 0.17.0
+
+    :param model_type:
+        The model type.
+
+    :param ctx:
+        The user-defined validation context.
+    """
+
+    def __init__(self, model_type: type[MT], ctx: Any = None):
+        self._model_type = model_type
+        self._ctx = ctx
+
+    def __call__(self, **kwargs) -> MT:
+        """Create and validate instance of the given model type.
+
+        On success, valid model instance is returned.
+
+        On failure, :exc:`modelity.exc.ModelError` exception is raised.
+
+        :param `**kwargs`:
+            Named arguments for model's constructor.
+        """
+        return load(self._model_type, kwargs, self._ctx)
