@@ -3,13 +3,14 @@ from typing import Any
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
+from modelity.interface import IConstraint
 from modelity.loc import Loc
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
 
 @export
-class Ge:
+class Ge(IConstraint):
     """Minimum inclusive value constraint.
 
     :param min_inclusive:
@@ -41,7 +42,7 @@ class Ge:
 
 
 @export
-class Gt:
+class Gt(IConstraint):
     """Minimum exclusive value constraint.
 
     :param min_exclusive:
@@ -65,7 +66,7 @@ class Gt:
 
 
 @export
-class Le:
+class Le(IConstraint):
     """Maximum inclusive value constraint.
 
     :param max_inclusive:
@@ -89,7 +90,7 @@ class Le:
 
 
 @export
-class Lt:
+class Lt(IConstraint):
     """Maximum exclusive value constraint.
 
     :param max_exclusive:
@@ -113,7 +114,7 @@ class Lt:
 
 
 @export
-class MinLen:
+class MinLen(IConstraint):
     """Minimum length constraint.
 
     :param min_len:
@@ -137,7 +138,7 @@ class MinLen:
 
 
 @export
-class MaxLen:
+class MaxLen(IConstraint):
     """Maximum length constraint.
 
     :param max_len:
@@ -161,7 +162,7 @@ class MaxLen:
 
 
 @export
-class Regex:
+class Regex(IConstraint):
     """Regular expression constraint.
 
     Allows values matching given regular expression and reject all other. Can

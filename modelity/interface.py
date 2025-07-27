@@ -67,7 +67,7 @@ class IModelHook(Protocol):
     """Protocol describing base interface for model hooks.
 
     Hooks are used to wrap user-defined functions and use them to inject extra
-    logic to either parsing or validation stage of data processing.
+    logic to either parsing or validation stages of data processing.
     """
 
     #: The sequential ID number assigned for this hook.
@@ -193,13 +193,17 @@ class IFieldValidationHook(IModelFieldHook):
 
 
 @export
-class IConstraint(Protocol):
-    """Protocol describing constraint callable.
+class IConstraint(abc.ABC):
+    """Abstract base class for constraints.
 
-    Constraint callables can be used with :class:`typing.Annotated`-wrapped
-    types.
+    Constraints can be used with :class:`typing.Annotated`-wrapped types to
+    restrict value range or perform similar type-specific validation when field
+    is either set or modified.
+
+    In addition, constraints are also verified again during validation stage.
     """
 
+    @abc.abstractmethod
     def __call__(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         """Invoke constraint checking on given value and location.
 
