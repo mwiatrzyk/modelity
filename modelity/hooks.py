@@ -7,13 +7,9 @@ from typing import Any, Callable, cast, Union, TypeVar
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.interface import (
-    IFieldPostprocessingHook,
-    IFieldPreprocessingHook,
-    IFieldValidationHook,
     IModel,
     IModelHook,
-    IModelFieldHook,
-    IModelValidationHook,
+    IFieldHook,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
@@ -21,10 +17,6 @@ from modelity.unset import Unset, UnsetType
 __all__ = export = _utils.ExportList()  # type: ignore
 
 T = TypeVar("T")
-
-MH = TypeVar("MH", bound=IModelHook)
-
-FH = TypeVar("FH", bound=IModelFieldHook)
 
 
 @export
@@ -115,7 +107,7 @@ def field_preprocessor(*field_names: str):
 
         supported_param_names = ("cls", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldPreprocessingHook, proxy)
+        hook = cast(IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_preprocessor.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -221,7 +213,7 @@ def field_postprocessor(*field_names: str):
 
         supported_param_names = ("cls", "self", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldPostprocessingHook, proxy)
+        hook = cast(IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_postprocessor.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -374,7 +366,7 @@ def field_validator(*field_names: str):
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldValidationHook, proxy)
+        hook = cast(IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_validator.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -410,7 +402,7 @@ def type_descriptor_factory(typ: Any):
     return decorator
 
 
-def _make_model_validator(func: Callable, hook_name: str) -> IModelValidationHook:
+def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
 
     @functools.wraps(func)
     def proxy(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
@@ -435,7 +427,7 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelValidationHoo
 
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
     given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-    hook = cast(IModelValidationHook, proxy)
+    hook = cast(IModelHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_name__ = hook_name
     return hook

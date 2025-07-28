@@ -15,7 +15,6 @@ from modelity.visitors import (
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
-
 MT = TypeVar("MT", bound=IModel)
 
 

@@ -9,11 +9,10 @@ from numbers import Number
 from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
 from modelity import _utils
-from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IField, IModel, IModelVisitor, ISupportsValidate
+from modelity.interface import IModel, IModelVisitor, ISupportsValidate
 from modelity.loc import Loc
-from modelity.model import Field, Model
+from modelity.model import Field, Model, postvalidate_model, prevalidate_model, validate_field
 from modelity.unset import UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -123,14 +122,10 @@ class DefaultValidateVisitor(IModelVisitor):
 
     def visit_model_begin(self, loc: Loc, value: IModel):
         self._stack.append(value)
-        model_cls = value.__class__
-        for model_prevalidator in _int_hooks.get_model_prevalidators(model_cls):
-            model_prevalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
+        prevalidate_model(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
     def visit_model_end(self, loc: Loc, value: IModel):
-        model_cls = value.__class__
-        for model_postvalidator in _int_hooks.get_model_postvalidators(model_cls):
-            model_postvalidator(model_cls, value, self._root, self._ctx, self._errors, loc)  # type: ignore
+        postvalidate_model(value.__class__, value, self._root, self._ctx, self._errors, loc)
         self._stack.pop()
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
@@ -195,10 +190,8 @@ class DefaultValidateVisitor(IModelVisitor):
         return cast(IModel, self._stack[-2]), cast(Field, top)
 
     def _validate_field(self, loc: Loc, value: Any):
-        model, field = self._get_current_model_and_field(loc)
-        model_cls = model.__class__
-        for field_validator in _int_hooks.get_field_validators(model_cls, field.name):
-            field_validator(model_cls, model, self._root, self._ctx, self._errors, loc, value)  # type: ignore
+        model, _ = self._get_current_model_and_field(loc)
+        validate_field(model.__class__, model, self._root, self._ctx, self._errors, loc, value)
 
 
 @export

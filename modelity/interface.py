@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Iterator, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Iterator, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity import _utils
 from modelity.error import Error
@@ -30,6 +30,49 @@ class IField(Protocol):
 
 
 @export
+class IBaseHook(Protocol):
+    """Base class for hook protocols.
+
+    Hooks are used to wrap user-defined functions and use them to inject extra
+    logic to either parsing or validation stages of model's data processing.
+    """
+
+    #: The sequential ID number assigned for this hook.
+    #:
+    #: This is used to sort hooks by their declaration order when they are
+    #: collected from the model.
+    __modelity_hook_id__: int
+
+    #: The name of this hook.
+    __modelity_hook_name__: str
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        """Invoke this hook."""
+        ...
+
+@export
+class IModelHook(IBaseHook):
+    """Protocol describing model-level hooks.
+
+    This kind of hooks are executed on model instances.
+    """
+
+
+@export
+class IFieldHook(IBaseHook):
+    """Protocol describing field-level hooks.
+
+    This kind of hooks are executed on model fields independently.
+    """
+
+    #: Field names this hook will be used for.
+    #:
+    #: Empty set means that it will be used for all fields, non-empty set means
+    #: that it will be used for a subset of model fields.
+    __modelity_hook_field_names__: set[str]
+
+
+@export
 class IModel(Protocol):
     """Protocol describing common interface for data models.
 
@@ -47,7 +90,7 @@ class IModel(Protocol):
     __model_fields__: Mapping[str, IField]
 
     # #: List of hooks declared for this model.
-    __model_hooks__: Sequence["IModelHook"]
+    __model_hooks__: Sequence[IBaseHook]
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over names of fields that have value assigned."""
@@ -60,136 +103,6 @@ class IModel(Protocol):
             The visitor to use.
         """
         ...
-
-
-@export
-class IModelHook(Protocol):
-    """Protocol describing base interface for model hooks.
-
-    Hooks are used to wrap user-defined functions and use them to inject extra
-    logic to either parsing or validation stages of data processing.
-    """
-
-    #: The sequential ID number assigned for this hook.
-    #:
-    #: This is used to sort hooks by their declaration order when they are
-    #: collected from the model.
-    __modelity_hook_id__: int
-
-    #: The name of this hook.
-    __modelity_hook_name__: str
-
-
-@export
-class IModelValidationHook(IModelHook):
-    """Protocol describing interface of the model validation hooks."""
-
-    @abc.abstractmethod
-    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
-        pass
-
-
-@export
-class IModelFieldHook(IModelHook):
-    """Subclass of :class:`IModelHook` to be used as a base for hooks that
-    operate on field level rather than entire model.
-
-    For instance, hooks of this type will be executed for selected fields only
-    when the field is set, modified or validated (depending on the hook
-    type).
-    """
-
-    #: Set containing names of fields this hook will be applied to.
-    #:
-    #: If this set is empty, then hook will be applied for all fields.
-    __modelity_hook_field_names__: set[str]
-
-
-@export
-class IFieldPreprocessingHook(IModelFieldHook):
-    """Base class for user-defined preprocessing hooks.
-
-    Preprocessing is optional and first stage of data processing, executed when
-    field in a model is either set or modified. The role of preprocessors is to
-    prepare data for further stages Preprocessors cannot access model instance
-    and other fields.
-    """
-
-    @abc.abstractmethod
-    def __call__(self, cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        """Invoke the hook.
-
-        Returned value will be passed to the next preprocessing hook (if any)
-        or to the field's value parser. If preprocessing failed, then
-        :obj:`modelity.unset.Unset` should be returned and error should be
-        added to the *errors* list.
-
-        :param cls:
-            Model type this hook runs for.
-
-        :param errors:
-            Mutable list of errors.
-
-        :param loc:
-            The location of the field being processed.
-
-        :param value:
-            The value to be preprocessed.
-        """
-
-
-@export
-class IFieldPostprocessingHook(IModelFieldHook):
-    """Base class for user-defined postprocessing hooks.
-
-    Postprocessing is optional and last stage of data processing, executed
-    after successful parsing of the input data to a type field is expecting.
-    The role of postprocessors is to perform some additional field-specific
-    validation that must be executed every time the field is changed. In
-    addition, postprocessors can also be used to modify the data before it is
-    stored in the model. Postprocessors can access model instance and other
-    fields for as long as the currently postprocessed field is declared
-    **after** the field that is accessed.
-    """
-
-    @abc.abstractmethod
-    def __call__(
-        _, cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
-    ) -> Union[Any, UnsetType]:
-        """Invoke the hook.
-
-        Returned value will either be passed to a next postprocessing hook (if
-        any) or stored as field's final value in the model. If postprocessor
-        fails then :obj:`modelity.unset.Unset` object should be returned and
-        error added to the *errors* list.
-
-        :param cls:
-            Model type this hook runs for.
-
-        :param self_:
-            Model instance.
-
-            Postprocessor can use this to access other fields, but fields
-            declared after the one being postprocessed may not have values
-            assigned yet.
-
-        :param errors:
-            Mutable list of errors.
-
-        :param loc:
-            The location of the field being postprocessed.
-
-        :param value:
-            The value from parsing stage or previous postprocessor.
-        """
-
-
-@export
-class IFieldValidationHook(IModelFieldHook):
-
-    @abc.abstractmethod
-    def __call__(_, cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-        pass
 
 
 @export

@@ -2,14 +2,17 @@ import copy
 import dataclasses
 import functools
 from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
+from pydantic import field_validator
 import typing_extensions
 
 from modelity._internal import hooks as _int_hooks, model as _int_model
 from modelity.error import Error
 from modelity.exc import ParsingError
+from modelity.hooks import model_postvalidator, model_prevalidator
 from modelity.interface import (
+    IBaseHook,
     IField,
-    IModelHook,
+    IModel,
     IModelVisitor,
     ITypeDescriptor,
 )
@@ -22,6 +25,96 @@ __all__ = export = _utils.ExportList()  # type: ignore
 T = TypeVar("T")
 
 _IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__", "__loc__"}
+
+
+@export
+def prevalidate_model(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
+    """Execute chain of model-level prevalidators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+    """
+    for hook in _int_hooks.get_model_hooks(cls, model_prevalidator.__name__):
+        hook(cls, self, root, ctx, errors, loc)
+
+
+@export
+def postvalidate_model(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
+    """Execute chain of model-level postvalidators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+    """
+    for hook in _int_hooks.get_model_hooks(cls, model_postvalidator.__name__):
+        hook(cls, self, root, ctx, errors, loc)
+
+
+@export
+def validate_field(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
+    """Execute chain of field-level validators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+
+    :param value:
+        The value to validate.
+    """
+    for hook in _int_hooks.get_field_hooks(cls, field_validator.__name__, loc[-1]):  # type: ignore
+        hook(cls, self, root, ctx, errors, loc, value)
 
 
 @export
@@ -148,11 +241,11 @@ class ModelMeta(type):
     #: :mod:`modelity.hooks` module. A hook registered in a base class is also
     #: inherited by a child class. The order of this sequence reflects hook
     #: declaration order.
-    __model_hooks__: Sequence[IModelHook]
+    __model_hooks__: Sequence[IBaseHook]
 
     def __new__(tp, name: str, bases: tuple, attrs: dict):
         attrs["__model_fields__"] = fields = dict[str, Field]()
-        attrs["__model_hooks__"] = hooks = list[IModelHook]()
+        attrs["__model_hooks__"] = hooks = list[IBaseHook]()
         for base in bases:
             fields.update(getattr(base, "__model_fields__", {}))
             hooks.extend(getattr(base, "__model_hooks__", []))
@@ -169,7 +262,7 @@ class ModelMeta(type):
             fields[field_name] = bound_field
         for key in dict(attrs):
             attr_value = attrs[key]
-            if _int_hooks.is_model_hook(attr_value):
+            if _int_hooks.is_base_hook(attr_value):
                 hooks.append(attr_value)
                 del attrs[key]
         hooks.sort(key=lambda x: x.__modelity_hook_id__)
@@ -213,7 +306,7 @@ class Model(metaclass=ModelMeta):
     __model_fields__: Mapping[str, IField]
 
     #: A per-instance view of :attr:`ModelMeta.__model_hooks__` attribute
-    __model_hooks__: Sequence[IModelHook]
+    __model_hooks__: Sequence[IBaseHook]
 
     def __init__(self, **kwargs) -> None:
         self.__loc__ = Loc()
@@ -254,28 +347,13 @@ class Model(metaclass=ModelMeta):
         if value is Unset:
             return super().__setattr__(name, value)
         loc = self.__loc__ + Loc(name)
-        value = self.__apply_field_preprocessors(errors, loc, value)
+        cls = self.__class__
+        value = _int_hooks.preprocess_field(cls, errors, loc, value)  # type: ignore
         if value is Unset:
             return super().__setattr__(name, value)
         value = type_descriptor.parse(errors, loc, value)
-        value = self.__apply_field_postprocessors(errors, loc, value)
+        value = _int_hooks.postprocess_field(cls, self, errors, loc, value)  # type: ignore
         return super().__setattr__(name, value)
-
-    @classmethod
-    def __apply_field_preprocessors(cls, errors, loc, value):
-        for hook in _int_hooks.get_field_preprocessors(cls, loc[-1]):
-            value = hook(cls, errors, loc, value)  # type: ignore
-            if value is Unset:
-                return Unset
-        return value
-
-    def __apply_field_postprocessors(self, errors, loc, value):
-        cls = self.__class__
-        for hook in _int_hooks.get_field_postprocessors(cls, loc[-1]):
-            value = hook(cls, self, errors, loc, value)  # type: ignore
-            if value is Unset:
-                return Unset
-        return value
 
     def __setattr__(self, name: str, value: Any) -> None:
         field = self.__class__.__model_fields__.get(name)
