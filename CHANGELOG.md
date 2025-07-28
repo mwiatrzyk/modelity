@@ -1,3 +1,22 @@
+## 0.18.0 (2025-07-28)
+
+### BREAKING CHANGES
+
+- `IFieldPreprocessingHook` was removed from the
+interface.
+- `IFieldPostprocessingHook` was removed from the
+interface.
+- `IModelValidationHook` was replaced with
+`prevalidate_model` and `postvalidate_model` helpers for running
+model-level validation. This allows to run these hooks when implementing
+custom validation visitor.
+- `IFieldValidationHook` was replaced with
+`validate_field` helper for running field-level validation.
+
+### Feat
+
+- refactor hook system
+
 ## 0.17.0 (2025-07-27)
 
 ### BREAKING CHANGES
