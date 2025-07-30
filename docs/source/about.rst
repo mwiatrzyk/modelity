@@ -11,7 +11,7 @@ each other, but being a part of single toolkit for ease of use.
 In Modelity, data parsing is executed automatically once data model is
 instantiated or modified, while validation needs to be explicitly called by
 client code, when collecting data to initialize model with is done. Thanks to
-this approach, models can be feed with data progressively (f.e. in response to
+this approach, models can be fed with data progressively (f.e. in response to
 user's input), while still being able to validate at any time.
 
 Features
