@@ -3,32 +3,217 @@
 User's guide
 ============
 
-Declaring fields with default values
-------------------------------------
+Setting and unsetting fields
+----------------------------
 
-Modelity provides 3 ways of declaring field that has default value:
+Modelity allows to set any number of fields when model object is created. All
+other fields are set to special :obj:`modelity.unset.Unset` object that
+represents the unset state of a field:
 
 .. testcode::
 
-    from modelity.model import Model, FieldInfo
+    from modelity.model import Model
 
-    class First(Model):
-        foo: int = 1
+    class Example(Model):
+        foo: int
 
-    class Second(Model):
-        foo: int = FieldInfo(default="2")  # <-- this will be parsed
-
-    class Third(Model):
-        foo: int = FieldInfo(default_factory=lambda: 'not an int')  # <-- this will fail unless shadowed by other value
-
-Default values are used only when model is constructed and only if there no
-other values given. For example:
+And now, let's create and instance of that model but without any arguments:
 
 .. doctest::
 
-    >>> First()  # <-- here the default value will be used
+    >>> one = Example()
+    >>> one.foo  # this field is unset
+    Unset
+
+You can compare any existing field with :obj:`modelity.unset.Unset` value to
+check if it is unset. No additional checks are needed no matter if the field
+was set or not, as Modelity automatically initializes all fields with an unset
+state:
+
+.. doctest::
+
+    >>> from modelity.unset import Unset
+    >>> one.foo is Unset  # `foo` field is unset
+    True
+    >>> one.foo = 123  # `foo` is now set to 123, so it is no longer unset
+    >>> one.foo is Unset
+    False
+
+You can iterate over model instance to list names of fields that are currently
+set:
+
+.. doctest::
+
+    >>> list(one)
+    ['foo']
+
+It is also possible to use :func:`modelity.helpers.has_fields_set` helper to
+check if model has at least one field set:
+
+.. doctest::
+
+    >>> from modelity.helpers import has_fields_set
+    >>> has_fields_set(one)
+    True
+    >>> two = Example()
+    >>> has_fields_set(two)
+    False
+
+To unset a field you have two options:
+
+1) Set the field to unset value:
+
+    .. doctest::
+
+        >>> one.foo = Unset
+        >>> one.foo
+        Unset
+
+2) Delete the field from the model object:
+
+    .. doctest::
+
+        >>> one.foo = 123
+        >>> one.foo
+        123
+        >>> del one.foo
+        >>> one.foo
+        Unset
+
+Both options are equivalent and can be used interchangeably.
+
+Optional fields
+---------------
+
+By default, all fields in a model are required. To make one or more fields
+optional, either :obj:`typing.Optional` or :obj:`typing.Union` allowing
+``None`` must be used. Here's an example model class with both required and
+optional fields defined:
+
+.. testcode::
+
+    from typing import Optional, Union
+
+    from modelity.model import Model
+
+    class Example(Model):
+        foo: int  # this field is required
+        bar: Optional[int]  # this field is optional; allows integer or None value
+        baz: Union[int, str, None]  # this field is optional as well; allows integer, string or None value
+
+Fields marked as optional does not have to be present when the model is
+validated:
+
+.. doctest::
+
+    >>> from modelity.helpers import validate
+    >>> first = Example(foo=123)
+    >>> validate(first)
+    >>> first
+    Example(foo=123, bar=Unset, baz=Unset)
+
+Optional fields can be set to ``None``:
+
+.. doctest::
+
+    >>> first.bar = None
+    >>> first
+    Example(foo=123, bar=None, baz=Unset)
+
+Note that the *bar* field is now set to ``None``, while *baz* remains unset.
+This behavior can be used to form a tri-bool state, when it is possible to
+differentiate between unset optional fields, and "cleared" optional fields:
+
+.. doctest::
+
+    >>> first.bar is Unset  # it is set to `None`
+    False
+    >>> first.baz is Unset  # 'baz' is still unset; we did not set it
+    True
+
+.. _guide-strictOptional:
+
+Strict optional fields
+----------------------
+
+Typically, :obj:`typing.Optional` is more than enough for making optional
+fields. However, sometimes ``None`` as a valid value is not acceptable,
+especially when the model have self-exclusive fields that cannot co-exist. To
+make fields that can either be set to some type, or not set at all, Modelity
+provides :obj:`modelity.types.StrictOptional` type wrapper that can be used
+instead:
+
+.. testcode::
+
+    from modelity.types import StrictOptional
+    from modelity.model import Model
+    from modelity.helpers import validate
+
+    class StrictOptionalExample(Model):
+        foo: StrictOptional[int]
+
+In the example above, field *foo* was declared as strict optional, meaning that
+it is fine to create model without that field:
+
+.. doctest::
+
+    >>> one = StrictOptionalExample()
+    >>> validate(one)
+
+It is also fine to set such field to a value of matching type, or type that can
+be converted into target type:
+
+.. doctest::
+
+    >>> one.foo = '123'
+    >>> one.foo
+    123
+
+But, unlike for :obj:`typing.Optional`, ``None`` value can no longer be used
+for such types:
+
+.. doctest::
+
+    >>> one.foo = None
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: parsing failed for type 'StrictOptionalExample' with 1 error(-s):
+      foo:
+        could not parse union value; types tried: <class 'int'>, <class 'modelity.unset.UnsetType'> [code=modelity.UNION_PARSING_ERROR, value_type=<class 'NoneType'>]
+
+Fields with default values
+--------------------------
+
+Modelity provides three ways of declaring fields with default value:
+
+* by initializing field with a default value,
+* by initializing field with :func:`modelity.model.field_info` metadata with default value set,
+* by initializing field with :func:`modelity.model.field_info` metadata with
+  default value returned by callable during model construction.
+
+Check the examples below:
+
+.. testcode::
+
+    from modelity.model import Model, field_info
+
+    class First(Model):
+        foo: int = 1  # the simplest way
+
+    class Second(Model):
+        foo: int = field_info(default="2")  # default value of different type; will be parsed
+
+    class Third(Model):
+        foo: int = field_info(default_factory=lambda: 'not an int')  # default value returned by callable; incorrect type
+
+Default values are used only when model is constructed and only if there no
+other values given for fields with default values given. For example:
+
+.. doctest::
+
+    >>> First()  # will be initialized with default value or 1
     First(foo=1)
-    >>> First(foo=111)  # <-- here the default value is ignored
+    >>> First(foo=111)  # default value is shadowed by 111
     First(foo=111)
 
 For Modelity, default value is no different from the value provided by the user
@@ -57,6 +242,90 @@ The error, however, will not happen if another, valid value will be given:
 
     >>> Third(foo=333)
     Third(foo=333)
+
+Built-in types
+--------------
+
+The **UnsetType** type
+^^^^^^^^^^^^^^^^^^^^^^
+
+This type allows to declare fields that can have no value:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.unset import UnsetType
+
+    class UnsetExample(Model):
+        foo: UnsetType
+
+.. doctest::
+
+    >>> obj = UnsetExample()
+    >>> obj.foo = 123
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: parsing failed for type 'UnsetExample' with 1 error(-s):
+      foo:
+        value not allowed; allowed values: Unset [code=modelity.VALUE_NOT_ALLOWED, value_type=<class 'int'>]
+
+This type has no practical use, but is internally used to implement :ref:`strict optionals<guide-strictOptional>`.
+
+The **Any** type
+^^^^^^^^^^^^^^^^
+
+This type, provided by :obj:`typing.Any`, allows the field to be set to value
+of any type:
+
+.. testcode::
+
+    from typing import Any
+
+    from modelity.model import Model
+
+    class AnyExample(Model):
+        foo: Any
+
+.. doctest::
+
+    >>> obj = AnyExample()
+    >>> obj.foo = 123
+    >>> obj.foo
+    123
+    >>> obj.foo = []
+    >>> obj.foo
+    []
+
+
+The **bool** type
+^^^^^^^^^^^^^^^^^
+
+This type allows fields to store boolean values - either ``True`` or ``False``:
+
+.. testcode::
+
+    from modelity.model import Model
+
+    class BoolExample(Model):
+        foo: bool
+
+.. doctest::
+
+    >>> obj = BoolExample()
+    >>> obj.foo = True
+    >>> obj.foo
+    True
+
+By default, this type only allows ``True`` or ``False`` as the valid values,
+but it can be customized using :term:`type options`:
+
+.. testcode::
+
+    from modelity.model import Model, field_info
+
+    class BoolExample(Model):
+        foo: bool = field_info(true_literals=['yes'], false_literals=['no'])
+
 
 Using collection types
 ----------------------

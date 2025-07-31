@@ -3,6 +3,19 @@ Glossary
 
 .. glossary::
 
+    Type descriptors
+        Modelity built-in mechanism for handling type parsing and value
+        visiting logic.
+
+        It is provided by :class:`modelity.interface.ITypeDescriptor` base
+        class. Modelity evaluates type descriptors when model type is created,
+        and later operates on closures created during model construction.
+        Thanks to this approach the logic behind type support is quite simple,
+        without degrading runtime performance too much.
+
+        Type descriptors can be built-in for the types Modelity supports, with
+        a possibility to register custom types or 3rd party types if needed.
+
     Data model
         A subclass of :class:`modelity.model.Model` class with data-specific
         fields and their types provided via type annotations like in
