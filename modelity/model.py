@@ -122,14 +122,34 @@ def field_info(
     *,
     default: Union[T, UnsetType] = Unset,
     default_factory: Union[Callable[[], T], UnsetType] = Unset,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    examples: Optional[list] = None,
     **type_opts,
 ) -> T:
     """Helper for creating :class:`FieldInfo` objects in a way that will
     satisfy code linters.
 
+    Check :class:`FieldInfo` class documentation to get help on available
+    parameters.
+
     .. versionadded:: 0.16.0
+
+    .. versionchanged:: 0.19.0
+
+        Added *title*, *description* and *examples* parameters.
     """
-    return cast(T, FieldInfo(default=default, default_factory=default_factory, type_opts=type_opts))
+    return cast(
+        T,
+        FieldInfo(
+            default=default,
+            default_factory=default_factory,
+            title=title,
+            description=description,
+            examples=examples,
+            type_opts=type_opts,
+        ),
+    )
 
 
 @export
@@ -146,6 +166,29 @@ class FieldInfo:
     #: is created, and therefore producing different default values for
     #: different model instances.
     default_factory: Union[Callable[[], Any], UnsetType] = Unset  # type: ignore
+
+    #: The title of this field.
+    #:
+    #: This should be relatively short.
+    #:
+    #: .. versionadded:: 0.19.0
+    title: Optional[str] = None
+
+    #: The description of this field.
+    #:
+    #: This is a long description, to be used when :attr:`title` is not
+    #: sufficient.
+    #:
+    #: .. versionadded:: 0.19.0
+    description: Optional[str] = None
+
+    #: The example values for this field.
+    #:
+    #: This is not used directly in any way by the library, but 3rd party tools
+    #: may use it f.e. to create random valid objects for tests.
+    #:
+    #: .. versionadded:: 0.19.0
+    examples: Optional[list] = None
 
     #: Additional options for type descriptors.
     #:
