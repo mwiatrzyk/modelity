@@ -634,7 +634,7 @@ class TestModelWithModelPrevalidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, "an error", ValueError),)
 
     @pytest.mark.parametrize(
         "arg_name, expect_call_arg",
@@ -762,7 +762,7 @@ class TestModelWithModelPostvalidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, "an error", ValueError),)
 
     @pytest.mark.parametrize(
         "arg_name, expect_call_arg",
@@ -892,7 +892,7 @@ class TestModelWithFieldValidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 1, "an error", ValueError),)
 
     @pytest.mark.parametrize(
         "arg_name, expected_call_arg",
@@ -1179,7 +1179,7 @@ class TestModelWithFieldPreprocessors:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo = 123
         assert excinfo.value.typ is SUT
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", TypeError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)
 
 
 class TestModelWithFieldPostprocessors:
@@ -1300,4 +1300,4 @@ class TestModelWithFieldPostprocessors:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo = 123
         assert excinfo.value.typ is SUT
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), "an error", TypeError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)

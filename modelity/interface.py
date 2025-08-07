@@ -50,6 +50,7 @@ class IBaseHook(Protocol):
         """Invoke this hook."""
         ...
 
+
 @export
 class IModelHook(IBaseHook):
     """Protocol describing model-level hooks.

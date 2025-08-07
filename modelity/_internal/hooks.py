@@ -72,7 +72,9 @@ def preprocess_field(cls: type[IModel], errors: list[Error], loc: Loc, value: An
     return value
 
 
-def postprocess_field(cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+def postprocess_field(
+    cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any
+) -> Union[Any, UnsetType]:
     """Execute chain of field-level postprocessors.
 
     On success, value is returned.

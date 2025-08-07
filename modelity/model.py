@@ -1,7 +1,7 @@
 import copy
 import dataclasses
 import functools
-from typing import Any, Callable, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
+from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 from pydantic import field_validator
 import typing_extensions
 
@@ -360,9 +360,8 @@ class Model(metaclass=ModelMeta):
             if value is Unset:
                 value = field.compute_default()
             if value is not Unset:
-                self.__set_value(field.descriptor, errors, name, value)
-            else:
-                super().__setattr__(name, value)
+                value = self.__parse(field.descriptor, errors, name, value)
+            super().__setattr__(name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
 
@@ -386,31 +385,37 @@ class Model(metaclass=ModelMeta):
             if getattr(self, name) is not Unset:
                 yield name
 
-    def __set_value(self, type_descriptor: ITypeDescriptor, errors: list[Error], name: str, value: Any):
-        if value is Unset:
-            return super().__setattr__(name, value)
-        loc = self.__loc__ + Loc(name)
+    def __parse(self, type_descriptor: ITypeDescriptor, errors: list[Error], field_name: str, value: Any) -> Union[Any, UnsetType]:
+        loc = self.__loc__ + Loc(field_name)
         cls = self.__class__
         value = _int_hooks.preprocess_field(cls, errors, loc, value)  # type: ignore
         if value is Unset:
-            return super().__setattr__(name, value)
+            return value
         value = type_descriptor.parse(errors, loc, value)
+        if value is Unset:
+            return value
         value = _int_hooks.postprocess_field(cls, self, errors, loc, value)  # type: ignore
-        return super().__setattr__(name, value)
+        return value
 
     def __setattr__(self, name: str, value: Any) -> None:
         field = self.__class__.__model_fields__.get(name)
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
-        self.__set_value(field.descriptor, errors, name, value)
+        value = self.__parse(field.descriptor, errors, name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
+        super().__setattr__(name, value)
 
     def __delattr__(self, name):
         setattr(self, name, Unset)
 
     def accept(self, visitor: IModelVisitor):
+        """Accept visitor on this model.
+
+        :param visitor:
+            The visitor to accept.
+        """
         visitor.visit_model_begin(self.__loc__, self)
         for name, field in self.__class__.__model_fields__.items():
             loc = self.__loc__ + Loc(name)

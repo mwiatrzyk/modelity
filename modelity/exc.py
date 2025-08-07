@@ -20,8 +20,8 @@ class ModelityError(Exception):
 
 @export
 class ModelError(ModelityError):
-    """Common base class for errors that model may raise during either parsing,
-    or validation phases.
+    """Common base class for errors that model may raise during either input
+    data parsing, or model validation stages.
 
     It can be used in client code to catch both parsing and validation errors
     by using this single exception type, which can help avoid unexpected

@@ -618,7 +618,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.REQUIRED_MISSING, "this field is required")
 
     @staticmethod
-    def exception(loc: Loc, msg: str, exc_type: type[Exception]) -> Error:
+    def exception(loc: Loc, value: Any, msg: str, exc_type: type[Exception]) -> Error:
         """Create error from a caught exception.
 
         :param loc:
@@ -627,7 +627,10 @@ class ErrorFactory:
         :param msg:
             The error message.
 
+        :param value:
+            The incorrect value.
+
         :param exc_type:
             The type of the exception caught.
         """
-        return Error(loc, ErrorCode.EXCEPTION, msg, data={"exc_type": exc_type})
+        return Error(loc, ErrorCode.EXCEPTION, msg, value, {"exc_type": exc_type})

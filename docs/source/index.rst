@@ -7,5 +7,6 @@ Modelity documentation
    about
    quickstart
    guide
+   advanced
    glossary
    api/index
