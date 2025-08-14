@@ -1,3 +1,9 @@
+## 0.19.0 (2025-08-14)
+
+### Feat
+
+- add `title`, `description` and `examples` fields to `modelity.model.FieldInfo` class
+
 ## 0.18.0 (2025-07-28)
 
 ### BREAKING CHANGES
