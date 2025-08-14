@@ -1,6 +1,244 @@
 Advanced user's guide
 =====================
 
+Registering custom types
+------------------------
+
+Let's try to use the following type in our model:
+
+.. testcode::
+
+    import dataclasses
+
+    @dataclasses.dataclass
+    class Vec2D:
+        x: float
+        y: float
+
+Since Modelity does not known how to parse this type,
+:exc:`modelity.exc.UnsupportedTypeError` exception will be raised during model
+declaration:
+
+.. doctest::
+
+    >>> from modelity.model import Model
+    >>> class Car(Model):
+    ...     position: Vec2D
+    Traceback (most recent call last):
+      ...
+    modelity.exc.UnsupportedTypeError: unsupported type used: <class 'Vec2D'>
+
+To overcome this obstacle, Modelity provides 2 possibilities that will be
+explained in the upcoming sections.
+
+Using ``__modelity_type_descriptor__`` static method
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To make it possible to use **Vec2D** in our model, we can add Modelity-specific
+static method that will provide a type descriptor for **Vec2D** type:
+
+.. testcode::
+
+    import dataclasses
+
+    from modelity.interface import ITypeDescriptor
+    from modelity.error import ErrorFactory
+
+
+    @dataclasses.dataclass
+    class Vec2D:
+        x: float
+        y: float
+
+        @staticmethod
+        def __modelity_type_descriptor__():
+            return Vec2DTypeDescriptor()
+
+
+    class Vec2DTypeDescriptor(ITypeDescriptor):
+
+        # Parsing logic goes in here
+        def parse(self, errors, loc, value):
+            if isinstance(value, Vec2D):
+                return value  # Nothing is changed for Vec2D objects
+            if isinstance(value, tuple) and len(value) == 2:
+                return Vec2D(*value)  # Convert from tuple
+            errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec2D or 2-element tuple", [Vec2D, tuple]))
+
+        # Visitor accepting logic goes in here
+        # Choose best suited method here, depending on which one is closest to
+        # the type that is being registered
+        def accept(self, visitor, loc, value):
+            visitor.visit_any(loc, [value.x, value.y])  # will be dumped/validated as 2-element list
+
+And now, let's create the model again:
+
+.. testcode::
+
+    from modelity.model import Model
+
+    class Car(Model):
+        position: Vec2D
+
+Now there is no exception, as Modelity knows (thanks to the
+``__modelity_type_descriptor__`` method) how to create type descriptor for our
+type.
+
+Now, let's see this in action:
+
+.. doctest::
+
+    >>> car = Car()  # OK; nothing is set
+    >>> car.position = Vec2D(1, 2)  # OK; the exact type used
+    >>> car.position
+    Vec2D(x=1, y=2)
+    >>> car.position = (3, 4)  # OK; we've made is possible to cast from tuple
+    >>> car.position
+    Vec2D(x=3, y=4)
+    >>> car.position = 'spam'  # fail; not Vec2D, 2-element tuple or dict
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: parsing failed for type 'Car' with 1 error(-s):
+      position:
+        expecting Vec2D or 2-element tuple [code=modelity.UNSUPPORTED_VALUE_TYPE, value_type=<class 'str'>]
+
+Using ``type_descriptor_factory`` decorator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can also use :func:`modelity.hooks.type_descriptor_factory` decorator to
+register new type. This is especially useful for 3rd-party types that cannot
+have ``__modelity_type_descriptor__`` static method added.
+
+Here's a definition of a **Vec3D** type:
+
+.. testcode::
+
+    import dataclasses
+
+    @dataclasses.dataclass
+    class Vec3D:
+        x: float
+        y: float
+        z: float
+
+To tell Modelity how to use this type without modifying it and adding
+additional methods you have to declare type descriptor factory and return a
+descriptor object similar to the one from the previous example:
+
+.. testcode::
+
+    from modelity.hooks import type_descriptor_factory
+    from modelity.error import ErrorFactory
+    from modelity.interface import ITypeDescriptor
+
+    @type_descriptor_factory(Vec3D)
+    def make_vec3d_descriptor():
+
+        class Descriptor(ITypeDescriptor):
+
+            def parse(self, errors, loc, value):
+                if isinstance(value, Vec3D):
+                    return value
+                if isinstance(value, tuple) and len(value) == 3:
+                    return Vec3D(*value)
+                errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec3D or 3-element tuple", [Vec2D, tuple]))
+
+            def accept(self, visitor, loc, value):
+                visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
+
+        return Descriptor()
+
+And now, Modelity will be able to use this new type:
+
+.. testcode::
+
+    from modelity.model import Model
+
+    class Camera(Model):
+        pos: Vec3D
+        direction: Vec3D
+
+.. doctest::
+
+    >>> from modelity.helpers import dump
+    >>> cam = Camera(pos=(1, 2, 3), direction=(0, 0, 1))  # OK; tuples will be converted, as in previous example
+    >>> cam
+    Camera(pos=Vec3D(x=1, y=2, z=3), direction=Vec3D(x=0, y=0, z=1))
+    >>> dump(cam)
+    {'pos': [1, 2, 3], 'direction': [0, 0, 1]}
+
+Reusing existing type descriptors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In examples presented above we did not check if coordinates are valid float
+numbers. As a result, passing string will not fail, because coordinates are not
+parsed, but passed in original form:
+
+.. doctest::
+
+    >>> cam.pos = (1, 2, 'spam')
+    >>> cam.pos
+    Vec3D(x=1, y=2, z='spam')
+
+If needed, this can be fixed to also allow checking if coordinates are valid
+float numbers. Here's a definition of **Vec3D** type descriptor that
+additionally parses coordinates as float numbers:
+
+.. testcode::
+
+    from modelity.hooks import type_descriptor_factory
+    from modelity.loc import Loc
+    from modelity.error import ErrorFactory
+    from modelity.interface import ITypeDescriptor
+    from modelity.model import Model
+
+    @type_descriptor_factory(Vec3D)
+    def make_vec3d_descriptor(make_type_descriptor):  # Declare the use of root type descriptor factory
+
+        class Descriptor(ITypeDescriptor):
+
+            def parse(self, errors, loc, value):
+                if isinstance(value, Vec3D):
+                    return Vec3D(*parse_coords(errors, loc, value.x, value.y, value.z))
+                if isinstance(value, tuple) and len(value) == 3:
+                    return Vec3D(*parse_coords(errors, loc, *value))
+                errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec3D or 3-element tuple", [Vec2D, tuple]))
+
+            def accept(self, visitor, loc, value):
+                visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
+
+        # Helper function
+        def parse_coords(errors, loc, *coords):
+            for name, value in zip(('x', 'y', 'z'), coords):
+                yield float_descriptor.parse(errors, loc + Loc(name), value)
+
+        float_descriptor = make_type_descriptor(float)  # Get type descriptor for float type
+        return Descriptor()
+
+    class Camera(Model):
+        pos: Vec3D
+        direction: Vec3D
+
+And since now, assigning *pos* or *direction* will also parse each single
+coordinate:
+
+.. doctest::
+
+    >>> cam = Camera()
+    >>> cam.pos = '1', '2', '3'  # OK; coords will be converted to float
+    >>> cam.pos
+    Vec3D(x=1.0, y=2.0, z=3.0)
+    >>> cam.direction = Vec3D(0, 0, 1)  # OK; coords will be converted to float
+    >>> cam.direction
+    Vec3D(x=0.0, y=0.0, z=1.0)
+    >>> cam.direction = 0, 1, 'spam'  # fail; at coordinate z; not a float number
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: parsing failed for type 'Camera' with 1 error(-s):
+      direction.z:
+        could not parse value as floating point number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+
+
 Advanced validation patterns
 ----------------------------
 
