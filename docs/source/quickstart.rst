@@ -156,7 +156,7 @@ For deserialization, use :func:`modelity.helpers.load` helper function:
     >>> load(User, alice_dict)
     User(name='Alice', email='alice@example.com', age=25)
 
-Alternatively, :class:`modelity.helpers.ModelLoader` helper class can be used
+Alternatively, :func:`modelity.helpers.ModelLoader` helper function can be used
 to achieve same thing, but with a class-like feeling:
 
 .. doctest::
