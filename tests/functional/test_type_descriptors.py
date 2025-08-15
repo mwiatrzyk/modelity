@@ -900,11 +900,11 @@ class TestDictTypeDescriptor:
         [
             (dict, "foo", [ErrorFactory.dict_parsing_error(loc, "foo")]),
             (dict, 123, [ErrorFactory.dict_parsing_error(loc, 123)]),
-            (dict[str, int], {1: 2}, [ErrorFactory.string_value_required(loc, 1)]),
+            (dict[str, int], {1: 2}, [ErrorFactory.string_value_required(loc + Loc.irrelevant(), 1)]),
             (
                 dict[str, int],
                 {1: "two"},
-                [ErrorFactory.string_value_required(loc, 1), ErrorFactory.integer_parsing_error(loc + Loc(1), "two")],
+                [ErrorFactory.string_value_required(loc + Loc.irrelevant(), 1), ErrorFactory.integer_parsing_error(loc + Loc(1), "two")],
             ),
             (dict[str, int], {"two": "two"}, [ErrorFactory.integer_parsing_error(loc + Loc("two"), "two")]),
         ],
@@ -975,12 +975,12 @@ class TestDictTypeDescriptor:
     def test_parsing_error_is_raised_when_setting_invalid_key(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out["spam"] = 3.14
-        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc("foo", "_"), "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc("_"), "spam")])
 
     def test_parsing_error_is_raised_when_setting_invalid_value(self, out: dict):
         with pytest.raises(ParsingError) as excinfo:
             out[123] = "spam"
-        assert excinfo.value.errors == tuple([ErrorFactory.float_parsing_error(Loc("foo", 123), "spam")])
+        assert excinfo.value.errors == tuple([ErrorFactory.float_parsing_error(Loc(123), "spam")])
 
     def test_set_item_and_delete_it(self, out: dict):
         out[1] = 2
@@ -1101,7 +1101,7 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc("foo", 0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
         ],
     )
     def test_setting_to_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
@@ -1113,7 +1113,7 @@ class TestListTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, initial, index, value, expected_errors",
         [
-            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc("foo", 0), "spam")]),
+            (list[int], [1], 0, "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
         ],
     )
     def test_inserting_invalid_value_causes_parsing_error(self, model_type, initial, index, value, expected_errors):
@@ -1217,7 +1217,7 @@ class TestSetTypeDescriptor:
         s = model_type(foo=[]).foo
         with pytest.raises(ParsingError) as excinfo:
             s.add("dummy")
-        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc("foo", "_"), "dummy")])
+        assert excinfo.value.errors == tuple([ErrorFactory.integer_parsing_error(Loc("_"), "dummy")])
 
     @pytest.mark.parametrize("typ", [set[int]])
     def test_add_value_and_discard_it(self, model_type):

@@ -18,21 +18,16 @@ def make_model_type_descriptor(typ: type[IModel]) -> ITypeDescriptor:
 
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, typ):
-                value.__loc__ = loc
                 return value
             if not isinstance(value, Mapping):
                 errors.append(ErrorFactory.model_parsing_error(loc, value, typ))
                 return Unset
-            obj = typ()
-            obj.__loc__ = loc
-            for k, v in value.items():
-                try:
-                    setattr(obj, k, v)
-                except ParsingError as e:
-                    errors.extend(e.errors)
-            return obj
+            try:
+                return typ(**value)
+            except ParsingError as e:
+                errors.extend(Error(loc + x.loc, x.code, x.msg, x.value, x.data) for x in e.errors)
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: IModel):
-            value.accept(visitor)
+            value.accept(visitor, loc)
 
     return ModelTypeDescriptor()

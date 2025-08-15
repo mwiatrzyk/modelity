@@ -196,7 +196,7 @@ class TestModelWithOneField:
                 [ErrorFactory.ge_constraint_failed(Loc("foo"), datetime(2019, 12, 31), datetime(2020, 1, 1))],
             ),
             (dict, None, 123, [ErrorFactory.dict_parsing_error(Loc("foo"), 123)]),
-            (dict[str, int], None, {1: 1}, [ErrorFactory.string_value_required(Loc("foo"), 1)]),
+            (dict[str, int], None, {1: 1}, [ErrorFactory.string_value_required(Loc("foo", "_"), 1)]),
             (
                 dict[str, int],
                 None,
@@ -500,8 +500,8 @@ class TestModelWithModelField:
     @pytest.mark.parametrize(
         "initial_foo, initial_bar, expected_errors",
         [
-            ({}, "spam", [ErrorFactory.integer_parsing_error(Loc("foo", "bar"), "spam")]),
-            (SUT.Foo(), "spam", [ErrorFactory.integer_parsing_error(Loc("foo", "bar"), "spam")]),
+            ({}, "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
+            (SUT.Foo(), "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
         ],
     )
     def test_when_assigning_incorrect_value_then_parsing_error_is_raised(
@@ -536,7 +536,7 @@ class TestModelWithDictField:
 
     @pytest.mark.parametrize(
         "args, key, value, expected_errors",
-        [({"foo": {}}, "one", "spam", [ErrorFactory.integer_parsing_error(Loc("foo", "one"), "spam")])],
+        [({"foo": {}}, "one", "spam", [ErrorFactory.integer_parsing_error(Loc("one"), "spam")])],
     )
     def test_setting_item_to_invalid_value_causes_error(self, sut: SUT, key, value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
@@ -559,7 +559,7 @@ class TestModelWithDictField:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo.setdefault("one", "spam")
         assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
-        assert excinfo.value.errors == (ErrorFactory.integer_parsing_error(Loc("foo", "one"), "spam"),)
+        assert excinfo.value.errors == (ErrorFactory.integer_parsing_error(Loc("one"), "spam"),)
 
 
 class TestModelWithListField:
@@ -585,8 +585,8 @@ class TestModelWithListField:
     @pytest.mark.parametrize(
         "initial, given, expected_errors",
         [
-            ([], "spam", [ErrorFactory.integer_parsing_error(Loc("foo", 0), "spam")]),
-            ([1, 2, 3], "spam", [ErrorFactory.integer_parsing_error(Loc("foo", 3), "spam")]),
+            ([], "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
+            ([1, 2, 3], "spam", [ErrorFactory.integer_parsing_error(Loc(3), "spam")]),
         ],
     )
     def test_append_failed(self, sut: SUT, given, expected_errors):

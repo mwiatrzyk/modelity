@@ -28,10 +28,9 @@ registry = TypeDescriptorFactoryRegistry()
 def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDescriptor:
 
     class MutableMappingProxy(MutableMapping):
-        __slots__ = ["_loc", "_data"]
+        __slots__ = ["_data"]
 
-        def __init__(self, loc: Loc, initial_data: dict):
-            self._loc = loc
+        def __init__(self, initial_data: dict):
             self._data = initial_data
 
         def __repr__(self):
@@ -47,10 +46,10 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 raise ParsingError(typ, tuple(errors))
 
         def __setitem(self, out: dict, key, value, errors: list[Error]):
-            key = key_type_descriptor.parse(errors, self._loc + Loc.irrelevant(), key)
+            key = key_type_descriptor.parse(errors, Loc.irrelevant(), key)
             if key is Unset:
                 return
-            value = value_type_descriptor.parse(errors, self._loc + Loc(key), value)
+            value = value_type_descriptor.parse(errors, Loc(key), value)
             if value is Unset:
                 return
             out[key] = value
@@ -75,7 +74,7 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
         if result is Unset:
             return result
         result = dict(
-            (key_type_descriptor.parse(errors, loc, k), value_type_descriptor.parse(errors, loc + Loc(k), v))
+            (key_type_descriptor.parse(errors, loc + Loc.irrelevant(), k), value_type_descriptor.parse(errors, loc + Loc(k), v))
             for k, v in cast(Mapping, result).items()
         )
         if len(errors) > 0:
@@ -97,7 +96,7 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
             result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
-            return MutableMappingProxy(loc, cast(dict, result))
+            return MutableMappingProxy(cast(dict, result))
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Mapping):
             visitor.visit_mapping_begin(loc, value)
@@ -118,10 +117,9 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDescriptor:
 
     class MutableSequenceProxy(MutableSequence):
-        __slots__ = ["_loc", "_data"]
+        __slots__ = ["_data"]
 
-        def __init__(self, loc: Loc, initial_value: list):
-            self._loc = loc
+        def __init__(self, initial_value: list):
             self._data = initial_value
 
         def __repr__(self) -> str:
@@ -147,7 +145,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 
         def __parse_item(self, index, value):
             errors = []
-            result = type_descriptor.parse(errors, self._loc + Loc(index), value)
+            result = type_descriptor.parse(errors, Loc(index), value)
             if result is not Unset:
                 return result
             raise ParsingError(typ, tuple(errors))
@@ -185,7 +183,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
             if len(errors) > 0:
                 return Unset
             result = cast(list, result)
-            return MutableSequenceProxy(loc, result)
+            return MutableSequenceProxy(result)
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
             visitor.visit_sequence_begin(loc, value)
@@ -204,10 +202,9 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
 def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, type_opts: dict) -> ITypeDescriptor:
 
     class MutableSetProxy(MutableSet):
-        __slots__ = ["_loc", "_data"]
+        __slots__ = ["_data"]
 
-        def __init__(self, loc: Loc, initial_value: set):
-            self._loc = loc
+        def __init__(self, initial_value: set):
             self._data = initial_value
 
         def __repr__(self):
@@ -224,7 +221,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
 
         def add(self, value):
             errors = []
-            self._data.add(type_descriptor.parse(errors, self._loc + Loc.irrelevant(), value))
+            self._data.add(type_descriptor.parse(errors, Loc.irrelevant(), value))
             if len(errors) > 0:
                 raise ParsingError(typ, tuple(errors))
 
@@ -262,7 +259,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
             result = set(type_descriptor.parse(errors, loc, x) for x in cast(Sequence, seq))
             if len(errors) > 0:
                 return Unset
-            return MutableSetProxy(loc, result)
+            return MutableSetProxy(result)
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: set):
             item_loc = loc + Loc.irrelevant()

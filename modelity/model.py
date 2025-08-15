@@ -24,7 +24,7 @@ __all__ = export = _utils.ExportList()  # type: ignore
 
 T = TypeVar("T")
 
-_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__", "__loc__"}
+_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__",}
 
 
 @export
@@ -309,7 +309,7 @@ class ModelMeta(type):
                 hooks.append(attr_value)
                 del attrs[key]
         hooks.sort(key=lambda x: x.__modelity_hook_id__)
-        attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", [])) + ("__loc__",)
+        attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", []))
         return super().__new__(tp, name, bases, attrs)
 
 
@@ -352,7 +352,6 @@ class Model(metaclass=ModelMeta):
     __model_hooks__: Sequence[IBaseHook]
 
     def __init__(self, **kwargs) -> None:
-        self.__loc__ = Loc()
         errors: list[Error] = []
         fields = self.__class__.__model_fields__
         for name, field in fields.items():
@@ -386,7 +385,7 @@ class Model(metaclass=ModelMeta):
                 yield name
 
     def __parse(self, type_descriptor: ITypeDescriptor, errors: list[Error], field_name: str, value: Any) -> Union[Any, UnsetType]:
-        loc = self.__loc__ + Loc(field_name)
+        loc = Loc(field_name)
         cls = self.__class__
         value = _int_hooks.preprocess_field(cls, errors, loc, value)  # type: ignore
         if value is Unset:
@@ -410,18 +409,22 @@ class Model(metaclass=ModelMeta):
     def __delattr__(self, name):
         setattr(self, name, Unset)
 
-    def accept(self, visitor: IModelVisitor):
+    def accept(self, visitor: IModelVisitor, loc: Loc):
         """Accept visitor on this model.
 
         :param visitor:
             The visitor to accept.
+
+        :param loc:
+            The location of this model or empty location if this is the root
+            model.
         """
-        visitor.visit_model_begin(self.__loc__, self)
+        visitor.visit_model_begin(loc, self)
         for name, field in self.__class__.__model_fields__.items():
-            loc = self.__loc__ + Loc(name)
+            field_loc = loc + Loc(name)
             value = getattr(self, name)
             if value is Unset:
-                visitor.visit_unset(loc, value)
+                visitor.visit_unset(field_loc, value)
             else:
-                field.descriptor.accept(visitor, loc, value)
-        visitor.visit_model_end(self.__loc__, self)
+                field.descriptor.accept(visitor, field_loc, value)
+        visitor.visit_model_end(loc, self)

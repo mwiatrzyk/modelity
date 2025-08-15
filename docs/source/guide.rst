@@ -118,7 +118,7 @@ For example, let's create a list of users:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: parsing failed for type 'list' with 1 error(-s):
-      users.2:
+      2:
         could not parse value as User model [code=modelity.PARSING_ERROR, value_type=<class 'int'>]
 
 .. note::
@@ -1161,13 +1161,13 @@ assignment of an already valid objects only:
     Traceback (most recent call last):
       ...
     modelity.exc.ValidationError: validation of model 'Vec2D' failed with 1 error(-s):
-      position.y:
+      y:
         this field is required [code=modelity.REQUIRED_MISSING, data={}]
     >>> car.direction = Vec2D(y=4)  # fail; 'x' is missing
     Traceback (most recent call last):
       ...
     modelity.exc.ValidationError: validation of model 'Vec2D' failed with 1 error(-s):
-      direction.x:
+      x:
         this field is required [code=modelity.REQUIRED_MISSING, data={}]
     >>> car.direction = Vec2D(x=3, y=4)  # OK
     >>> car.direction.length()  # Normalization postprocessor still works

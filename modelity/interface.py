@@ -81,12 +81,6 @@ class IModel(Protocol):
     class.
     """
 
-    #: The root location of this model.
-    #:
-    #: If the model is located inside some outer model, then this will point to
-    #: a field where this model instance is currently located.
-    __loc__: Loc
-
     # #: Mapping with field definitions for this model.
     __model_fields__: Mapping[str, IField]
 
@@ -97,11 +91,15 @@ class IModel(Protocol):
         """Iterate over names of fields that have value assigned."""
         ...
 
-    def accept(self, visitor: "IModelVisitor"):
+    def accept(self, visitor: "IModelVisitor", loc: Loc):
         """Accept visitor on this model.
 
         :param visitor:
             The visitor to use.
+
+        :param loc:
+            The location of this model inside outer model or empty location if
+            this is the root model.
         """
         ...
 

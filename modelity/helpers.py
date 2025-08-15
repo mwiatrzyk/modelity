@@ -67,7 +67,7 @@ def dump(
         visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, None))
     if exclude_if is not None:
         visitor = cast(IModelVisitor, ConditionalExcludingModelVisitorProxy(visitor, exclude_if))
-    model.accept(visitor)
+    model.accept(visitor, Loc())
     return output
 
 
@@ -130,7 +130,7 @@ def validate(model: IModel, ctx: Any = None):
     """
     errors: list[Error] = []
     visitor = DefaultValidateVisitor(model, errors, ctx)
-    model.accept(visitor)
+    model.accept(visitor, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))
 
