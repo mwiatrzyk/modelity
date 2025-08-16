@@ -1,5 +1,3 @@
-from typing import Final
-
 from typing_extensions import TypeGuard
 
 from modelity import _utils

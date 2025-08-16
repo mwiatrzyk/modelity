@@ -904,7 +904,10 @@ class TestDictTypeDescriptor:
             (
                 dict[str, int],
                 {1: "two"},
-                [ErrorFactory.string_value_required(loc + Loc.irrelevant(), 1), ErrorFactory.integer_parsing_error(loc + Loc(1), "two")],
+                [
+                    ErrorFactory.string_value_required(loc + Loc.irrelevant(), 1),
+                    ErrorFactory.integer_parsing_error(loc + Loc(1), "two"),
+                ],
             ),
             (dict[str, int], {"two": "two"}, [ErrorFactory.integer_parsing_error(loc + Loc("two"), "two")]),
         ],

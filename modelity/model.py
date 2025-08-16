@@ -1,18 +1,14 @@
 import copy
 import dataclasses
 import functools
-from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
-from pydantic import field_validator
+from typing import Any, Callable, ClassVar, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
 import typing_extensions
 
 from modelity._internal import hooks as _int_hooks, model as _int_model
 from modelity.error import Error
 from modelity.exc import ParsingError
-from modelity.hooks import model_postvalidator, model_prevalidator
 from modelity.interface import (
     IBaseHook,
-    IField,
-    IModel,
     IModelVisitor,
     ITypeDescriptor,
 )
@@ -24,97 +20,10 @@ __all__ = export = _utils.ExportList()  # type: ignore
 
 T = TypeVar("T")
 
-_IGNORED_FIELD_NAMES = {"__model_fields__", "__model_hooks__",}
-
-
-@export
-def prevalidate_model(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
-    """Execute chain of model-level prevalidators.
-
-    :param cls:
-        The model type that is currently being validated.
-
-    :param self:
-        The model instance that is currently being validated.
-
-    :param root:
-        The root model.
-
-        This is the model for which :func:`modelity.helpers.validate` was
-        originally called.
-
-    :param ctx:
-        The user-defined context object.
-
-    :param error:
-        Mutable list of errors.
-
-    :param loc:
-        The location of the model inside root model.
-    """
-    for hook in _int_hooks.get_model_hooks(cls, model_prevalidator.__name__):
-        hook(cls, self, root, ctx, errors, loc)
-
-
-@export
-def postvalidate_model(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
-    """Execute chain of model-level postvalidators.
-
-    :param cls:
-        The model type that is currently being validated.
-
-    :param self:
-        The model instance that is currently being validated.
-
-    :param root:
-        The root model.
-
-        This is the model for which :func:`modelity.helpers.validate` was
-        originally called.
-
-    :param ctx:
-        The user-defined context object.
-
-    :param error:
-        Mutable list of errors.
-
-    :param loc:
-        The location of the model inside root model.
-    """
-    for hook in _int_hooks.get_model_hooks(cls, model_postvalidator.__name__):
-        hook(cls, self, root, ctx, errors, loc)
-
-
-@export
-def validate_field(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-    """Execute chain of field-level validators.
-
-    :param cls:
-        The model type that is currently being validated.
-
-    :param self:
-        The model instance that is currently being validated.
-
-    :param root:
-        The root model.
-
-        This is the model for which :func:`modelity.helpers.validate` was
-        originally called.
-
-    :param ctx:
-        The user-defined context object.
-
-    :param error:
-        Mutable list of errors.
-
-    :param loc:
-        The location of the model inside root model.
-
-    :param value:
-        The value to validate.
-    """
-    for hook in _int_hooks.get_field_hooks(cls, field_validator.__name__, loc[-1]):  # type: ignore
-        hook(cls, self, root, ctx, errors, loc, value)
+_IGNORED_FIELD_NAMES = {
+    "__model_fields__",
+    "__model_hooks__",
+}
 
 
 @export
@@ -345,10 +254,10 @@ class Model(metaclass=ModelMeta):
         Dummy(foo=123, bar='spam', baz=True)
     """
 
-    #: A per-instance view of :attr:`ModelMeta.__model_fields__` attribute.
-    __model_fields__: Mapping[str, IField]
+    #: A per-instance view of the :attr:`ModelMeta.__model_fields__` attribute.
+    __model_fields__: ClassVar[Mapping[str, Field]]
 
-    #: A per-instance view of :attr:`ModelMeta.__model_hooks__` attribute
+    #: A per-instance view of the :attr:`ModelMeta.__model_hooks__` attribute.
     __model_hooks__: Sequence[IBaseHook]
 
     def __init__(self, **kwargs) -> None:
@@ -365,7 +274,7 @@ class Model(metaclass=ModelMeta):
             raise ParsingError(self.__class__, tuple(errors))
 
     def __repr__(self):
-        kv = (f"{k}={getattr(self, k)!r}" for k in self.__model_fields__)
+        kv = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__model_fields__)
         return f"{self.__class__.__qualname__}({', '.join(kv)})"
 
     def __eq__(self, value):
@@ -384,16 +293,18 @@ class Model(metaclass=ModelMeta):
             if getattr(self, name) is not Unset:
                 yield name
 
-    def __parse(self, type_descriptor: ITypeDescriptor, errors: list[Error], field_name: str, value: Any) -> Union[Any, UnsetType]:
+    def __parse(
+        self, type_descriptor: ITypeDescriptor, errors: list[Error], field_name: str, value: Any
+    ) -> Union[Any, UnsetType]:
         loc = Loc(field_name)
         cls = self.__class__
-        value = _int_hooks.preprocess_field(cls, errors, loc, value)  # type: ignore
+        value = _run_field_preprocessors(cls, errors, loc, value)  # type: ignore
         if value is Unset:
             return value
         value = type_descriptor.parse(errors, loc, value)
         if value is Unset:
             return value
-        value = _int_hooks.postprocess_field(cls, self, errors, loc, value)  # type: ignore
+        value = _run_field_postprocessors(cls, self, errors, loc, value)  # type: ignore
         return value
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -428,3 +339,123 @@ class Model(metaclass=ModelMeta):
             else:
                 field.descriptor.accept(visitor, field_loc, value)
         visitor.visit_model_end(loc, self)
+
+
+@export
+def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc):
+    """Execute chain of model-level prevalidators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+    """
+    from modelity.hooks import model_prevalidator
+
+    for hook in _int_hooks.get_model_hooks(cls, model_prevalidator.__name__):
+        hook(cls, self, root, ctx, errors, loc)
+
+
+@export
+def run_model_postvalidators(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc):
+    """Execute chain of model-level postvalidators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+    """
+    from modelity.hooks import model_postvalidator
+
+    for hook in _int_hooks.get_model_hooks(cls, model_postvalidator.__name__):
+        hook(cls, self, root, ctx, errors, loc)
+
+
+@export
+def run_field_validators(
+    cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc, value: Any
+):
+    """Execute chain of field-level validators.
+
+    :param cls:
+        The model type that is currently being validated.
+
+    :param self:
+        The model instance that is currently being validated.
+
+    :param root:
+        The root model.
+
+        This is the model for which :func:`modelity.helpers.validate` was
+        originally called.
+
+    :param ctx:
+        The user-defined context object.
+
+    :param error:
+        Mutable list of errors.
+
+    :param loc:
+        The location of the model inside root model.
+
+    :param value:
+        The value to validate.
+    """
+    from modelity.hooks import field_validator
+
+    for hook in _int_hooks.get_field_hooks(cls, field_validator.__name__, loc[-1]):  # type: ignore
+        hook(cls, self, root, ctx, errors, loc, value)
+
+
+def _run_field_preprocessors(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+    from modelity.hooks import field_preprocessor
+
+    for hook in _int_hooks.get_field_hooks(cls, field_preprocessor.__name__, loc[-1]):  # type: ignore
+        value = hook(cls, errors, loc, value)
+        if value is Unset:
+            return Unset
+    return value
+
+
+def _run_field_postprocessors(
+    cls: type[Model], self: Model, errors: list[Error], loc: Loc, value: Any
+) -> Union[Any, UnsetType]:
+    from modelity.hooks import field_postprocessor
+
+    for hook in _int_hooks.get_field_hooks(cls, field_postprocessor.__name__, loc[-1]):  # type: ignore
+        value = hook(cls, self, errors, loc, value)
+        if value is Unset:
+            return Unset
+    return value

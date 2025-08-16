@@ -10,9 +10,9 @@ from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModel, IModelVisitor, ISupportsValidate
+from modelity.interface import IModelVisitor, ISupportsValidate
 from modelity.loc import Loc
-from modelity.model import Field, Model, postvalidate_model, prevalidate_model, validate_field
+from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
 from modelity.unset import UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -30,10 +30,10 @@ class DefaultDumpVisitor(IModelVisitor):
         self._out = out
         self._stack = collections.deque[Any]()
 
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Any):
         self._stack.append(dict())
 
-    def visit_model_end(self, loc: Loc, value: IModel):
+    def visit_model_end(self, loc: Loc, value: Any):
         top = self._stack.pop()
         if len(self._stack) == 0:
             self._out.update(top)
@@ -114,18 +114,18 @@ class DefaultValidateVisitor(IModelVisitor):
         the model.
     """
 
-    def __init__(self, root: IModel, errors: list[Error], ctx: Any = None):
+    def __init__(self, root: Model, errors: list[Error], ctx: Any = None):
         self._root = root
         self._errors = errors
         self._ctx = ctx
         self._stack = collections.deque[Any]()
 
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Model):
         self._stack.append(value)
-        prevalidate_model(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
-    def visit_model_end(self, loc: Loc, value: IModel):
-        postvalidate_model(value.__class__, value, self._root, self._ctx, self._errors, loc)
+    def visit_model_end(self, loc: Loc, value: Model):
+        run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
         self._stack.pop()
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
@@ -164,7 +164,7 @@ class DefaultValidateVisitor(IModelVisitor):
         self._validate_field(loc, value)
 
     def visit_unset(self, loc: Loc, value: UnsetType):
-        model: IModel = self._stack[-1]
+        model: Model = self._stack[-1]
         field = model.__class__.__model_fields__[loc.last]
         if not field.optional:
             self._errors.append(ErrorFactory.required_missing(loc))
@@ -178,20 +178,20 @@ class DefaultValidateVisitor(IModelVisitor):
     def _push_field(self, loc: Loc):
         top = self._stack[-1]
         if isinstance(top, Model):
-            self._stack.append(top.__model_fields__[loc.last])
+            self._stack.append(top.__class__.__model_fields__[loc.last])
 
     def _pop_field(self):
         self._stack.pop()
 
-    def _get_current_model_and_field(self, loc: Loc) -> tuple[IModel, Field]:
+    def _get_current_model_and_field(self, loc: Loc) -> tuple[Model, Field]:
         top = self._stack[-1]
         if isinstance(top, Model):
-            return cast(IModel, top), top.__class__.__model_fields__[loc.last]
-        return cast(IModel, self._stack[-2]), cast(Field, top)
+            return cast(Model, top), top.__class__.__model_fields__[loc.last]
+        return cast(Model, self._stack[-2]), cast(Field, top)
 
     def _validate_field(self, loc: Loc, value: Any):
         model, _ = self._get_current_model_and_field(loc)
-        validate_field(model.__class__, model, self._root, self._ctx, self._errors, loc, value)
+        run_field_validators(model.__class__, model, self._root, self._ctx, self._errors, loc, value)
 
 
 @export

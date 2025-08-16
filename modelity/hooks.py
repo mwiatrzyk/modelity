@@ -7,12 +7,12 @@ from typing import Any, Callable, cast, Union, TypeVar
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.interface import (
-    IModel,
     IModelHook,
     IFieldHook,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
+from modelity.model import Model
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
@@ -89,7 +89,7 @@ def field_preprocessor(*field_names: str):
     def decorator(func: Callable):
 
         @functools.wraps(func)
-        def proxy(cls: type[IModel], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        def proxy(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
             kw: dict[str, Any] = {}
             if "cls" in given_param_names:
                 kw["cls"] = cls
@@ -189,7 +189,7 @@ def field_postprocessor(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: type[IModel], self: IModel, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        def proxy(cls: type[Model], self: Model, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
             kw: dict[str, Any] = {}
             if "cls" in given_param_names:
                 kw["cls"] = cls
@@ -334,7 +334,7 @@ def field_validator(*field_names: str):
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc, value: Any):
+        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc, value: Any):
             given_params = given_param_names
             kw: dict[str, Any] = {}
             if "cls" in given_params:
@@ -394,7 +394,7 @@ def type_descriptor_factory(typ: Any):
 def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
 
     @functools.wraps(func)
-    def proxy(cls: type[IModel], self: IModel, root: IModel, ctx: Any, errors: list[Error], loc: Loc):
+    def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc):
         given_params = given_param_names
         kw: dict[str, Any] = {}
         if "cls" in given_params:
@@ -419,14 +419,14 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
     return hook
 
 
-def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any=Unset):
+def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any = Unset) -> None:
     try:
         func(**kwargs)
     except ValueError as e:
         errors.append(ErrorFactory.exception(loc, value, str(e), type(e)))
 
 
-def _run_processing_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any):
+def _run_processing_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any) -> Union[Any, UnsetType]:
     try:
         return func(**kwargs)
     except TypeError as e:

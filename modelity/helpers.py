@@ -3,8 +3,9 @@ from typing import Any, Callable, Generic, Optional, TypeVar, cast
 from modelity import _utils
 from modelity.error import Error
 from modelity.exc import ValidationError
-from modelity.interface import IModel, IModelVisitor
+from modelity.interface import IModelVisitor
 from modelity.loc import Loc
+from modelity.model import Model
 from modelity.unset import Unset
 from modelity.visitors import (
     ConditionalExcludingModelVisitorProxy,
@@ -15,11 +16,11 @@ from modelity.visitors import (
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
-MT = TypeVar("MT", bound=IModel)
+MT = TypeVar("MT", bound=Model)
 
 
 @export
-def has_fields_set(model: IModel) -> bool:
+def has_fields_set(model: Model) -> bool:
     """Check if *model* has at least one field set.
 
     :param model:
@@ -30,7 +31,7 @@ def has_fields_set(model: IModel) -> bool:
 
 @export
 def dump(
-    model: IModel,
+    model: Model,
     exclude_unset: bool = False,
     exclude_none: bool = False,
     exclude_if: Optional[Callable[[Loc, Any], bool]] = None,
@@ -115,7 +116,7 @@ def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
 
 
 @export
-def validate(model: IModel, ctx: Any = None):
+def validate(model: Model, ctx: Any = None):
     """Validate provided model.
 
     On success, this method raises no exception and returns ``None``.

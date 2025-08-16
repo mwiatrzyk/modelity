@@ -74,7 +74,10 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
         if result is Unset:
             return result
         result = dict(
-            (key_type_descriptor.parse(errors, loc + Loc.irrelevant(), k), value_type_descriptor.parse(errors, loc + Loc(k), v))
+            (
+                key_type_descriptor.parse(errors, loc + Loc.irrelevant(), k),
+                value_type_descriptor.parse(errors, loc + Loc(k), v),
+            )
             for k, v in cast(Mapping, result).items()
         )
         if len(errors) > 0:

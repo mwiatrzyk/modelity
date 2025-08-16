@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Iterator, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity import _utils
 from modelity.error import Error
@@ -10,23 +10,6 @@ from modelity.unset import UnsetType
 __all__ = export = _utils.ExportList()  # type: ignore
 
 T = TypeVar("T")
-
-
-@export
-class IField(Protocol):
-    """Protocol describing single model field."""
-
-    #: Field's name.
-    name: str
-
-    #: Field's type annotation.
-    typ: Any
-
-    #: Type descriptor for this field.
-    descriptor: "ITypeDescriptor"
-
-    #: Flag telling if this field is optional (``True``) or required (``False``)
-    optional: bool
 
 
 @export
@@ -71,37 +54,6 @@ class IFieldHook(IBaseHook):
     #: Empty set means that it will be used for all fields, non-empty set means
     #: that it will be used for a subset of model fields.
     __modelity_hook_field_names__: set[str]
-
-
-@export
-class IModel(Protocol):
-    """Protocol describing common interface for data models.
-
-    This interface is implicitly implemented by :class:`modelity.model.Model`
-    class.
-    """
-
-    # #: Mapping with field definitions for this model.
-    __model_fields__: Mapping[str, IField]
-
-    # #: List of hooks declared for this model.
-    __model_hooks__: Sequence[IBaseHook]
-
-    def __iter__(self) -> Iterator[str]:
-        """Iterate over names of fields that have value assigned."""
-        ...
-
-    def accept(self, visitor: "IModelVisitor", loc: Loc):
-        """Accept visitor on this model.
-
-        :param visitor:
-            The visitor to use.
-
-        :param loc:
-            The location of this model inside outer model or empty location if
-            this is the root model.
-        """
-        ...
 
 
 @export
@@ -267,7 +219,7 @@ class IModelVisitor(abc.ABC):
     """
 
     @abc.abstractmethod
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Any):
         """Start visiting a model object.
 
         :param loc:
@@ -278,7 +230,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_model_end(self, loc: Loc, value: IModel):
+    def visit_model_end(self, loc: Loc, value: Any):
         """Finish visiting a model object.
 
         :param loc:
