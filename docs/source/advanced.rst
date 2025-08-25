@@ -311,3 +311,69 @@ inside **UserStore** instead.
     validate inside parent model. Although both have their pros and cons,
     accessing parent model from a child model provides direct dependency
     towards parent model.
+
+Validating with user-defined context
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity allows the user to provide context object for validators. This object
+is completely invisible to Modelity, so it can be of any type. The only thing
+that Modelity does is to pass this object to every single validator that is
+defined for a model, or nested models.
+
+What this context can be used for? Let's imagine a situation in which you have
+to validate your model against some data fetched from a database. If this
+fetched data is set somewhere in the model, then you just can go to the
+previous chapter. But if you don't want, or you cannot set such data in the
+model, then contexts come into play.
+
+For example, let's embed checking for login availability into Modelity
+validators:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.hooks import field_validator
+
+    class UserValidationContext:  # Anything can be used as validation context
+
+        def __init__(self, user_repository):
+            self._user_repository = user_repository
+
+        def is_login_available(self, login) -> bool:  # Yes, we can also use methods
+            return login not in self._user_repository
+
+    class User(Model):
+        login: str
+        password: str
+
+        @field_validator("login")
+        def _check_if_available(ctx, value):  # You have to declare 'ctx' argument to enable context access
+            if not ctx.is_login_available(value):  # Call the method from context
+                raise ValueError(f"login already in use: {value}")  # Fail validation if login is in use
+
+.. doctest::
+
+    >>> from modelity.helpers import validate
+    >>> user_repository = ['joe', 'alice']  # This is just an example
+    >>> ctx = UserValidationContext(user_repository)  # Create context
+    >>> joe = User(login='joe', password='p@ssw0rd')
+    >>> alice = User(login='alice', password='p@ssw0rd')
+    >>> validate(joe, ctx)  # Validation with context will fail for 'joe'...
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+      login:
+        login already in use: joe [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+    >>> validate(alice, ctx)  # ...or 'alice'
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+      login:
+        login already in use: alice [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+    >>> jack = User(login='jack', password='password')
+    >>> validate(jack, ctx)  # But will succeed for jack
+
+Thanks to context objects you can easily integrate Modelity validators with
+your application's business logic to achieve one central validation mechanism
+based on models. Also, contexts can only be used by user-defined validators,
+therefore using context does not affect Modelity's built-in mechanisms.
