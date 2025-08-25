@@ -1,3 +1,15 @@
+## 0.20.0 (2025-08-25)
+
+### BREAKING CHANGES
+
+- don't assign location to nested models and mutable containers
+- remove `IModel` and `IField` from the interface
+
+### Feat
+
+- don't assign location to nested models and mutable containers
+- remove `IModel` and `IField` from the interface
+
 ## 0.19.0 (2025-08-14)
 
 ### Feat
