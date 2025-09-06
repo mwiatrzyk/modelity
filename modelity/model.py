@@ -330,15 +330,15 @@ class Model(metaclass=ModelMeta):
             The location of this model or empty location if this is the root
             model.
         """
-        visitor.visit_model_begin(loc, self)
-        for name, field in self.__class__.__model_fields__.items():
-            field_loc = loc + Loc(name)
-            value = getattr(self, name)
-            if value is Unset:
-                visitor.visit_unset(field_loc, value)
-            else:
-                field.descriptor.accept(visitor, field_loc, value)
-        visitor.visit_model_end(loc, self)
+        if visitor.visit_model_begin(loc, self) is not True:
+            for name, field in self.__class__.__model_fields__.items():
+                field_loc = loc + Loc(name)
+                value = getattr(self, name)
+                if value is Unset:
+                    visitor.visit_unset(field_loc, value)
+                else:
+                    field.descriptor.accept(visitor, field_loc, value)
+            visitor.visit_model_end(loc, self)
 
 
 @export

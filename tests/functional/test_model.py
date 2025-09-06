@@ -213,8 +213,8 @@ class TestModelWithOneField:
                 None,
                 [1, 2, "three", 4, "five"],
                 [
-                    ErrorFactory.integer_parsing_error(Loc("foo"), "three"),
-                    ErrorFactory.integer_parsing_error(Loc("foo"), "five"),
+                    ErrorFactory.integer_parsing_error(Loc("foo") + Loc.irrelevant(), "three"),
+                    ErrorFactory.integer_parsing_error(Loc("foo") + Loc.irrelevant(), "five"),
                 ],
             ),
             (tuple, None, 123, [ErrorFactory.tuple_parsing_error(Loc("foo"), 123)]),

@@ -23,9 +23,9 @@ def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
             return result
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            visitor.visit_supports_validate_begin(loc, value)
-            type_descriptor.accept(visitor, loc, value)
-            visitor.visit_supports_validate_end(loc, value)
+            if visitor.visit_supports_validate_begin(loc, value) is not True:
+                type_descriptor.accept(visitor, loc, value)
+                visitor.visit_supports_validate_end(loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             for constraint in constraints:

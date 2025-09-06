@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Mapping, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
 
 from modelity import _utils
 from modelity.error import Error
@@ -216,10 +216,19 @@ class IModelVisitor(abc.ABC):
     :meth:`visit_string`.
 
     .. versionadded:: 0.17.0
+
+    .. versionchanged:: 0.21.0
+
+        All ``*_begin`` methods can now return ``True`` to skip visiting. For
+        example, if :meth:`visit_model_begin` returned ``True``, then model
+        visiting is skipped and corresponding :meth:`visit_model_end` will not
+        be called. This feature can be used by dump visitors to exclude things
+        from the output, or by validation visitors to prevent some validation
+        logic from being called.
     """
 
     @abc.abstractmethod
-    def visit_model_begin(self, loc: Loc, value: Any):
+    def visit_model_begin(self, loc: Loc, value: Any) -> Optional[bool]:
         """Start visiting a model object.
 
         :param loc:
@@ -241,7 +250,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_mapping_begin(self, loc: Loc, value: Mapping):
+    def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]:
         """Start visiting a mapping object.
 
         :param loc:
@@ -263,7 +272,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_sequence_begin(self, loc: Loc, value: Sequence):
+    def visit_sequence_begin(self, loc: Loc, value: Sequence) -> Optional[bool]:
         """Start visiting a sequence object.
 
         :param loc:
@@ -285,7 +294,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_set_begin(self, loc: Loc, value: Set):
+    def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
         """Start visiting a set object.
 
         :param loc:
@@ -307,7 +316,7 @@ class IModelVisitor(abc.ABC):
         """
 
     @abc.abstractmethod
-    def visit_supports_validate_begin(self, loc: Loc, value: Any):
+    def visit_supports_validate_begin(self, loc: Loc, value: Any) -> Optional[bool]:
         """Start visiting a type supporting per-type validation.
 
         This will be called by type descriptors that implement
