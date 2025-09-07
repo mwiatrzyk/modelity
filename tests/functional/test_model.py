@@ -734,6 +734,19 @@ class TestModelWithModelPrevalidators:
         with ordered(mock):
             validate(sut)
 
+    def test_model_prevalidator_can_return_true_to_skip_other_validators_including_built_in_ones(self, mock):
+
+        class SUT(Model):
+            foo: int
+
+            @model_prevalidator()
+            def prevalidate_model():
+                return mock.prevalidate_model()
+
+        sut = SUT()
+        mock.prevalidate_model.expect_call().will_once(Return(True))  # Disable other validators
+        validate(sut)  # Will pass, as model prevalidator disabled built-in validation
+
 
 class TestModelWithModelPostvalidators:
 

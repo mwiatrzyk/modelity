@@ -122,7 +122,7 @@ class DefaultValidateVisitor(IModelVisitor):
 
     def visit_model_begin(self, loc: Loc, value: Model):
         self._stack.append(value)
-        run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        return run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
     def visit_model_end(self, loc: Loc, value: Model):
         run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)

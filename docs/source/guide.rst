@@ -986,7 +986,7 @@ was the last preprocessor).
 Preprocessors can signal errors either by raising :exc:`TypeError`, or by
 modifying ``errors`` list and returning :obj:`modelity.unset.Unset` object.
 
-Example 1. White characters stripping
+Example 1: White characters stripping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. testcode::
@@ -1015,7 +1015,7 @@ Example 1. White characters stripping
     >>> bob.age
     32
 
-Example 2. Allow only strings as inputs
+Example 2: Allow only strings as inputs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. testcode::
@@ -1075,7 +1075,7 @@ modifying ``errors`` list and returning :obj:`modelity.unset.Unset` object.
     as it will break the contract (user of our model may expect integer and get
     string instead, for instance).
 
-Example 1. Data alteration
+Example 1: Data alteration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. testcode::
@@ -1113,7 +1113,7 @@ Example 1. Data alteration
     >>> car.direction.length()  # the length is now 1, as the vector was normalized
     1.0
 
-Example 2. Enforce validation of nested models
+Example 2: Enforce validation of nested models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When using nested models, postprocessor can be used to automatically run
@@ -1173,7 +1173,7 @@ assignment of an already valid objects only:
     >>> car.direction.length()  # Normalization postprocessor still works
     1.0
 
-Example 3. Cross-field validation on field set
+Example 3: Cross-field validation on field set
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Postprocessor can also read fields that were declared earlier and, as Modelity
@@ -1225,7 +1225,7 @@ the time when field is set, not when validation is performed. For example:
     accessed. If that is not possible, then use model pre- or postvalidator
     instead.
 
-Example 4. Setting other fields from postprocessor
+Example 4: Setting other fields from postprocessor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is side-effect of making it possible to access model object from field
@@ -1280,7 +1280,11 @@ built-in validators and required field presence checking. Model prevalidators
 can access all fields of the model they are declared in, therefore it is
 capable of performing cross-field validation easily.
 
-For example:
+Example 1: Cross-field validation on per-model basis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let's assume we have a model with two fields and we need to check cross-field
+dependencies on a per-model basis. Here's an example:
 
 .. testcode::
 
@@ -1295,7 +1299,7 @@ For example:
 
         @model_prevalidator()
         def _check_color_selected(self):
-            if self.color_selected is not Unset and self.color_selected not in self.colors_available:
+            if self.color_selected not in self.colors_available:
                 raise ValueError(f"unsupported color: {self.color_selected}")
 
 .. doctest::
@@ -1310,6 +1314,85 @@ For example:
     modelity.exc.ValidationError: validation of model 'Example' failed with 1 error(-s):
       (empty):
         unsupported color: black [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+
+Example 2: Validation skipping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let's check what will happen if we validate the model from previous example
+without setting **color_selected** field:
+
+.. doctest::
+
+    >>> obj = Example()
+    >>> validate(obj)
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: validation of model 'Example' failed with 2 error(-s):
+      (empty):
+        unsupported color: Unset [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+      color_selected:
+        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+
+As you can see, our custom model prevalidator was executed along with the
+built-in required field check. In this case this is kind of redundant error, so
+let's fix it by disabling built-in validation. To do so, we have to modify our
+original model prevalidator to add error manually and return ``True`` from it
+to skip other validators:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.error import Error
+    from modelity.loc import Loc
+    from modelity.helpers import validate
+    from modelity.unset import Unset
+    from modelity.hooks import model_prevalidator
+
+    class Example(Model):
+        colors_available: list[str] = ['red', 'green', 'blue']
+        color_selected: str
+
+        @model_prevalidator()
+        def _check_color_selected(self, errors, loc):  # `errors` and `loc` are needed to create error
+            if self.color_selected not in self.colors_available:
+                # Create custom error and add it to the errors list.
+                # This is RECOMMENDED way of creating custom errors, as it
+                # gives full access to Error constructor allowing to set both
+                # custom error message, custom error code, and error location.
+                errors.append(
+                    Error(
+                        loc + Loc('color_selected'),  # error location; we can point to the actual field if needed
+                        "custom.INVALID_VALUE",  # custom error code
+                        f"unsupported color: {self.color_selected}",  # custom error message
+                        self.color_selected  # the current incorrect value
+                    )
+                )
+            return True  # No more validators will be called for this model
+
+And now, there will only be a single error:
+
+.. doctest::
+
+    >>> obj = Example()
+    >>> validate(obj)
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: validation of model 'Example' failed with 1 error(-s):
+      color_selected:
+        unsupported color: Unset [code=custom.INVALID_VALUE, data={}]
+
+And of course, if valid value is given, then validation will pass:
+
+.. doctest::
+
+    >>> obj = Example(color_selected='red')
+    >>> validate(obj)  # OK
+
+.. important::
+
+    Please note that we had to create error manually to force model
+    prevalidation to return ``True``. If fact, this is RECOMMENDED way of
+    creating custom errors; raising exceptions is just a shortcut.
 
 Using ``field_validator`` hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

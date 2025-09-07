@@ -342,8 +342,13 @@ class Model(metaclass=ModelMeta):
 
 
 @export
-def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc):
+def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Optional[bool]:
     """Execute chain of model-level prevalidators.
+
+    This function executes all registered prevalidators for model *cls* and
+    checks if ``True`` is returned. If model prevalidator returns ``True``,
+    then all other model prevalidators are skipped and this function returns
+    ``True``.
 
     :param cls:
         The model type that is currently being validated.
@@ -369,7 +374,9 @@ def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any
     from modelity.hooks import model_prevalidator
 
     for hook in _int_hooks.get_model_hooks(cls, model_prevalidator.__name__):
-        hook(cls, self, root, ctx, errors, loc)
+        if hook(cls, self, root, ctx, errors, loc) is True:
+            return True
+    return None
 
 
 @export

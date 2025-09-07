@@ -23,6 +23,10 @@ T = TypeVar("T")
 def field_preprocessor(*field_names: str):
     """Decorate model's method as a field-level preprocessing hook.
 
+    Field preprocessors are used to filter input value on a field-specific
+    basis before it is parsed to a target type. For example, this hook can be
+    used to strip string input from white characters.
+
     Value returned by preprocessor is either passed to the next preprocessor
     (if any) or to the type parser assigned for the field that is being set or
     modified.
@@ -73,9 +77,6 @@ def field_preprocessor(*field_names: str):
         >>> dummy
         Dummy(foo='spam')
 
-    Check :ref:`guide-processing-preprocessing` for more details on how to use
-    this hook.
-
     :param `*field_names`:
         List of field names.
 
@@ -115,6 +116,13 @@ def field_preprocessor(*field_names: str):
 @export
 def field_postprocessor(*field_names: str):
     """Decorate model's method as a field-level postprocessing hook.
+
+    Field postprocessors are only executed after successful preprocessing and
+    parsing stages for the field they are declared for. Use this hook to
+    perform additional per-field validation (executed when field is set or
+    modified), or data normalization. Input value received by this hook is
+    already parsed to a valid type and no other checking regarding this matter
+    needs to take place.
 
     Value returned by this kind of hook is either passed to a next
     postprocessor (if any), or stored as model's field final value. No
@@ -173,9 +181,6 @@ def field_postprocessor(*field_names: str):
             def _strip_white_characters(value):
                 return value.strip()  # The 'value' is guaranteed to be str when this gets called
 
-    Check :ref:`guide-processing-postprocessing` for more details on how to use
-    this hook.
-
     :param `*field_names`:
         List of field names.
 
@@ -218,6 +223,20 @@ def field_postprocessor(*field_names: str):
 def model_prevalidator():
     """Decorate model's method as a model-level prevalidation hook.
 
+    Model prevalidators are executed as the initial validation step, before any
+    other validators, including built-in ones.
+
+    Model prevalidators can be used to skip other validators for the current
+    model. This feature can be used either conditionally disable validation, or
+    to replace it with custom one. To skip other validators, ``True`` must be
+    returned. Returning ``True`` only applies to the instances of the model
+    where model prevalidator returning ``True`` is defined.
+
+    .. important::
+        Returning ``True`` and skipping other validators also applies to
+        built-in ones. For example, required fields validation will also be
+        skipped if ``True`` is returned.
+
     The decorated method can be defined with no arguments, or with any
     subsequence of the following arguments:
 
@@ -254,9 +273,6 @@ def model_prevalidator():
         nested inside another model.
 
         This is instance of the :class:`modelity.loc.Loc` type.
-
-    Check :ref:`guide-validation-model_prevalidation` for more details on how
-    to use this hook.
     """
 
     def decorator(func):
@@ -269,11 +285,11 @@ def model_prevalidator():
 def model_postvalidator():
     """Decorate model's method as a model-level postvalidation hook.
 
+    Model postvalidators are executed as the final validation step, after model
+    prevalidators, built-in validators and field-level validators.
+
     The arguments for the decorated method are exactly the same as for
     :func:`model_prevalidation` hook.
-
-    Check :ref:`guide-validation-model_postvalidation` for more details on how
-    to use this hook.
     """
 
     def decorator(func):
@@ -326,9 +342,6 @@ def field_validator(*field_names: str):
 
     **value**
         Field's value to validate.
-
-    Check :ref:`guide-validation-field_validation` for more details on how
-    to use this hook.
     """
 
     def decorator(func):
@@ -394,7 +407,7 @@ def type_descriptor_factory(typ: Any):
 def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
 
     @functools.wraps(func)
-    def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc):
+    def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Any:
         given_params = given_param_names
         kw: dict[str, Any] = {}
         if "cls" in given_params:
@@ -409,7 +422,7 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
             kw["errors"] = errors
         if "loc" in given_params:
             kw["loc"] = loc
-        _run_validation_hook(func, kw, errors, loc)
+        return _run_validation_hook(func, kw, errors, loc)
 
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
     given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
@@ -419,9 +432,9 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
     return hook
 
 
-def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any = Unset) -> None:
+def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any = Unset) -> Any:
     try:
-        func(**kwargs)
+        return func(**kwargs)
     except ValueError as e:
         errors.append(ErrorFactory.exception(loc, value, str(e), type(e)))
 
