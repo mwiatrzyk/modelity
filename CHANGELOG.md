@@ -1,3 +1,10 @@
+## 0.21.0 (2025-09-07)
+
+### Feat
+
+- visitor's `visit_*_begin`-family methods can return True to skip visiting nested items
+- `model_prevalidator` hook can return True to skip other validators, both custom and built-in ones
+
 ## 0.20.0 (2025-08-25)
 
 ### BREAKING CHANGES
