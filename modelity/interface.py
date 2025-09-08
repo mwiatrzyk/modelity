@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union, TypeVar, Generic
+from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union
 
 from modelity import _utils
 from modelity.error import Error
@@ -8,8 +8,6 @@ from modelity.loc import Loc
 from modelity.unset import UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
-
-T = TypeVar("T")
 
 
 @export
@@ -169,7 +167,10 @@ class IValidatableTypeDescriptor(ITypeDescriptor):
 
     @abc.abstractmethod
     def validate(self, errors: list[Error], loc: Loc, value: Any):
-        """Validate value of type *T*.
+        """Validate instance of type represented by this type descriptor.
+
+        When validation fails, then *errors* should be populated with new
+        errors that were found. Otherwise *errors* should be left intact.
 
         :param errors:
             Mutable list of errors.
@@ -179,8 +180,6 @@ class IValidatableTypeDescriptor(ITypeDescriptor):
 
         :param value:
             The value to validate.
-
-            It is guaranteed to be an instance of type *T*.
         """
 
 
