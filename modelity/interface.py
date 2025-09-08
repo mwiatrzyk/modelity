@@ -30,7 +30,11 @@ class IBaseHook(Protocol):
     __modelity_hook_name__: str
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
-        """Invoke this hook."""
+        """Invoke this hook.
+
+        The actual parameters and type of return value depends on hook type.
+        Check :mod:`modelity.hooks` for more details.
+        """
         ...
 
 
@@ -91,20 +95,80 @@ class IConstraint(abc.ABC):
 
 
 @export
-class ISupportsValidate(abc.ABC, Generic[T]):
-    """Interface to be implemented by type descriptors that need to provide
-    some extra type-specific validation logic.
+class ITypeDescriptor(abc.ABC):
+    """Abstract base class for type descriptors.
 
-    As an example, let's think of type constraint handling. Constraints can be
-    checked and verified during model construction, but since the model is
-    mutable and can be modified later the constraints may need double checking
-    at validation stage.
+    This interface is used by Modelity to invoke type-specific parsing and
+    visitor accepting logic. Type descriptors are created by model metaclass
+    when model type is declared, and later these descriptors are reused by each
+    model instance to perform parsing, validation and dumping operations. Type
+    descriptors can also trigger another type descriptors and this is how
+    Modelity implements complex types, like `dict[str, int]`.
 
-    .. versionadded:: 0.17.0
+    This is also an entry point for user-defined types; check
+    :func:`modelity.hooks.type_descriptor_factory` hook for more details.
     """
 
     @abc.abstractmethod
-    def validate(self, errors: list[Error], loc: Loc, value: T):
+    def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        """Parse given *value* into new instance of type represented by this
+        type descriptor.
+
+        Should return parsed value, or :obj:`modelity.unset.Unset` object if
+        parsing failed. When ``Unset`` is returned, new errors should also be
+        added to *errors* list to inform why parsing has failed.
+
+        :param errors:
+            List of errors.
+
+        :param loc:
+            The location of the *value* inside the model.
+
+        :param value:
+            The value to parse.
+        """
+
+    @abc.abstractmethod
+    def accept(self, visitor: "IModelVisitor", loc: Loc, value: Any):
+        """Accept given model visitor.
+
+        This method is meant to provide visitor accepting logic for a type that
+        is being represented by this type descriptor. For example, for numeric
+        types you should call
+        :meth:`modelity.interface.IModelVisitor.visit_number`. The rule of
+        thumb is to use the best possible ``visit_*`` method, or sequence of
+        methods (for complex types).
+
+        :param visitor:
+            The visitor to accept.
+
+        :param loc:
+            The location of the value inside model.
+
+        :param value:
+            The value to process.
+
+            This will always be the output of successful :meth:`parse` call,
+            yet it may get modified by postprocessing hooks (if any).
+        """
+
+
+@export
+class IValidatableTypeDescriptor(ITypeDescriptor):
+    """Abstract base class for type descriptors that need to provide additional
+    type-specific validation of their instances.
+
+    When this abstract class is used as a base for type descriptor, then
+    :meth:`validate` will be called when model is validated, contributing to
+    built-in validators.
+
+    As an example, type descriptor for :obj:`typing.Annotated` wrapper was
+    implemented as a subclass of this interface, allowing constraints to be
+    verified when field is modified and again when model is validated.
+    """
+
+    @abc.abstractmethod
+    def validate(self, errors: list[Error], loc: Loc, value: Any):
         """Validate value of type *T*.
 
         :param errors:
@@ -121,56 +185,7 @@ class ISupportsValidate(abc.ABC, Generic[T]):
 
 
 @export
-class ITypeDescriptor(abc.ABC, Generic[T]):
-    """Protocol describing type.
-
-    This interface is used by Modelity internals to enclose type-specific
-    parsing, validation and visitor accepting logic. Whenever a new type is
-    added to a Modelity library it will need a dedicated implementation of this
-    interface.
-    """
-
-    @abc.abstractmethod
-    def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[T, UnsetType]:
-        """Parse object of type *T* from a given *value* of any type.
-
-        If parsing is successful, then instance of type *T* is returned, with
-        value parsed from *value*. If *value* already is an instance of type
-        *T* then unchanged *value* can be returned (but does not have to).
-
-        If parsing failed, then ``Unset`` is returned and *errors* list is
-        populated with one or more error objects explaining why the *value*
-        could not be parsed as *T*.
-
-        :param errors:
-            List of errors.
-
-        :param loc:
-            The location of the *value* inside the model.
-
-        :param value:
-            The value to parse.
-        """
-
-    @abc.abstractmethod
-    def accept(self, visitor: "IModelVisitor", loc: Loc, value: T):
-        """Accept given model visitor.
-
-        :param visitor:
-            The visitor to accept.
-
-        :param loc:
-            The location of the value inside model.
-
-        :param value:
-            The value to process.
-
-            It is guaranteed to be an instance of type *T*.
-        """
-
-
-@export
-class ITypeDescriptorFactory(Protocol, Generic[T]):
+class ITypeDescriptorFactory(Protocol):
     """Protocol describing type descriptor factories.
 
     These functions are used to create instances of :class:`ITypeDescriptor`
@@ -180,7 +195,7 @@ class ITypeDescriptorFactory(Protocol, Generic[T]):
         This protocol was made generic.
     """
 
-    def __call__(self, typ: Any, type_opts: dict) -> ITypeDescriptor[T]:
+    def __call__(self, typ: Any, type_opts: dict) -> ITypeDescriptor:
         """Create type descriptor for a given type.
 
         :param typ:

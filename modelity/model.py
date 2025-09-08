@@ -258,7 +258,7 @@ class Model(metaclass=ModelMeta):
     __model_fields__: ClassVar[Mapping[str, Field]]
 
     #: A per-instance view of the :attr:`ModelMeta.__model_hooks__` attribute.
-    __model_hooks__: Sequence[IBaseHook]
+    __model_hooks__: ClassVar[Sequence[IBaseHook]]
 
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []

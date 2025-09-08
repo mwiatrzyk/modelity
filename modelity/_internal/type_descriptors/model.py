@@ -14,9 +14,9 @@ registry = TypeDescriptorFactoryRegistry()
 @registry.type_descriptor_factory(Model)
 def make_model_type_descriptor(typ: type[Model]) -> ITypeDescriptor:
 
-    class ModelTypeDescriptor(ITypeDescriptor[Model]):
+    class ModelTypeDescriptor(ITypeDescriptor):
 
-        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        def parse(self, errors, loc, value):
             if isinstance(value, typ):
                 return value
             if not isinstance(value, Mapping):
@@ -28,7 +28,7 @@ def make_model_type_descriptor(typ: type[Model]) -> ITypeDescriptor:
                 errors.extend(Error(loc + x.loc, x.code, x.msg, x.value, x.data) for x in e.errors)
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Model):
+        def accept(self, visitor, loc, value):
             value.accept(visitor, loc)
 
     return ModelTypeDescriptor()

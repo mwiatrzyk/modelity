@@ -84,27 +84,27 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
             return Unset
         return result
 
-    class AnyDictTypeDescriptor(ITypeDescriptor[Mapping]):
+    class AnyDictTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             result = ensure_mapping(errors, loc, value)
             if result is Unset:
                 return result
             return dict(result)  # type: ignore
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Mapping):
+        def accept(self, visitor, loc, value):
             if visitor.visit_mapping_begin(loc, value) is not True:
                 for k, v in value.items():
                     visitor.visit_any(loc + Loc(k), v)
                 visitor.visit_mapping_end(loc, value)
 
-    class TypedDictTypeDescriptor(ITypeDescriptor[Mapping]):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+    class TypedDictTypeDescriptor(ITypeDescriptor):
+        def parse(self, errors, loc, value):
             result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
             return MutableMappingProxy(cast(dict, result))
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Mapping):
+        def accept(self, visitor, loc, value):
             if visitor.visit_mapping_begin(loc, value) is not True:
                 for k, v in value.items():
                     value_type_descriptor.accept(visitor, loc + Loc(k), v)
@@ -171,7 +171,7 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
             return Unset
         return result
 
-    class AnyListDescriptor(ITypeDescriptor[list]):
+    class AnyListDescriptor(ITypeDescriptor):
 
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
@@ -179,21 +179,21 @@ def make_list_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 return result
             return list(cast(Sequence, result))
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
+        def accept(self, visitor, loc, value):
             if visitor.visit_sequence_begin(loc, value) is not True:
                 for i, item in enumerate(value):
                     visitor.visit_any(loc + Loc(i), item)
                 visitor.visit_sequence_end(loc, value)
 
-    class TypedListDescriptor(ITypeDescriptor[list]):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+    class TypedListDescriptor(ITypeDescriptor):
+        def parse(self, errors, loc, value):
             result = parse_typed(errors, loc, value)
             if len(errors) > 0:
                 return Unset
             result = cast(list, result)
             return MutableSequenceProxy(result)
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: list):
+        def accept(self, visitor, loc, value):
             if visitor.visit_sequence_begin(loc, value) is not True:
                 for p, item in enumerate(value):
                     type_descriptor.accept(visitor, loc + Loc(p), item)
@@ -252,19 +252,19 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
             errors.append(ErrorFactory.set_parsing_error(loc, value))
             return Unset
 
-    class AnySetDescriptor(ITypeDescriptor[set]):
+    class AnySetDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             return parse_any_set(errors, loc, value)
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: set):
+        def accept(self, visitor, loc, value):
             item_loc = loc + Loc.irrelevant()
             if visitor.visit_set_begin(loc, value) is not True:
                 for item in value:
                     visitor.visit_any(item_loc, item)
                 visitor.visit_set_end(loc, value)
 
-    class TypedSetDescriptor(ITypeDescriptor[set]):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+    class TypedSetDescriptor(ITypeDescriptor):
+        def parse(self, errors, loc, value):
             seq = ensure_sequence(errors, loc, value)
             if seq is Unset:
                 return seq
@@ -273,7 +273,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
                 return Unset
             return MutableSetProxy(result)
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: set):
+        def accept(self, visitor, loc, value):
             item_loc = loc + Loc.irrelevant()
             if visitor.visit_set_begin(loc, value) is not True:
                 for item in value:
@@ -298,7 +298,7 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
         errors.append(ErrorFactory.tuple_parsing_error(loc, value))
         return Unset
 
-    class AnyTupleDescriptor(ITypeDescriptor[tuple]):
+    class AnyTupleDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
             if result is Unset:
@@ -311,8 +311,8 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                     visitor.visit_any(loc + Loc(i), item)
                 visitor.visit_sequence_end(loc, value)
 
-    class AnyLengthTypedTupleDescriptor(ITypeDescriptor[tuple]):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+    class AnyLengthTypedTupleDescriptor(ITypeDescriptor):
+        def parse(self, errors, loc, value):
             seq = ensure_sequence(errors, loc, value)
             if seq is Unset:
                 return Unset
@@ -323,14 +323,14 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                 return Unset
             return result
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: tuple):
+        def accept(self, visitor, loc, value):
             if visitor.visit_sequence_begin(loc, value) is not True:
                 for i, elem in enumerate(value):
                     type_descriptor.accept(visitor, loc + Loc(i), elem)
                 visitor.visit_sequence_end(loc, value)
 
-    class FixedLengthTypedTupleDescriptor(ITypeDescriptor[tuple]):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+    class FixedLengthTypedTupleDescriptor(ITypeDescriptor):
+        def parse(self, errors, loc, value):
             result = ensure_sequence(errors, loc, value)
             if result is Unset:
                 return Unset
@@ -346,7 +346,7 @@ def make_tuple_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory
                 return Unset
             return result
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: tuple):
+        def accept(self, visitor, loc, value):
             if visitor.visit_sequence_begin(loc, value) is not True:
                 for i, elem, desc in zip(range(len(type_descriptors)), value, type_descriptors):
                     desc.accept(visitor, loc + Loc(i), elem)

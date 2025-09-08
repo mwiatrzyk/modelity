@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModelVisitor, ISupportsValidate
+from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
 from modelity.unset import UnsetType
@@ -151,7 +151,7 @@ class DefaultValidateVisitor(IModelVisitor):
 
     def visit_supports_validate_end(self, loc: Loc, value: Any):
         _, field = self._get_current_model_and_field(loc)
-        if isinstance(field.descriptor, ISupportsValidate):
+        if isinstance(field.descriptor, IValidatableTypeDescriptor):
             field.descriptor.validate(self._errors, loc, value)
 
     def visit_string(self, loc: Loc, value: str):

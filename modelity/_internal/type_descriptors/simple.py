@@ -37,7 +37,7 @@ registry = TypeDescriptorFactoryRegistry()
 @registry.type_descriptor_factory(UnsetType)
 def make_unset_type_descriptor():
 
-    class UnsetTypeDescriptor(ITypeDescriptor[UnsetType]):
+    class UnsetTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             if value is Unset:
                 return value
@@ -53,7 +53,7 @@ def make_unset_type_descriptor():
 @registry.type_descriptor_factory(Any)
 def make_any_type_descriptor():
 
-    class AnyTypeDescriptor(ITypeDescriptor[Any]):
+    class AnyTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             return value
 
@@ -66,7 +66,7 @@ def make_any_type_descriptor():
 @registry.type_descriptor_factory(bool)
 def make_bool_type_descriptor(type_opts: dict):
 
-    class BoolTypeDescriptor(ITypeDescriptor[bool]):
+    class BoolTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bool):
                 return value
@@ -90,7 +90,7 @@ def make_bool_type_descriptor(type_opts: dict):
 @registry.type_descriptor_factory(datetime)
 def make_datetime_type_descriptor(type_opts: dict):
 
-    class DateTimeTypeDescriptor(ITypeDescriptor[datetime]):
+    class DateTimeTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, datetime):
                 return value
@@ -130,7 +130,7 @@ def make_datetime_type_descriptor(type_opts: dict):
 def make_date_type_descriptor(type_opts: dict):
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
-    class DateTypeDescriptor(ITypeDescriptor[date]):
+    class DateTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, date):
                 return value
@@ -161,7 +161,7 @@ def make_date_type_descriptor(type_opts: dict):
 @registry.type_descriptor_factory(Enum)
 def make_enum_type_descriptor(typ: type[Enum]):
 
-    class EnumTypeDescriptor(ITypeDescriptor[Enum]):
+    class EnumTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return typ(value)
@@ -179,7 +179,7 @@ def make_enum_type_descriptor(typ: type[Enum]):
 @registry.type_descriptor_factory(Literal)
 def make_literal_type_descriptor(typ):
 
-    class LiteralTypeDescriptor(ITypeDescriptor[Any]):
+    class LiteralTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value in allowed_values:
                 return value
@@ -197,7 +197,7 @@ def make_literal_type_descriptor(typ):
 def make_none_type_descriptor():
     NoneType = type(None)
 
-    class NoneTypeDescriptor(ITypeDescriptor[NoneType]):
+    class NoneTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
@@ -213,7 +213,7 @@ def make_none_type_descriptor():
 @registry.type_descriptor_factory(int)
 def make_int_type_descriptor():
 
-    class IntTypeDescriptor(ITypeDescriptor[int]):
+    class IntTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return int(value)
@@ -230,7 +230,7 @@ def make_int_type_descriptor():
 @registry.type_descriptor_factory(float)
 def make_float_type_descriptor():
 
-    class FloatTypeDescriptor(ITypeDescriptor[float]):
+    class FloatTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return float(value)
@@ -247,7 +247,7 @@ def make_float_type_descriptor():
 @registry.type_descriptor_factory(str)
 def make_str_type_descriptor():
 
-    class StrTypeDescriptor(ITypeDescriptor[str]):
+    class StrTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: str):
             if isinstance(value, str):
                 return value
@@ -263,7 +263,7 @@ def make_str_type_descriptor():
 @registry.type_descriptor_factory(bytes)
 def make_bytes_type_descriptor():
 
-    class BytesTypeDescriptor(ITypeDescriptor[bytes]):
+    class BytesTypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bytes):
                 return value
@@ -279,7 +279,7 @@ def make_bytes_type_descriptor():
 @registry.type_descriptor_factory(ipaddress.IPv4Address)
 def make_ipv4_address_type_descriptor():
 
-    class IPv4TypeDescriptor(ITypeDescriptor[ipaddress.IPv4Address]):
+    class IPv4TypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv4Address):
                 return value
@@ -298,7 +298,7 @@ def make_ipv4_address_type_descriptor():
 @registry.type_descriptor_factory(ipaddress.IPv6Address)
 def make_ipv6_address_type_descriptor():
 
-    class IPv6TypeDescriptor(ITypeDescriptor[ipaddress.IPv6Address]):
+    class IPv6TypeDescriptor(ITypeDescriptor):
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv6Address):
                 return value

@@ -50,16 +50,13 @@ class CustomType:
     @staticmethod
     def __modelity_type_descriptor__(typ, type_opts: dict) -> ITypeDescriptor:
 
-        class CustomTypeDescriptor(ITypeDescriptor[CustomType]):
+        class CustomTypeDescriptor(ITypeDescriptor):
 
             def parse(self, errors, loc, value):
                 return typ(value, **type_opts)
 
-            def accept(self, visitor: IModelVisitor, loc: Loc, value: CustomType):
+            def accept(self, visitor, loc, value):
                 visitor.visit_any(loc, value.value)
-
-            def validate(self, errors: list[Error], loc: Loc, value: CustomType):
-                return
 
         return CustomTypeDescriptor()
 
