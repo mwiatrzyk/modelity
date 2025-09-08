@@ -2,7 +2,7 @@ import pytest
 
 from mockify.api import Mock, satisfied
 
-pytest.register_assert_rewrite('tests.functional.types.common')
+pytest.register_assert_rewrite("tests.functional.types.common")
 
 
 @pytest.fixture

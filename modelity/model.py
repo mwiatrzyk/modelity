@@ -342,7 +342,9 @@ class Model(metaclass=ModelMeta):
 
 
 @export
-def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Optional[bool]:
+def run_model_prevalidators(
+    cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc
+) -> Optional[bool]:
     """Execute chain of model-level prevalidators.
 
     This function executes all registered prevalidators for model *cls* and

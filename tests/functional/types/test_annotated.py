@@ -17,18 +17,22 @@ class TestAnnotated:
     class SUT(Model):
         foo: Annotated[int, Ge(0)]
 
-    @pytest.fixture(params=[
-        (0, 0, 0),
-        ('1', 1, 1),
-    ])
+    @pytest.fixture(
+        params=[
+            (0, 0, 0),
+            ("1", 1, 1),
+        ]
+    )
     def data(self, request):
         return request.param
 
-    @pytest.fixture(params=[
-        (None, [ErrorFactory.integer_parsing_error(common.loc, None)]),
-        ('spam', [ErrorFactory.integer_parsing_error(common.loc, 'spam')]),
-        (-1, [ErrorFactory.ge_constraint_failed(common.loc, -1, 0)]),
-    ])
+    @pytest.fixture(
+        params=[
+            (None, [ErrorFactory.integer_parsing_error(common.loc, None)]),
+            ("spam", [ErrorFactory.integer_parsing_error(common.loc, "spam")]),
+            (-1, [ErrorFactory.ge_constraint_failed(common.loc, -1, 0)]),
+        ]
+    )
     def invalid_data(self, request):
         return request.param
 
@@ -53,16 +57,16 @@ class TestAnnotated:
     def test_accept_visitor(self, mock):
         sut = self.SUT(foo=0)
         mock.visit_model_begin.expect_call(Loc(), sut)
-        mock.visit_supports_validate_begin.expect_call(Loc('foo'), sut.foo)
-        mock.visit_number.expect_call(Loc('foo'), 0)
-        mock.visit_supports_validate_end.expect_call(Loc('foo'), sut.foo)
+        mock.visit_supports_validate_begin.expect_call(Loc("foo"), sut.foo)
+        mock.visit_number.expect_call(Loc("foo"), 0)
+        mock.visit_supports_validate_end.expect_call(Loc("foo"), sut.foo)
         mock.visit_model_end.expect_call(Loc(), sut)
         sut.accept(mock, Loc())
 
     def test_when_visit_supports_validate_begin_returns_true_then_visiting_is_skipped(self, mock):
         sut = self.SUT(foo=0)
         mock.visit_model_begin.expect_call(Loc(), sut)
-        mock.visit_supports_validate_begin.expect_call(Loc('foo'), sut.foo).will_once(Return(True))
+        mock.visit_supports_validate_begin.expect_call(Loc("foo"), sut.foo).will_once(Return(True))
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())

@@ -27,10 +27,10 @@ def test_validate_successfully(self, input, expected_output):
 def test_dump_successfully(self, input, expected_dump_output):
     sut = self.SUT(foo=input)
     if not callable(expected_dump_output):
-        assert dump(sut) == {'foo': expected_dump_output}
+        assert dump(sut) == {"foo": expected_dump_output}
     else:
         data = dump(sut)
-        assert expected_dump_output(data['foo'])
+        assert expected_dump_output(data["foo"])
 
 
 def test_constructing_fails_for_invalid_input(self, invalid_input, expected_errors):
