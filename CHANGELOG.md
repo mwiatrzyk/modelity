@@ -1,3 +1,15 @@
+## 0.22.0 (2025-09-08)
+
+### BREAKING CHANGES
+
+- removed `ISupportsValidate` and provided `IValidatableTypeDescriptor` subclass of `ITypeDescriptor` instead
+- Dropped generic type support from `ITypeDescriptor`; it
+was not necessary, so let's keep things as simple as possible.
+
+### Feat
+
+- removed `ISupportsValidate` and provided `IValidatableTypeDescriptor` subclass of `ITypeDescriptor` instead
+
 ## 0.21.0 (2025-09-07)
 
 ### Feat
