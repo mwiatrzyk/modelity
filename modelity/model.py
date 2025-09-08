@@ -346,9 +346,9 @@ def run_model_prevalidators(cls: type[Model], self: Model, root: Model, ctx: Any
     """Execute chain of model-level prevalidators.
 
     This function executes all registered prevalidators for model *cls* and
-    checks if ``True`` is returned. If model prevalidator returns ``True``,
-    then all other model prevalidators are skipped and this function returns
-    ``True``.
+    checks if ``True`` is returned. If one of model prevalidators returns
+    ``True``, then all remaining model prevalidators are skipped and this
+    function returns ``True``. Otherwise this function returns ``None``.
 
     :param cls:
         The model type that is currently being validated.
