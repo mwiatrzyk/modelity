@@ -1,3 +1,9 @@
+## 0.23.0 (2025-09-09)
+
+### Feat
+
+- add support for `pathlib.Path` type
+
 ## 0.22.0 (2025-09-08)
 
 ### BREAKING CHANGES
