@@ -4,6 +4,7 @@ from datetime import date, datetime
 from enum import Enum
 import ipaddress
 from numbers import Number
+import pathlib
 from typing import Any, Literal, TypeVar, cast, get_args
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
@@ -312,3 +313,37 @@ def make_ipv6_address_type_descriptor():
             visitor.visit_string(loc, str(value))
 
     return IPv6TypeDescriptor()
+
+
+@registry.type_descriptor_factory(pathlib.Path)
+def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
+
+    class PathlibPathTypeDescriptor(ITypeDescriptor):
+
+        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+            if isinstance(value, pathlib.Path):
+                return value
+            if isinstance(value, bytes):
+                try:
+                    value = value.decode(bytes_encoding)
+                except UnicodeDecodeError:
+                    errors.append(
+                        ErrorFactory.parsing_error(
+                            loc,
+                            value,
+                            f"{parsing_error_msg}; could not decode bytes using {bytes_encoding!r} codec",
+                            typ,
+                        )
+                    )
+                    return Unset
+            if not isinstance(value, str):
+                errors.append(ErrorFactory.parsing_error(loc, value, parsing_error_msg, typ))
+                return Unset
+            return pathlib.Path(value)
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_string(loc, str(value))
+
+    parsing_error_msg = "not a valid path value"
+    bytes_encoding = type_opts.get("bytes_encoding", "utf-8")
+    return PathlibPathTypeDescriptor()

@@ -1674,3 +1674,41 @@ Example:
     datetime.date(2025, 1, 2)
     >>> dump(obj)  # `output_date_format` will be used
     {'foo': '2025-01-02'}
+
+pathlib.Path
+^^^^^^^^^^^^
+
+Options available:
+
+``bytes_encoding: str = 'utf-8'``
+    Encoding to use when parsing path given as bytes object.
+
+    Defaults to UTF-8.
+
+Example:
+
+.. testcode::
+
+    import pathlib
+
+    from modelity.model import Model, field_info
+
+    class PosixPathExample(Model):
+        foo: pathlib.Path = field_info(bytes_encoding='ascii')
+
+.. doctest::
+
+    >>> obj = PosixPathExample()
+    >>> obj.foo = b'\xff'  # fail; ascii codec can't decode this
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: parsing failed for type 'PosixPathExample' with 1 error(-s):
+      foo:
+        not a valid path value; could not decode bytes using 'ascii' codec [code=modelity.PARSING_ERROR, value_type=<class 'bytes'>]
+
+.. doctest::
+
+    >>> from modelity.helpers import dump
+    >>> obj.foo = '/tmp/some/file.txt'  # this will pass
+    >>> obj.foo
+    PosixPath('/tmp/some/file.txt')
