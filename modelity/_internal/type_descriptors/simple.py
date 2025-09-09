@@ -1,5 +1,6 @@
 """Parser factories for the built-in simple types."""
 
+from ctypes import Union
 from datetime import date, datetime
 from enum import Enum
 import ipaddress
@@ -45,7 +46,7 @@ def make_unset_type_descriptor():
             errors.append(ErrorFactory.value_not_allowed(loc, value, (Unset,)))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: UnsetType):
+        def accept(self, visitor, loc, value):
             visitor.visit_unset(loc, value)
 
     return UnsetTypeDescriptor()
@@ -58,7 +59,7 @@ def make_any_type_descriptor():
         def parse(self, errors, loc, value):
             return value
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+        def accept(self, visitor, loc, value):
             visitor.visit_any(loc, value)
 
     return AnyTypeDescriptor()
@@ -68,7 +69,7 @@ def make_any_type_descriptor():
 def make_bool_type_descriptor(type_opts: dict):
 
     class BoolTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, bool):
                 return value
             if value in true_literals:
@@ -80,7 +81,7 @@ def make_bool_type_descriptor(type_opts: dict):
             )
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: bool):
+        def accept(self, visitor, loc, value):
             visitor.visit_bool(loc, value)
 
     true_literals = set(type_opts.get("true_literals") or [])
@@ -92,7 +93,7 @@ def make_bool_type_descriptor(type_opts: dict):
 def make_datetime_type_descriptor(type_opts: dict):
 
     class DateTimeTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, datetime):
                 return value
             if not isinstance(value, str):
@@ -106,7 +107,7 @@ def make_datetime_type_descriptor(type_opts: dict):
             errors.append(ErrorFactory.unsupported_datetime_format(loc, value, input_formats))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: datetime):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, value.strftime(compiled_output_format))
 
     def compile_format(fmt: str) -> str:
@@ -132,7 +133,7 @@ def make_date_type_descriptor(type_opts: dict):
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
     class DateTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, date):
                 return value
             if not isinstance(value, str):
@@ -146,7 +147,7 @@ def make_date_type_descriptor(type_opts: dict):
             errors.append(ErrorFactory.unsupported_date_format(loc, value, input_formats))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: date):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, value.strftime(compiled_output_format))
 
     def compile_format(fmt: str) -> str:
@@ -163,14 +164,14 @@ def make_date_type_descriptor(type_opts: dict):
 def make_enum_type_descriptor(typ: type[Enum]):
 
     class EnumTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             try:
                 return typ(value)
             except ValueError:
                 errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Enum):
+        def accept(self, visitor, loc, value):
             visitor.visit_any(loc, value.value)
 
     allowed_values = tuple(typ)
@@ -181,13 +182,13 @@ def make_enum_type_descriptor(typ: type[Enum]):
 def make_literal_type_descriptor(typ):
 
     class LiteralTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if value in allowed_values:
                 return value
             errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+        def accept(self, visitor, loc, value):
             visitor.visit_any(loc, value)
 
     allowed_values = get_args(typ)
@@ -196,16 +197,15 @@ def make_literal_type_descriptor(typ):
 
 @registry.type_descriptor_factory(type(None))
 def make_none_type_descriptor():
-    NoneType = type(None)
 
     class NoneTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if value is None:
                 return value
             errors.append(ErrorFactory.value_not_allowed(loc, value, (None,)))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: None):
+        def accept(self, visitor, loc, value):
             visitor.visit_none(loc, value)
 
     return NoneTypeDescriptor()
@@ -215,14 +215,14 @@ def make_none_type_descriptor():
 def make_int_type_descriptor():
 
     class IntTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             try:
                 return int(value)
             except (ValueError, TypeError):
                 errors.append(ErrorFactory.integer_parsing_error(loc, value))
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: int):
+        def accept(self, visitor, loc, value):
             visitor.visit_number(loc, cast(Number, value))
 
     return IntTypeDescriptor()
@@ -232,14 +232,14 @@ def make_int_type_descriptor():
 def make_float_type_descriptor():
 
     class FloatTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             try:
                 return float(value)
             except (ValueError, TypeError):
                 errors.append(ErrorFactory.float_parsing_error(loc, value))
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: float):
+        def accept(self, visitor, loc, value):
             visitor.visit_number(loc, cast(Number, value))
 
     return FloatTypeDescriptor()
@@ -249,13 +249,13 @@ def make_float_type_descriptor():
 def make_str_type_descriptor():
 
     class StrTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: str):
+        def parse(self, errors, loc, value):
             if isinstance(value, str):
                 return value
             errors.append(ErrorFactory.string_value_required(loc, value))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: str):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, value)
 
     return StrTypeDescriptor()
@@ -265,13 +265,13 @@ def make_str_type_descriptor():
 def make_bytes_type_descriptor():
 
     class BytesTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, bytes):
                 return value
             errors.append(ErrorFactory.bytes_value_required(loc, value))
             return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: bytes):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, value.decode())  # TODO: Add support for other formats
 
     return BytesTypeDescriptor()
@@ -281,7 +281,7 @@ def make_bytes_type_descriptor():
 def make_ipv4_address_type_descriptor():
 
     class IPv4TypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, ipaddress.IPv4Address):
                 return value
             try:
@@ -290,7 +290,7 @@ def make_ipv4_address_type_descriptor():
                 errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv4 address", ipaddress.IPv4Address))
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv4Address):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, str(value))
 
     return IPv4TypeDescriptor()
@@ -300,7 +300,7 @@ def make_ipv4_address_type_descriptor():
 def make_ipv6_address_type_descriptor():
 
     class IPv6TypeDescriptor(ITypeDescriptor):
-        def parse(self, errors: list[Error], loc: Loc, value: Any):
+        def parse(self, errors, loc, value):
             if isinstance(value, ipaddress.IPv6Address):
                 return value
             try:
@@ -309,7 +309,7 @@ def make_ipv6_address_type_descriptor():
                 errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv6 address", ipaddress.IPv6Address))
                 return Unset
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: ipaddress.IPv6Address):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, str(value))
 
     return IPv6TypeDescriptor()
@@ -320,7 +320,7 @@ def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
 
     class PathlibPathTypeDescriptor(ITypeDescriptor):
 
-        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+        def parse(self, errors, loc, value):
             if isinstance(value, pathlib.Path):
                 return value
             if isinstance(value, bytes):
@@ -341,7 +341,7 @@ def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
                 return Unset
             return pathlib.Path(value)
 
-        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+        def accept(self, visitor, loc, value):
             visitor.visit_string(loc, str(value))
 
     parsing_error_msg = "not a valid path value"
