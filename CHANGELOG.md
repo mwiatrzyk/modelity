@@ -1,3 +1,10 @@
+## 0.23.1 (2025-09-14)
+
+### Fix
+
+- `setdefault` method of typed dict now properly parses data
+- `update` of typed dict now properly handles multiple parsing errors
+
 ## 0.23.0 (2025-09-09)
 
 ### Feat
