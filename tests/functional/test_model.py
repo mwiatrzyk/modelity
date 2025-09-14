@@ -548,7 +548,6 @@ class TestModelWithDictField:
     def test_setdefault_successfully(self):
         sut = self.SUT(foo={"one": 1})
         assert sut.foo.setdefault("one", 123) == 1
-        assert sut.foo.setdefault("two", "2") == "2"
         assert sut.foo.setdefault("two", "2") == 2
 
     def test_setdefault_fails(self):

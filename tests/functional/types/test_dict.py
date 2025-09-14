@@ -4,6 +4,7 @@ import pytest
 from mockify.api import Return, ordered
 
 from modelity.error import ErrorFactory
+from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import Model
 
@@ -146,3 +147,32 @@ class TestTypedDict:
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())
+
+    class TestMethods:
+
+        @pytest.fixture
+        def SUT(self):
+
+            class SUT(Model):
+                foo: dict[str, list[int]] = {}
+
+            return SUT
+
+        class TestSetDefault:
+
+            def test_setdefault_and_append(self, SUT):
+                sut = SUT()
+                sut.foo.setdefault("bar", []).append("123")  # type: ignore
+                assert sut.foo == {"bar": [123]}
+
+            def test_incorrect_default_value_causes_parsing_error(self, SUT):
+                sut = SUT()
+                with pytest.raises(ParsingError) as excinfo:
+                    sut.foo.setdefault("bar", [1, 3.14, "spam"])
+                assert excinfo.value.errors == (ErrorFactory.integer_parsing_error(Loc("bar", 2), "spam"),)
+
+            def test_does_not_change_value_if_already_exists(self, SUT):
+                sut = SUT()
+                sut.foo = {"bar": [1, 2, 3]}
+                sut.foo.setdefault("bar", [4, 5, 6])
+                assert sut.foo["bar"] == [1, 2, 3]

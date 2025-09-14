@@ -63,6 +63,11 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
         def __len__(self) -> int:
             return len(self._data)
 
+        def setdefault(self, key, default=None):
+            if key not in self:
+                self[key] = default
+            return self[key]
+
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
             return value
