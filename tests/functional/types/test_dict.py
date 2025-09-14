@@ -176,3 +176,37 @@ class TestTypedDict:
                 sut.foo = {"bar": [1, 2, 3]}
                 sut.foo.setdefault("bar", [4, 5, 6])
                 assert sut.foo["bar"] == [1, 2, 3]
+
+        class TestUpdate:
+
+            @pytest.mark.parametrize("args, kwargs, expected_output", [
+                (tuple(), dict(), {}),
+                (tuple(), dict(foo=[1], bar=["2"]), {"foo": [1], "bar": [2]}),
+                (tuple([[('foo', [1])]]), dict(), {'foo': [1]}),
+                (tuple([[('foo', [1])]]), dict(bar=[2]), {'foo': [1], 'bar': [2]}),
+            ])
+            def test_update_successfully(self, SUT, args, kwargs, expected_output):
+                sut = SUT()
+                sut.foo.update(*args, **kwargs)
+                assert sut.foo == expected_output
+
+            def test_update_overwrites_previous_values(self, SUT):
+                sut = SUT(foo={"bar": [1]})
+                assert sut.foo == {"bar": [1]}
+                sut.foo.update(bar=[2])
+                assert sut.foo['bar'] == [2]
+
+            def test_update_fails_with_multiple_errors_if_multiple_items_are_invalid(self, SUT):
+                sut = SUT()
+                with pytest.raises(ParsingError) as excinfo:
+                    sut.foo.update({"bar": ["spam"], "baz": [1, 2, "more spam"]})
+                assert excinfo.value.errors == (
+                    ErrorFactory.integer_parsing_error(Loc("bar", 0), "spam"),
+                    ErrorFactory.integer_parsing_error(Loc("baz", 2), "more spam"),
+                )
+
+            def test_update_raises_type_error_if_called_with_incorrect_params(self, SUT):
+                sut = SUT(foo={})
+                with pytest.raises(TypeError) as excinfo:
+                    sut.foo.update(1, 2, foo=[1])
+                assert str(excinfo.value) == "update() called with unsupported arguments: args=(1, 2), kwargs={'foo': [1]}"

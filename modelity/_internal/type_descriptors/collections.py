@@ -68,6 +68,21 @@ def make_dict_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDesc
                 self[key] = default
             return self[key]
 
+        def update(self, *args, **kwargs):
+            errors: list[Error] = []
+            if not args:
+                for k, v in kwargs.items():
+                    self.__setitem(self._data, k, v, errors)
+            elif len(args) == 1:
+                input_data = dict(args[0])
+                input_data.update(**kwargs)
+                for k, v in input_data.items():
+                    self.__setitem(self._data, k, v, errors)
+            else:
+                raise TypeError(f"update() called with unsupported arguments: args={args!r}, kwargs={kwargs!r}")
+            if errors:
+                raise ParsingError(typ, tuple(errors))
+
     def ensure_mapping(errors: list[Error], loc: Loc, value: Any) -> Union[Mapping, UnsetType]:
         if isinstance(value, Mapping):
             return value
