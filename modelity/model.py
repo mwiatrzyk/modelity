@@ -1,7 +1,20 @@
 import copy
 import dataclasses
 import functools
-from typing import Any, Callable, ClassVar, Mapping, Optional, Sequence, Union, TypeVar, cast, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+    TypeVar,
+    cast,
+    get_args,
+    get_origin,
+)
 import typing_extensions
 
 from modelity._internal import hooks as _int_hooks, model as _int_model
@@ -200,7 +213,11 @@ class ModelMeta(type):
         attrs["__model_hooks__"] = hooks = list[IBaseHook]()
         for base in bases:
             fields.update(getattr(base, "__model_fields__", {}))
-            hooks.extend(getattr(base, "__model_hooks__", []))
+            model_hooks = getattr(base, "__model_hooks__", None)
+            if model_hooks is not None:
+                hooks.extend(model_hooks)
+            else:
+                hooks.extend(_collect_hooks_from_mixin_class(base))
         annotations = attrs.pop("__annotations__", {})
         for field_name, annotation in annotations.items():
             if field_name in _IGNORED_FIELD_NAMES:
@@ -468,3 +485,10 @@ def _run_field_postprocessors(
         if value is Unset:
             return Unset
     return value
+
+
+def _collect_hooks_from_mixin_class(cls: type) -> Iterator[IBaseHook]:
+    for name in dir(cls):
+        value = getattr(cls, name)
+        if _int_hooks.is_base_hook(value):
+            yield value

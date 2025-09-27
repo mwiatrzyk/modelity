@@ -743,6 +743,20 @@ class TestModelWithModelPrevalidators:
         mock.prevalidate_model.expect_call().will_once(Return(True))  # Disable other validators
         validate(sut)  # Will pass, as model prevalidator disabled built-in validation
 
+    def test_model_prevalidator_can_be_provided_by_mixin(self, mock):
+        class Mixin:
+
+            @model_prevalidator()
+            def _prevalidate_model():
+                return mock.prevalidate_model()
+
+        class SUT(Model, Mixin):
+            foo: int
+
+        sut = SUT()
+        mock.prevalidate_model.expect_call().will_once(Return(True))
+        validate(sut)
+
 
 class TestModelWithModelPostvalidators:
 
@@ -870,6 +884,20 @@ class TestModelWithModelPostvalidators:
         mock.bar.expect_call()
         with ordered(mock):
             validate(sut)
+
+    def test_model_postvalidator_can_be_provided_by_mixin(self, mock):
+        class Mixin:
+
+            @model_postvalidator()
+            def _postvalidate_model():
+                mock.postvalidate_model()
+
+        class SUT(Model, Mixin):
+            foo: int
+
+        sut = SUT(foo=123)
+        mock.postvalidate_model.expect_call()
+        validate(sut)
 
 
 class TestModelWithFieldValidators:
@@ -1040,6 +1068,20 @@ class TestModelWithFieldValidators:
         with ordered(mock):
             validate(sut)
 
+    def test_field_validator_can_be_provided_by_mixin(self, mock):
+        class Mixin:
+
+            @field_validator()
+            def _validate_field(loc, value):
+                mock.validate_field(loc, value)
+
+        class SUT(Model, Mixin):
+            foo: int
+
+        sut = SUT(foo=123)
+        mock.validate_field.expect_call(Loc("foo"), 123)
+        validate(sut)
+
 
 class TestModelWithPrePostAndFieldValidators:
 
@@ -1190,6 +1232,20 @@ class TestModelWithFieldPreprocessors:
         assert excinfo.value.typ is SUT
         assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)
 
+    def test_field_preprocessor_can_be_provided_by_mixin(self, mock):
+        class Mixin:
+
+            @field_preprocessor()
+            def _preprocess_field(loc, value):
+                return mock.preprocess_field(loc, value)
+
+        class SUT(Model, Mixin):
+            foo: int
+
+        mock.preprocess_field.expect_call(Loc("foo"), "123").will_once(Return("456"))
+        sut = SUT(foo="123")
+        assert sut.foo == 456
+
 
 class TestModelWithFieldPostprocessors:
 
@@ -1310,3 +1366,17 @@ class TestModelWithFieldPostprocessors:
             sut.foo = 123
         assert excinfo.value.typ is SUT
         assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)
+
+    def test_field_postprocessor_can_be_provided_by_mixin(self, mock):
+        class Mixin:
+
+            @field_postprocessor()
+            def _postprocess_field(loc, value):
+                return mock.postprocess_field(loc, value)
+
+        class SUT(Model, Mixin):
+            foo: int
+
+        mock.postprocess_field.expect_call(Loc("foo"), 123).will_once(Return(456))
+        sut = SUT(foo="123")
+        assert sut.foo == 456
