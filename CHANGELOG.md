@@ -1,3 +1,9 @@
+## 0.24.0 (2025-09-27)
+
+### Feat
+
+- handle hooks provided by mixin classes
+
 ## 0.23.1 (2025-09-14)
 
 ### Fix
