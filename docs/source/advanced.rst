@@ -377,3 +377,186 @@ Thanks to context objects you can easily integrate Modelity validators with
 your application's business logic to achieve one central validation mechanism
 based on models. Also, contexts can only be used by user-defined validators,
 therefore using context does not affect Modelity's built-in mechanisms.
+
+Hook inheritance
+----------------
+
+Declaring base model with common hooks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When using hooks you will declare hook directly in the model class for most
+cases. However, sometimes same hook needs to be provided for other models as
+well. Consider this example:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.hooks import field_preprocessor
+
+    class First(Model):
+        foo: str
+
+        @field_preprocessor("foo")
+        def _strip_string(value):
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+    class Second(Model):
+        bar: str
+
+        @field_preprocessor("bar")
+        def _strip_string(value):  # duplicated!
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+We have two models that need some preprocessing logic for string inputs to get
+rid of white characters. The example from above duplicates same functionality,
+but works just fine from the model user's PoV:
+
+.. doctest::
+
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> first.foo
+    '123'
+    >>> second.bar
+    '456'
+
+However, this is not an elegant solution, as the example break DRY principle.
+Let's modify it a bit and extract logic to a separate helper function:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.hooks import field_preprocessor
+
+    def _strip_string(value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    class First(Model):
+        foo: str
+
+        @field_preprocessor("foo")
+        def _strip_string(value):
+            return _strip_string(value)
+
+    class Second(Model):
+        bar: str
+
+        @field_preprocessor("bar")
+        def _strip_string(value):  # duplicated!
+            return _strip_string(value)
+
+Now it is slightly better, and the functionality is still the same:
+
+.. doctest::
+
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> first.foo
+    '123'
+    >>> second.bar
+    '456'
+
+However, we still need to remember to add 3 additional lines to each single
+model that will need such stripping functionality. The best solution for that
+is to create a common base class and declare stripping hook **inside base
+class**. After further refactoring, the code looks as follows:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.hooks import field_preprocessor
+
+
+    class Base(Model):
+
+        @field_preprocessor()  # use this hook for any field...
+        def _strip_string(value):  # ...especially if we don't use it for any particular field
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+
+    class First(Base):
+        foo: str
+
+
+    class Second(Base):
+        bar: str
+
+
+    class Third(Base):  # Just one more class to automatically reuse stripping logic
+        baz: str
+
+And let's check this in practice once again:
+
+.. doctest::
+
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> third = Third(baz=" 789 ")
+    >>> first.foo, second.bar, third.baz
+    ('123', '456', '789')
+
+Using mixin classes with hooks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. versionadded:: 0.24.0
+
+Sometimes having all the hooks in a single common base class, or even several
+separate base classes, is too rigid and forces you to inherit from base class
+even if the model is logically not a subclass of such base. To resolve such
+issues, Modelity now provides an easy way to declare hooks inside non-model
+mixin classes that can then be mixed in to any model you want.
+
+Let's slightly extend an example from above to see how to use mixins:
+
+.. testcode::
+
+    from modelity.model import Model
+    from modelity.hooks import field_preprocessor
+
+
+    class StringStrippingMixin:  # this is a mixin; we don't inherit from model
+
+        @field_preprocessor()  # use this hook for any field...
+        def _strip_string(value):  # ...especially if we don't use it for any particular field
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+
+    class Base(Model, StringStrippingMixin):  # base class for First and Second; both will use the mixin
+        pass
+
+
+    class First(Base):
+        foo: str
+
+
+    class Second(Base):
+        bar: str
+
+
+    class Third(Model):  # Here we don't use our mixin...
+        baz: str
+
+
+    class Fourth(Third, StringStrippingMixin):  # ...and here we do
+        spam: str
+
+And the final check looks as follows:
+
+.. doctest::
+
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> third = Third(baz=" 789 ")
+    >>> fourth = Fourth(spam=' spam ')
+    >>> first.foo, second.bar, third.baz, fourth.spam
+    ('123', '456', ' 789 ', 'spam')
