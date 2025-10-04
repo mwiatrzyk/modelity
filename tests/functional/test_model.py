@@ -137,6 +137,8 @@ class TestModelWithOneField:
             (bool, FieldInfo(type_opts={"false_literals": [0]}), 0, False),
             (datetime, None, "1999-01-31T10:11:22", datetime(1999, 1, 31, 10, 11, 22)),
             (datetime, None, "1999-01-31T10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
+            (datetime, None, "1999-01-31 10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
+            (datetime, None, "1999-01-31 10:11:22 +0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
             (
                 datetime,
                 FieldInfo(type_opts={"input_datetime_formats": ["YYYY-MM-DD"]}),
@@ -258,8 +260,9 @@ class TestModelWithOneField:
                         "spam",
                         supported_formats=(
                             "YYYY-MM-DDThh:mm:ssZZZZ",
-                            "YYYY-MM-DDThh:mm:ss",
                             "YYYY-MM-DD hh:mm:ssZZZZ",
+                            "YYYY-MM-DD hh:mm:ss ZZZZ",
+                            "YYYY-MM-DDThh:mm:ss",
                             "YYYY-MM-DD hh:mm:ss",
                             "YYYYMMDDThhmmssZZZZ",
                             "YYYYMMDDThhmmss",
