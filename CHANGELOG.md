@@ -1,3 +1,9 @@
+## 0.25.0 (2025-10-04)
+
+### Feat
+
+- add built-in support for `YYYY-MM-DD hh:mm:ss ZZZZ` datetime format
+
 ## 0.24.0 (2025-09-27)
 
 ### Feat
