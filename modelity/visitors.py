@@ -12,7 +12,7 @@ from modelity import _utils
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
-from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
+from modelity.model import Field, FieldInfo, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
 from modelity.unset import UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -118,41 +118,51 @@ class DefaultValidateVisitor(IModelVisitor):
         self._root = root
         self._errors = errors
         self._ctx = ctx
-        self._stack = collections.deque[Any]()
+        self._model_stack = collections.deque[Model]()
+        self._field_stack = collections.deque[Field]()
 
     def visit_model_begin(self, loc: Loc, value: Model):
-        self._stack.append(value)
+        if loc:
+            self._push_field(loc)
+        self._push_model(value)
         return run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
     def visit_model_end(self, loc: Loc, value: Model):
         run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
-        self._stack.pop()
+        self._pop_model()
+        if loc:
+            self._validate_field(loc, value)
+            self._pop_field()
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
         self._push_field(loc)
 
     def visit_mapping_end(self, loc: Loc, value: Mapping):
+        self._validate_field(loc, value)
         self._pop_field()
 
     def visit_sequence_begin(self, loc: Loc, value: Sequence):
         self._push_field(loc)
 
     def visit_sequence_end(self, loc: Loc, value: Sequence):
+        self._validate_field(loc, value)
         self._pop_field()
 
     def visit_set_begin(self, loc: Loc, value: Set):
         self._push_field(loc)
 
     def visit_set_end(self, loc: Loc, value: Set):
+        self._validate_field(loc, value)
         self._pop_field()
 
     def visit_supports_validate_begin(self, loc: Loc, value: Any):
-        pass
+        self._push_field(loc)
 
     def visit_supports_validate_end(self, loc: Loc, value: Any):
-        _, field = self._get_current_model_and_field(loc)
+        field = self._current_field()
         if isinstance(field.descriptor, IValidatableTypeDescriptor):
             field.descriptor.validate(self._errors, loc, value)
+        self._pop_field()
 
     def visit_string(self, loc: Loc, value: str):
         self._validate_field(loc, value)
@@ -164,33 +174,42 @@ class DefaultValidateVisitor(IModelVisitor):
         self._validate_field(loc, value)
 
     def visit_unset(self, loc: Loc, value: UnsetType):
-        model: Model = self._stack[-1]
+        model = self._current_model()
         field = model.__class__.__model_fields__[loc.last]
         if not field.optional:
             self._errors.append(ErrorFactory.required_missing(loc))
 
     def visit_none(self, loc: Loc, value: None):
-        pass
+        self._validate_field(loc, value)
 
     def visit_any(self, loc: Loc, value: Any):
         self._validate_field(loc, value)
 
+    def _push_model(self, value: Model):
+        self._model_stack.append(value)
+
+    def _pop_model(self):
+        self._model_stack.pop()
+
     def _push_field(self, loc: Loc):
-        top = self._stack[-1]
-        if isinstance(top, Model):
-            self._stack.append(top.__class__.__model_fields__[loc.last])
+        model: Model = self._model_stack[-1]
+        field = model.__class__.__model_fields__.get(loc.last)
+        if field is not None:
+            self._field_stack.append(field)
+        else:
+            self._field_stack.append(self._field_stack[-1])
 
     def _pop_field(self):
-        self._stack.pop()
+        self._field_stack.pop()
 
-    def _get_current_model_and_field(self, loc: Loc) -> tuple[Model, Field]:
-        top = self._stack[-1]
-        if isinstance(top, Model):
-            return cast(Model, top), top.__class__.__model_fields__[loc.last]
-        return cast(Model, self._stack[-2]), cast(Field, top)
+    def _current_model(self):
+        return self._model_stack[-1]
+
+    def _current_field(self):
+        return self._field_stack[-1]
 
     def _validate_field(self, loc: Loc, value: Any):
-        model, _ = self._get_current_model_and_field(loc)
+        model = self._current_model()
         run_field_validators(model.__class__, model, self._root, self._ctx, self._errors, loc, value)
 
 

@@ -20,7 +20,7 @@ from modelity.hooks import (
     model_postvalidator,
     model_prevalidator,
 )
-from modelity.unset import Unset
+from modelity.unset import Unset, UnsetType
 from modelity.helpers import dump, validate
 
 
@@ -1083,6 +1083,34 @@ class TestModelWithFieldValidators:
 
         sut = SUT(foo=123)
         mock.validate_field.expect_call(Loc("foo"), 123)
+        validate(sut)
+
+    class Dummy(Model):
+        bar: int
+
+    @pytest.mark.parametrize("typ, value", [
+        (Dummy, Dummy(bar=123)),
+        (dict[str, int], {"one": 1}),
+        (dict[str, list[str]], {"one": ["two", "three"]}),
+        (list[int], [1, 2, 3]),
+        (set[int], {1, 2, 3}),
+        (Annotated[int, Ge(0)], 0),
+        (str, "spam"),
+        (int, 123),
+        (bool, True),
+        (type(None), None),
+    ])
+    def test_field_validator_can_be_used_with_field_of_any_type(self, typ, value, mock):
+
+        class SUT(Model):
+            foo: typ  # type: ignore
+
+            @field_validator("foo")
+            def _validate_field(self, loc, value):
+                mock.validate_field(loc, value)
+
+        sut = SUT(foo=value)
+        mock.validate_field.expect_call(Loc("foo"), value)
         validate(sut)
 
 
