@@ -80,6 +80,8 @@ class TestPathlibPath:
     def test_accept_visitor(self, mock):
         sut = self.SUT(foo="/spam")
         mock.visit_model_begin.expect_call(Loc(), sut)
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_string.expect_call(Loc("foo"), "/spam")
+        mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_end.expect_call(Loc(), sut)
         sut.accept(mock, Loc())

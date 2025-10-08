@@ -216,6 +216,23 @@ class ITypeDescriptorFactory(Protocol):
 
 
 @export
+class IField(Protocol):
+    """Protocol describing model field.
+
+    Used for type hinting of the :class:`IModelVisitor` interface methods.
+    """
+
+    #: Field's name.
+    name: str
+
+    #: Field's type annotation.
+    typ: Any
+
+    #: Field's type descriptor object.
+    descriptor: ITypeDescriptor
+
+
+@export
 class IModelVisitor(abc.ABC):
     """Base class for model visitors.
 
@@ -261,6 +278,34 @@ class IModelVisitor(abc.ABC):
 
         :param value:
             The visited object.
+        """
+
+    @abc.abstractmethod
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]:
+        """Start visiting model field.
+
+        :param field:
+            The object describing model field.
+
+        :param loc:
+            The location of the field being visited.
+
+        :param value:
+            The visited field's value.
+        """
+
+    @abc.abstractmethod
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
+        """Finish visiting model field.
+
+        :param field:
+            The object describing model field.
+
+        :param loc:
+            The location of the field being visited.
+
+        :param value:
+            The visited field's value.
         """
 
     @abc.abstractmethod

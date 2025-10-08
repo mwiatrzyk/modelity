@@ -70,11 +70,13 @@ class TestAnyList:
     def test_accept_visitor(self, mock):
         sut = self.SUT(foo=[1, 3.14, "spam"])
         mock.visit_model_begin.expect_call(Loc(), sut)
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_sequence_begin.expect_call(Loc("foo"), sut.foo)
         mock.visit_any.expect_call(Loc("foo", 0), 1)
         mock.visit_any.expect_call(Loc("foo", 1), 3.14)
         mock.visit_any.expect_call(Loc("foo", 2), "spam")
         mock.visit_sequence_end.expect_call(Loc("foo"), sut.foo)
+        mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())
@@ -82,7 +84,9 @@ class TestAnyList:
     def test_when_visit_sequence_begin_returns_true_then_visiting_sequence_is_skipped(self, mock):
         sut = self.SUT(foo=[1, 3.14, "spam"])
         mock.visit_model_begin.expect_call(Loc(), sut)
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_sequence_begin.expect_call(Loc("foo"), sut.foo).will_once(Return(True))
+        mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())
@@ -133,10 +137,12 @@ class TestTypedList:
     def test_accept_visitor(self, mock):
         sut = self.SUT(foo=[1, 2])
         mock.visit_model_begin.expect_call(Loc(), sut)
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_sequence_begin.expect_call(Loc("foo"), sut.foo)
         mock.visit_number.expect_call(Loc("foo", 0), 1)
         mock.visit_number.expect_call(Loc("foo", 1), 2)
         mock.visit_sequence_end.expect_call(Loc("foo"), sut.foo)
+        mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())
@@ -144,7 +150,9 @@ class TestTypedList:
     def test_when_visit_sequence_begin_returns_true_then_visiting_sequence_is_skipped(self, mock):
         sut = self.SUT(foo=[1, 2, 3])
         mock.visit_model_begin.expect_call(Loc(), sut)
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_sequence_begin.expect_call(Loc("foo"), sut.foo).will_once(Return(True))
+        mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())

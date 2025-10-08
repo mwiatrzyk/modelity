@@ -351,10 +351,12 @@ class Model(metaclass=ModelMeta):
             for name, field in self.__class__.__model_fields__.items():
                 field_loc = loc + Loc(name)
                 value = getattr(self, name)
-                if value is Unset:
-                    visitor.visit_unset(field_loc, value)
-                else:
-                    field.descriptor.accept(visitor, field_loc, value)
+                if visitor.visit_model_field_begin(field_loc, value, field) is not True:
+                    if value is Unset:
+                        visitor.visit_unset(field_loc, value)
+                    else:
+                        field.descriptor.accept(visitor, field_loc, value)
+                    visitor.visit_model_field_end(field_loc, value, field)
             visitor.visit_model_end(loc, self)
 
 

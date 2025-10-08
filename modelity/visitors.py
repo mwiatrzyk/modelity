@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
+from modelity.interface import IField, IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Field, FieldInfo, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
 from modelity.unset import UnsetType
@@ -39,6 +39,12 @@ class DefaultDumpVisitor(IModelVisitor):
             self._out.update(top)
         else:
             self._add(loc, top)
+
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
+        pass
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
+        pass
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
         self._stack.append(dict())
@@ -133,6 +139,12 @@ class DefaultValidateVisitor(IModelVisitor):
         if loc:
             self._validate_field(loc, value)
             self._pop_field()
+
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
+        pass
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
+        pass
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
         self._push_field(loc)
@@ -230,9 +242,9 @@ class ConstantExcludingModelVisitorProxy:
 
     def __getattr__(self, name):
 
-        def proxy(loc, value):
+        def proxy(loc, value, *args):
             if value is not self._constant:
-                return target(loc, value)
+                return target(loc, value, *args)
 
         target = getattr(self._target, name)
         return proxy
@@ -259,10 +271,10 @@ class ConditionalExcludingModelVisitorProxy:
 
     def __getattr__(self, name):
 
-        def proxy(loc, value):
+        def proxy(loc, value, *args):
             if self._exclude_if(loc, value):
                 return
-            return target(loc, value)
+            return target(loc, value, *args)
 
         target = getattr(self._target, name)
         return proxy
