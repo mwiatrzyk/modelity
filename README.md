@@ -1,3 +1,7 @@
+![PyPI - Version](https://img.shields.io/pypi/v/modelity)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/modelity)
+![PyPI - License](https://img.shields.io/pypi/l/modelity)
+
 # modelity
 
 Data parsing and validation library for Python.
