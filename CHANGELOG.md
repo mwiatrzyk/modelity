@@ -1,3 +1,13 @@
+## 0.26.0 (2025-10-09)
+
+### Fix
+
+- run `field_validator` for any kind of field
+
+### Feat
+
+- add `visit_model_field_begin` and `visit_model_field_end` methods to `IModelVisitor` interface
+
 ## 0.25.0 (2025-10-04)
 
 ### Feat
