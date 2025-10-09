@@ -6,20 +6,85 @@ interface.
 
 import collections
 from numbers import Number
-from typing import Any, Callable, Mapping, Sequence, Set, Union, cast
+from typing import Any, Callable, Mapping, Optional, Sequence, Set, Union
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IField, IModelVisitor, IValidatableTypeDescriptor
+from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
-from modelity.model import Field, FieldInfo, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
-from modelity.unset import UnsetType
+from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
+from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
 
 @export
-class DefaultDumpVisitor(IModelVisitor):
+class EmptyVisitor(IModelVisitor):
+    """A visitor that simply implements
+    :class:`modelity.interface.IModelVisitor` interface with methods doing
+    nothing.
+
+    It is meant to be used as a base for other visitors, especially ones that
+    do not need to overload all the methods.
+    """
+
+    def visit_model_begin(self, loc: Loc, value: Any) -> Optional[bool]:
+        pass
+
+    def visit_model_end(self, loc: Loc, value: Any):
+        pass
+
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: Any) -> Optional[bool]:
+        pass
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
+        pass
+
+    def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]:
+        pass
+
+    def visit_mapping_end(self, loc: Loc, value: Mapping):
+        pass
+
+    def visit_sequence_begin(self, loc: Loc, value: Sequence) -> Optional[bool]:
+        pass
+
+    def visit_sequence_end(self, loc: Loc, value: Sequence):
+        pass
+
+    def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
+        pass
+
+    def visit_set_end(self, loc: Loc, value: Set):
+        pass
+
+    def visit_supports_validate_begin(self, loc: Loc, value: Any) -> Optional[bool]:
+        pass
+
+    def visit_supports_validate_end(self, loc: Loc, value: Any):
+        pass
+
+    def visit_string(self, loc: Loc, value: str):
+        pass
+
+    def visit_number(self, loc: Loc, value: Number):
+        pass
+
+    def visit_bool(self, loc: Loc, value: bool):
+        pass
+
+    def visit_none(self, loc: Loc, value: None):
+        pass
+
+    def visit_any(self, loc: Loc, value: Any):
+        pass
+
+    def visit_unset(self, loc: Loc, value: UnsetType):
+        pass
+
+
+@export
+class DefaultDumpVisitor(EmptyVisitor):
     """Default visitor for serializing models into JSON-compatible dicts.
 
     :param out:
@@ -40,12 +105,6 @@ class DefaultDumpVisitor(IModelVisitor):
         else:
             self._add(loc, top)
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
-        pass
-
-    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
-        pass
-
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
         self._stack.append(dict())
 
@@ -63,12 +122,6 @@ class DefaultDumpVisitor(IModelVisitor):
 
     def visit_set_end(self, loc: Loc, value: Set):
         self._add(loc, self._stack.pop())
-
-    def visit_supports_validate_begin(self, loc: Loc, value: Any):
-        pass
-
-    def visit_supports_validate_end(self, loc: Loc, value: Any):
-        pass
 
     def visit_string(self, loc: Loc, value: str):
         self._add(loc, value)
@@ -101,7 +154,7 @@ class DefaultDumpVisitor(IModelVisitor):
 
 
 @export
-class DefaultValidateVisitor(IModelVisitor):
+class DefaultValidateVisitor(EmptyVisitor):
     """Default visitor for model validation.
 
     :param root:
@@ -128,88 +181,37 @@ class DefaultValidateVisitor(IModelVisitor):
         self._field_stack = collections.deque[Field]()
 
     def visit_model_begin(self, loc: Loc, value: Model):
-        if loc:
-            self._push_field(loc)
         self._push_model(value)
         return run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
     def visit_model_end(self, loc: Loc, value: Model):
         run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
         self._pop_model()
-        if loc:
+
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
+        if value is Unset and not field.optional:
+            self._errors.append(ErrorFactory.required_missing(loc))
+            return True  # Skip other validators if required field is missing
+        self._push_field(field)
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
+        if value is not Unset:
             self._validate_field(loc, value)
-            self._pop_field()
-
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
-        pass
-
-    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
-        pass
-
-    def visit_mapping_begin(self, loc: Loc, value: Mapping):
-        self._push_field(loc)
-
-    def visit_mapping_end(self, loc: Loc, value: Mapping):
-        self._validate_field(loc, value)
         self._pop_field()
-
-    def visit_sequence_begin(self, loc: Loc, value: Sequence):
-        self._push_field(loc)
-
-    def visit_sequence_end(self, loc: Loc, value: Sequence):
-        self._validate_field(loc, value)
-        self._pop_field()
-
-    def visit_set_begin(self, loc: Loc, value: Set):
-        self._push_field(loc)
-
-    def visit_set_end(self, loc: Loc, value: Set):
-        self._validate_field(loc, value)
-        self._pop_field()
-
-    def visit_supports_validate_begin(self, loc: Loc, value: Any):
-        self._push_field(loc)
 
     def visit_supports_validate_end(self, loc: Loc, value: Any):
         field = self._current_field()
         if isinstance(field.descriptor, IValidatableTypeDescriptor):
             field.descriptor.validate(self._errors, loc, value)
-        self._pop_field()
 
-    def visit_string(self, loc: Loc, value: str):
-        self._validate_field(loc, value)
-
-    def visit_number(self, loc: Loc, value: Number):
-        self._validate_field(loc, value)
-
-    def visit_bool(self, loc: Loc, value: bool):
-        self._validate_field(loc, value)
-
-    def visit_unset(self, loc: Loc, value: UnsetType):
-        model = self._current_model()
-        field = model.__class__.__model_fields__[loc.last]
-        if not field.optional:
-            self._errors.append(ErrorFactory.required_missing(loc))
-
-    def visit_none(self, loc: Loc, value: None):
-        self._validate_field(loc, value)
-
-    def visit_any(self, loc: Loc, value: Any):
-        self._validate_field(loc, value)
-
-    def _push_model(self, value: Model):
-        self._model_stack.append(value)
+    def _push_model(self, model: Model):
+        self._model_stack.append(model)
 
     def _pop_model(self):
         self._model_stack.pop()
 
-    def _push_field(self, loc: Loc):
-        model: Model = self._model_stack[-1]
-        field = model.__class__.__model_fields__.get(loc.last)
-        if field is not None:
-            self._field_stack.append(field)
-        else:
-            self._field_stack.append(self._field_stack[-1])
+    def _push_field(self, field: Field):
+        self._field_stack.append(field)
 
     def _pop_field(self):
         self._field_stack.pop()
