@@ -6,11 +6,12 @@ interface.
 
 import collections
 from numbers import Number
-from typing import Any, Callable, Mapping, Optional, Sequence, Set, Union
+from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, Union
 
 from modelity import _utils
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
+from modelity.hooks import collect_location_validators
+from modelity.interface import ILocationHook, IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
 from modelity.unset import Unset, UnsetType
@@ -177,16 +178,29 @@ class DefaultValidateVisitor(EmptyVisitor):
         self._root = root
         self._errors = errors
         self._ctx = ctx
-        self._model_stack = collections.deque[Model]()
-        self._field_stack = collections.deque[Field]()
+        self._memo: dict[Loc, dict] = {}
+        self._location_validators_stack = collections.deque()
+        self._model_stack = collections.deque()
+        self._field_stack = collections.deque()
 
     def visit_model_begin(self, loc: Loc, value: Model):
+        location_validators = collect_location_validators(value.__class__)
+        self._memo[loc] = {
+            "has_location_validators": bool(location_validators)
+        }
+        if location_validators:
+            self._push_location_validators(value, location_validators)
         self._push_model(value)
         return run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
 
     def visit_model_end(self, loc: Loc, value: Model):
+        if len(loc) >= 1:
+            self._run_location_validators(loc, value)
         run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
         self._pop_model()
+        memo = self._memo.pop(loc)
+        if memo["has_location_validators"]:
+            self._pop_location_validators()
 
     def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
         if value is Unset and not field.optional:
@@ -196,13 +210,55 @@ class DefaultValidateVisitor(EmptyVisitor):
 
     def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
         if value is not Unset:
-            self._validate_field(loc, value)
+            model = self._current_model()
+            model.__class__.run_field_validators(model, self._root, self._ctx, self._errors, loc, value)
         self._pop_field()
+
+    def visit_mapping_end(self, loc: Loc, value: Mapping):
+        self._run_location_validators(loc, value)
+
+    def visit_sequence_end(self, loc: Loc, value: Sequence):
+        self._run_location_validators(loc, value)
+
+    def visit_set_end(self, loc: Loc, value: Set):
+        self._run_location_validators(loc, value)
 
     def visit_supports_validate_end(self, loc: Loc, value: Any):
         field = self._current_field()
         if isinstance(field.descriptor, IValidatableTypeDescriptor):
             field.descriptor.validate(self._errors, loc, value)
+
+    def visit_string(self, loc: Loc, value: str):
+        self._run_location_validators(loc, value)
+
+    def visit_number(self, loc: Loc, value: Number):
+        self._run_location_validators(loc, value)
+
+    def visit_bool(self, loc: Loc, value: bool):
+        self._run_location_validators(loc, value)
+
+    def visit_none(self, loc: Loc, value: None):
+        self._run_location_validators(loc, value)
+
+    def visit_any(self, loc: Loc, value: Any):
+        self._run_location_validators(loc, value)
+
+    def _push_location_validators(self, model: Model, location_validators: dict[Loc, list[ILocationHook]]):
+        self._location_validators_stack.append((model, location_validators))
+
+    def _pop_location_validators(self):
+        self._location_validators_stack.pop()
+
+    def _iter_location_validators(self) -> Iterator[tuple[Model, dict[Loc, list[ILocationHook]]]]:
+        for item in self._location_validators_stack:
+            yield item
+
+    def _run_location_validators(self, loc: Loc, value: Any):
+        for hook_model, hook_set in self._iter_location_validators():
+            for pattern, hooks in hook_set.items():
+                if loc.suffix_match(pattern):
+                    for hook in hooks:
+                        hook(hook_model.__class__, hook_model, self._root, self._ctx, self._errors, loc, value)
 
     def _push_model(self, model: Model):
         self._model_stack.append(model)
@@ -216,15 +272,11 @@ class DefaultValidateVisitor(EmptyVisitor):
     def _pop_field(self):
         self._field_stack.pop()
 
-    def _current_model(self):
+    def _current_model(self) -> Model:
         return self._model_stack[-1]
 
-    def _current_field(self):
+    def _current_field(self) -> Field:
         return self._field_stack[-1]
-
-    def _validate_field(self, loc: Loc, value: Any):
-        model = self._current_model()
-        run_field_validators(model.__class__, model, self._root, self._ctx, self._errors, loc, value)
 
 
 @export

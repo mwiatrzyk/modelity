@@ -9,6 +9,7 @@ from modelity.error import Error, ErrorFactory
 from modelity.interface import (
     IModelHook,
     IFieldHook,
+    ILocationHook,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
@@ -378,6 +379,129 @@ def field_validator(*field_names: str):
 
 
 @export
+def location_validator(*loc_patterns: str):
+    """Decorate model's method as a foreign validator.
+
+    This validator is meant to be used when model validation requies access to
+    nested models, collections of models etc. It runs for every value that is
+    set in the model and its location suffix matches given pattern, which also
+    supports wildcards via ``*`` (star) character.
+
+    For example:
+
+    .. testcode::
+
+        from modelity.api import Model, location_validator, validate
+
+        class Dummy(Model):
+
+            class Nested(Model):
+                foo: int
+
+            nested: Nested
+
+            @location_validator("nested.foo")  # This is matched to location's suffix
+            def _validate_nested_foo(loc, value):
+                if value < 0:
+                    raise ValueError(f"value at {loc} must be >= 0")
+
+    .. doctest::
+
+        >>> dummy = Dummy(nested=Dummy.Nested(foo=-1))
+        >>> validate(dummy)
+        Traceback (most recent call last):
+          ...
+        modelity.exc.ValidationError: validation of model 'Dummy' failed with 1 error(-s):
+          nested.foo:
+            value at nested.foo must be >= 0 [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+
+    Thanks to this validator it is now possible to define entire validation
+    logic for a model in one place without affecting nested models which may
+    have different constraints if are used in another parent model.
+
+    Following arguments can be used in decorated function:
+
+    **cls**
+        The model type.
+
+    **self**
+        The model instance.
+
+    **root**
+        The root model instance.
+
+        If different than *self* then this validator runs for a nested model.
+
+    **ctx**
+        The user-defined validation context.
+
+        Check :ref:`guide-validation-using_context` for more details.
+
+    **errors**
+        Mutable list of errors.
+
+        Can be extended by this hook to signal validation errors.
+        Alternatively, :exc:`ValueError` exception can be raised and will
+        automatically be converted into error and added to this list.
+
+    **loc**
+        The location of the currently validated value.
+
+        This validator runs if and only if the suffix of this location matches
+        one of patterns defined.
+
+    **value**
+        The validated value.
+
+    .. versionadded:: 0.27.0
+
+    :param `*loc_patterns`:
+        Location suffix patterns for this validator.
+
+        Decorated function will run for every model value with location suffix
+        matching any of the patterns listed here.
+
+        Use string patterns, like ``foo.bar.baz``, or string patterns with
+        glob, e.g. ``foo.*.baz``.
+
+        Numeric components, if present, will be converted to int and compared
+        as int.
+    """
+
+    def decorator(func):
+
+        @functools.wraps(func)
+        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc, value: Any):
+            given_params = given_param_names
+            kw: dict[str, Any] = {}
+            if "cls" in given_params:
+                kw["cls"] = cls
+            if "self" in given_params:
+                kw["self"] = self
+            if "root" in given_params:
+                kw["root"] = root
+            if "ctx" in given_params:
+                kw["ctx"] = ctx
+            if "errors" in given_params:
+                kw["errors"] = errors
+            if "loc" in given_params:
+                kw["loc"] = loc
+            if "value" in given_params:
+                kw["value"] = value
+            _run_validation_hook(func, kw, errors, loc, value)
+
+        supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        hook = cast(ILocationHook, proxy)
+        hook.__modelity_hook_id__ = _utils.next_unique_id()
+        hook.__modelity_hook_name__ = location_validator.__name__
+        hook.__modelity_hook_location_patterns__ = set(Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_patterns)
+        return hook
+
+    return decorator
+
+
+@export
 def type_descriptor_factory(typ: Any):
     """Register type descriptor factory function for type *typ*.
 
@@ -402,6 +526,28 @@ def type_descriptor_factory(typ: Any):
         return registry.register_type_descriptor_factory(typ, func)
 
     return decorator
+
+
+def collect_location_validators(model_type: type[Model]) -> dict[Loc, list[ILocationHook]]:
+    """Collect all hooks decorated with :func:`location_validator` decorator
+    and defined in provided model type.
+
+    .. versionadded:: 0.27.0
+
+    :param model_type:
+        The model type to collect hooks from.
+    """
+    out = {}
+    for any_hook in model_type.__model_hooks__:
+        if any_hook.__modelity_hook_name__ != location_validator.__name__:
+            continue
+        location_hook = cast(ILocationHook, any_hook)
+        location_suffix_patterns = location_hook.__modelity_hook_location_patterns__
+        if not location_suffix_patterns:
+            out.setdefault(Loc(), []).append(location_hook)
+        for pattern in location_suffix_patterns:
+            out.setdefault(pattern, []).append(location_hook)
+    return out
 
 
 def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:

@@ -22,8 +22,12 @@ from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
     IBaseHook,
+    IFieldHook,
     IModelVisitor,
     ITypeDescriptor,
+    ILocationHook,
+    is_base_hook,
+    is_field_hook,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
@@ -231,12 +235,74 @@ class ModelMeta(type):
             fields[field_name] = bound_field
         for key in dict(attrs):
             attr_value = attrs[key]
-            if _int_hooks.is_base_hook(attr_value):
+            if is_base_hook(attr_value):
                 hooks.append(attr_value)
                 del attrs[key]
         hooks.sort(key=lambda x: x.__modelity_hook_id__)
         attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", []))
         return super().__new__(tp, name, bases, attrs)
+
+    def get_location_validators(cls) -> dict[Loc, list[ILocationHook]]:
+        """Get all hooks declared using
+        :func:`modelity.hooks.foreign_validator` decorator.
+
+        .. versionadded:: 0.27.0
+        """
+        out = {}
+        for hook in cls.__model_hooks__:
+            name = getattr(hook, "__modelity_hook_name__", None)
+            if name != "foreign_validator":
+                continue
+            patterns = cast(set[str], getattr(hook, "__modelity_hook_loc_patterns__", set()))
+            if not patterns:
+                out.setdefault(Loc(), []).append(hook)
+            for pattern in patterns:
+                out.setdefault(pattern, []).append(hook)
+        return out
+
+    def run_field_validators(cls, self: "Model", root: "Model", ctx: Any, errors: list[Error], loc: Loc, value: Any):
+        """Run matching field-level validators.
+
+        :param self:
+            The model instance that is currently being validated.
+
+        :param root:
+            The root model.
+
+            This can be used to access whole model from nested model's
+            validators if needed.
+
+        :param ctx:
+            The user-defined context object.
+
+        :param error:
+            Mutable list of errors.
+
+        :param loc:
+            The absolute location of the *value* inside the model.
+
+        :param value:
+            The value to validate.
+        """
+        for hook in cls.__model_hooks__:
+            if hook.__modelity_hook_name__ == "field_validator" and is_field_hook(hook):
+                hook_field_names = hook.__modelity_hook_field_names__
+                if not hook_field_names or loc[-1] in hook_field_names:
+                    hook(cls, self, root, ctx, errors, loc, value)
+
+
+#                 elif hook_field_names:
+#                     for name in hook_field_names:
+#                         parts = name.split(".")
+#                         if len(parts) == 1:
+#                             continue
+#                         if loc[-1] == parts[0]:
+#                             for p in parts[1:]:
+#                                 value = getattr(value, p, Unset)
+#                                 if value is Unset:
+#                                     break
+#                             else:
+#                                 hook(cls, self, root, ctx, errors, loc + Loc(*parts[1:]), value)
 
 
 @export

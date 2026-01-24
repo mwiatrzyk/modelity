@@ -35,6 +35,9 @@ class Loc(Sequence):
     def __str__(self) -> str:
         return ".".join(str(x) for x in self) or "(empty)"
 
+    def __hash__(self) -> int:
+        return hash(self._path)
+
     def __getitem__(self, index):
         if type(index) is slice:
             if index.step is not None:
@@ -78,6 +81,35 @@ class Loc(Sequence):
     def is_empty(self) -> bool:
         """Check if this is an empty location object."""
         return len(self) == 0
+
+    def suffix_match(self, pattern: "Loc") -> bool:
+        """Check if suffix of this location matches given pattern.
+
+        Examples:
+
+        .. doctest::
+
+            >>> Loc("foo").suffix_match(Loc("foo"))
+            True
+            >>> Loc("foo").suffix_match(Loc("foo", "bar"))
+            False
+            >>> Loc("foo", "bar").suffix_match(Loc("foo", "bar"))
+            True
+            >>> Loc("foo", "bar").suffix_match(Loc("foo", "*"))
+            True
+            >>> Loc("foo", 3, "bar").suffix_match(Loc("foo", "*", "bar"))
+            True
+            >>> Loc("foo", 3, "bar").suffix_match(Loc("foo", "*", "baz"))
+            False
+
+        .. versionadded:: 0.27.0
+        """
+        if len(pattern) > len(self):
+            return False
+        for val, pattern in zip(reversed(self), reversed(pattern)):
+            if val != pattern and pattern != "*":
+                return False
+        return True
 
     @classmethod
     def irrelevant(cls) -> "Loc":

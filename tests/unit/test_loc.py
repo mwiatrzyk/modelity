@@ -86,3 +86,17 @@ class TestLoc:
         uut = Loc("foo", "bar", 0)
         with pytest.raises(TypeError):
             uut[::2]
+
+    @pytest.mark.parametrize("uut, pattern, status", [
+        (Loc(), Loc("a"), False),
+        (Loc("a"), Loc("a"), True),
+        (Loc("a"), Loc("*"), True),
+        (Loc(1), Loc(1), True),
+        (Loc(1), Loc("*"), True),
+        (Loc("a", "b"), Loc("b"), True),
+        (Loc("a", "b"), Loc("a", "b"), True),
+        (Loc("a", "b"), Loc("a", "*"), True),
+        (Loc("a", "b"), Loc("a"), False),
+    ])
+    def test_suffix_match(self, uut: Loc, pattern: Loc, status):
+        assert uut.suffix_match(pattern) is status

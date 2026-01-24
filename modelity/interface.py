@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union
+from typing import Any, Mapping, Optional, Protocol, Sequence, Set, TypeGuard, Union
 
 from modelity import _utils
 from modelity.error import Error
@@ -30,14 +30,14 @@ class IBaseHook(Protocol):
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         """Invoke this hook.
 
-        The actual parameters and type of return value depends on hook type.
-        Check :mod:`modelity.hooks` for more details.
+        The actual parameters and type of return value is implementation
+        specific.
         """
         ...
 
 
 @export
-class IModelHook(IBaseHook):
+class IModelHook(IBaseHook, Protocol):
     """Protocol describing model-level hooks.
 
     This kind of hooks are executed on model instances.
@@ -45,7 +45,7 @@ class IModelHook(IBaseHook):
 
 
 @export
-class IFieldHook(IBaseHook):
+class IFieldHook(IBaseHook, Protocol):
     """Protocol describing field-level hooks.
 
     This kind of hooks are executed on model fields independently.
@@ -56,6 +56,52 @@ class IFieldHook(IBaseHook):
     #: Empty set means that it will be used for all fields, non-empty set means
     #: that it will be used for a subset of model fields.
     __modelity_hook_field_names__: set[str]
+
+
+@export
+class ILocationHook(IBaseHook, Protocol):
+    """Protocol describing location hooks.
+
+    This kind of hooks are executed on all model value with locations where
+    location suffix matches any of the given location patterns defined.
+
+    .. versionadded:: 0.27.0
+    """
+
+    #: Set of location patterns.
+    #:
+    #: Empty set means that it will be matched to every single location.
+    __modelity_hook_location_patterns__: set[Loc]
+
+
+@export
+def is_base_hook(obj: object) -> TypeGuard[IBaseHook]:
+    """Check if *obj* is instance of :class:`modelity.interface.IBaseHook`
+    protocol.
+
+    .. versionadded:: 0.27.0
+    """
+    return callable(obj) and hasattr(obj, "__modelity_hook_id__") and hasattr(obj, "__modelity_hook_name__")
+
+
+@export
+def is_model_hook(obj: object) -> TypeGuard[IModelHook]:
+    """Check if *obj* satisfies requirements of the :class:`IModelHook`
+    protocol.
+
+    .. versionadded:: 0.27.0
+    """
+    return is_base_hook(obj)
+
+
+@export
+def is_field_hook(obj: object) -> TypeGuard[IFieldHook]:
+    """Check if *obj* satisfies requirements of the :class:`IFieldHook`
+    interface.
+
+    .. versionadded:: 0.27.0
+    """
+    return is_model_hook(obj) and hasattr(obj, "__modelity_hook_field_names__")
 
 
 @export

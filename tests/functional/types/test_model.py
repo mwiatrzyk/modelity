@@ -57,7 +57,9 @@ class TestNestedModel:
         mock.visit_model_begin.expect_call(Loc(), sut)
         mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_model_begin.expect_call(Loc("foo"), sut.foo)
-        mock.visit_model_field_begin.expect_call(Loc("foo", "bar"), sut.foo.bar, self.SUT.Nested.__model_fields__["bar"])
+        mock.visit_model_field_begin.expect_call(
+            Loc("foo", "bar"), sut.foo.bar, self.SUT.Nested.__model_fields__["bar"]
+        )
         mock.visit_number.expect_call(Loc("foo", "bar"), 123)
         mock.visit_model_field_end.expect_call(Loc("foo", "bar"), sut.foo.bar, self.SUT.Nested.__model_fields__["bar"])
         mock.visit_model_end.expect_call(Loc("foo"), sut.foo)
@@ -78,7 +80,9 @@ class TestNestedModel:
     def test_when_visit_model_field_begin_returns_true_then_no_fields_are_visited(self, mock):
         sut = self.SUT(foo=self.SUT.Nested(bar=123))
         mock.visit_model_begin.expect_call(Loc(), sut)
-        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"]).will_once(Return(True))
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"]).will_once(
+            Return(True)
+        )
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())

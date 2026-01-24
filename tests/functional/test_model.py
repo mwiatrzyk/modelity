@@ -1085,21 +1085,41 @@ class TestModelWithFieldValidators:
         mock.validate_field.expect_call(Loc("foo"), 123)
         validate(sut)
 
+    @pytest.mark.skip
+    def test_run_field_validator_declared_with_nested_model_field_name_runs_if_that_field_is_set(self, mock):
+
+        class Dummy(Model):
+            foo: int
+
+        class SUT(Model):
+            dummy: Dummy
+
+            @field_validator("dummy.foo")
+            def _validate_field(self, loc, value):
+                mock.validate_field(self, loc, value)
+
+        sut = SUT(dummy=Dummy(foo=123))
+        mock.validate_field.expect_call(sut, Loc("dummy", "foo"), 123)
+        validate(sut)
+
     class Dummy(Model):
         bar: int
 
-    @pytest.mark.parametrize("typ, value", [
-        (Dummy, Dummy(bar=123)),
-        (dict[str, int], {"one": 1}),
-        (dict[str, list[str]], {"one": ["two", "three"]}),
-        (list[int], [1, 2, 3]),
-        (set[int], {1, 2, 3}),
-        (Annotated[int, Ge(0)], 0),
-        (str, "spam"),
-        (int, 123),
-        (bool, True),
-        (type(None), None),
-    ])
+    @pytest.mark.parametrize(
+        "typ, value",
+        [
+            (Dummy, Dummy(bar=123)),
+            (dict[str, int], {"one": 1}),
+            (dict[str, list[str]], {"one": ["two", "three"]}),
+            (list[int], [1, 2, 3]),
+            (set[int], {1, 2, 3}),
+            (Annotated[int, Ge(0)], 0),
+            (str, "spam"),
+            (int, 123),
+            (bool, True),
+            (type(None), None),
+        ],
+    )
     def test_field_validator_can_be_used_with_field_of_any_type(self, typ, value, mock):
 
         class SUT(Model):
