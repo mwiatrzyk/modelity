@@ -379,8 +379,8 @@ def field_validator(*field_names: str):
 
 
 @export
-def location_validator(*loc_patterns: str):
-    """Decorate model's method as a foreign validator.
+def location_validator(*loc_suffix_patterns: str):
+    """Decorate model's method as a location validator.
 
     This validator is meant to be used when model validation requies access to
     nested models, collections of models etc. It runs for every value that is
@@ -424,8 +424,10 @@ def location_validator(*loc_patterns: str):
     **cls**
         The model type.
 
+        This is the type this decorator is declared in.
+
     **self**
-        The model instance.
+        The instance of *cls* for which this decorator runs.
 
     **root**
         The root model instance.
@@ -455,7 +457,7 @@ def location_validator(*loc_patterns: str):
 
     .. versionadded:: 0.27.0
 
-    :param `*loc_patterns`:
+    :param `*loc_suffix_patterns`:
         Location suffix patterns for this validator.
 
         Decorated function will run for every model value with location suffix
@@ -495,7 +497,7 @@ def location_validator(*loc_patterns: str):
         hook = cast(ILocationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = location_validator.__name__
-        hook.__modelity_hook_location_patterns__ = set(Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_patterns)
+        hook.__modelity_hook_value_locations__ = set(Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns)
         return hook
 
     return decorator
@@ -526,28 +528,6 @@ def type_descriptor_factory(typ: Any):
         return registry.register_type_descriptor_factory(typ, func)
 
     return decorator
-
-
-def collect_location_validators(model_type: type[Model]) -> dict[Loc, list[ILocationHook]]:
-    """Collect all hooks decorated with :func:`location_validator` decorator
-    and defined in provided model type.
-
-    .. versionadded:: 0.27.0
-
-    :param model_type:
-        The model type to collect hooks from.
-    """
-    out = {}
-    for any_hook in model_type.__model_hooks__:
-        if any_hook.__modelity_hook_name__ != location_validator.__name__:
-            continue
-        location_hook = cast(ILocationHook, any_hook)
-        location_suffix_patterns = location_hook.__modelity_hook_location_patterns__
-        if not location_suffix_patterns:
-            out.setdefault(Loc(), []).append(location_hook)
-        for pattern in location_suffix_patterns:
-            out.setdefault(pattern, []).append(location_hook)
-    return out
 
 
 def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:

@@ -5,15 +5,16 @@ interface.
 """
 
 import collections
+import itertools
 from numbers import Number
-from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, Union
+from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, Union, cast
 
 from modelity import _utils
+from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.hooks import collect_location_validators
 from modelity.interface import ILocationHook, IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
-from modelity.model import Field, Model, run_model_postvalidators, run_model_prevalidators, run_field_validators
+from modelity.model import Field, Model
 from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -179,24 +180,25 @@ class DefaultValidateVisitor(EmptyVisitor):
         self._errors = errors
         self._ctx = ctx
         self._memo: dict[Loc, dict] = {}
-        self._location_validators_stack = collections.deque()
-        self._model_stack = collections.deque()
-        self._field_stack = collections.deque()
+        self._location_validators_stack = collections.deque()  # type: ignore
+        self._model_stack = collections.deque()  # type: ignore
+        self._field_stack = collections.deque()  # type: ignore
 
     def visit_model_begin(self, loc: Loc, value: Model):
-        location_validators = collect_location_validators(value.__class__)
+        model_type = value.__class__
+        location_validators = _int_hooks.collect_location_validator_hooks(model_type)
         self._memo[loc] = {
             "has_location_validators": bool(location_validators)
         }
         if location_validators:
             self._push_location_validators(value, location_validators)
         self._push_model(value)
-        return run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        return self._run_model_prevalidators(loc, value)
 
     def visit_model_end(self, loc: Loc, value: Model):
         if len(loc) >= 1:
             self._run_location_validators(loc, value)
-        run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        self._run_model_postvalidators(loc, value)
         self._pop_model()
         memo = self._memo.pop(loc)
         if memo["has_location_validators"]:
@@ -210,8 +212,7 @@ class DefaultValidateVisitor(EmptyVisitor):
 
     def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
         if value is not Unset:
-            model = self._current_model()
-            model.__class__.run_field_validators(model, self._root, self._ctx, self._errors, loc, value)
+            self._run_field_validators(loc, value)
         self._pop_field()
 
     def visit_mapping_end(self, loc: Loc, value: Mapping):
@@ -253,13 +254,6 @@ class DefaultValidateVisitor(EmptyVisitor):
         for item in self._location_validators_stack:
             yield item
 
-    def _run_location_validators(self, loc: Loc, value: Any):
-        for hook_model, hook_set in self._iter_location_validators():
-            for pattern, hooks in hook_set.items():
-                if loc.suffix_match(pattern):
-                    for hook in hooks:
-                        hook(hook_model.__class__, hook_model, self._root, self._ctx, self._errors, loc, value)
-
     def _push_model(self, model: Model):
         self._model_stack.append(model)
 
@@ -277,6 +271,31 @@ class DefaultValidateVisitor(EmptyVisitor):
 
     def _current_field(self) -> Field:
         return self._field_stack[-1]
+
+    def _run_model_prevalidators(self, loc: Loc, value: Model):
+        model_type = value.__class__
+        for hook in _int_hooks.collect_model_hooks(model_type, "model_prevalidator"):
+            if hook(model_type, value, self._root, self._ctx, self._errors, loc) is True:
+                return True
+        return None
+
+    def _run_model_postvalidators(self, loc: Loc, value: Model):
+        model_type = value.__class__
+        for hook in _int_hooks.collect_model_hooks(model_type, "model_postvalidator"):
+            hook(model_type, value, self._root, self._ctx, self._errors, loc)
+
+    def _run_field_validators(self, loc: Loc, value: Any):
+        model = self._current_model()
+        model_type = model.__class__
+        for hook in _int_hooks.collect_field_hooks(model_type, "field_validator", cast(str, loc[-1])):
+            hook(model_type, model, self._root, self._ctx, self._errors, loc, value)
+
+    def _run_location_validators(self, loc: Loc, value: Any):
+        for hook_model, hook_set in self._iter_location_validators():
+            for pattern, hooks in hook_set.items():
+                if loc.suffix_match(pattern):
+                    for hook in hooks:
+                        hook(hook_model.__class__, hook_model, self._root, self._ctx, self._errors, loc, value)
 
 
 @export

@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, Mapping, Optional, Protocol, Sequence, Set, TypeGuard, Union
+from typing import Any, ClassVar, Mapping, Optional, Protocol, Sequence, Set, TypeGuard, Union
 
 from modelity import _utils
 from modelity.error import Error
@@ -60,18 +60,20 @@ class IFieldHook(IBaseHook, Protocol):
 
 @export
 class ILocationHook(IBaseHook, Protocol):
-    """Protocol describing location hooks.
+    """Protocol describing value-level, location specific hooks.
 
-    This kind of hooks are executed on all model value with locations where
-    location suffix matches any of the given location patterns defined.
+    This kind of hooks are executed on model values where value location
+    matches location defined in hook. The actual interpretation of what a match
+    is is implementation specific.
 
     .. versionadded:: 0.27.0
     """
 
-    #: Set of location patterns.
+    #: Set of value locations.
     #:
-    #: Empty set means that it will be matched to every single location.
-    __modelity_hook_location_patterns__: set[Loc]
+    #: Empty set means that this hook will match every single location.
+    #: Non-empty meaning is implementation specific.
+    __modelity_hook_value_locations__: set[Loc]
 
 
 @export
@@ -102,6 +104,16 @@ def is_field_hook(obj: object) -> TypeGuard[IFieldHook]:
     .. versionadded:: 0.27.0
     """
     return is_model_hook(obj) and hasattr(obj, "__modelity_hook_field_names__")
+
+
+@export
+def is_location_hook(obj: object) -> TypeGuard[ILocationHook]:
+    """Check if *obj* satisfies requirements of the :class:`ILocationHook`
+    interface.
+
+    .. versionadded:: 0.27.0
+    """
+    return is_model_hook(obj) and hasattr(obj, "__modelity_hook_value_locations__")
 
 
 @export
