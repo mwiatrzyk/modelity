@@ -39,25 +39,25 @@ jobs:
 
   bump:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.13
     steps:
       - checkout
       - configure-git
       - add_ssh_keys
       - install-deps:
-          python_version: "3.12"
+          python_version: "3.13"
       - run: poetry run inv bump
       - run: git push --set-upstream origin $CIRCLE_BRANCH
       - run: git push --tags
 
   deploy:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.13
     steps:
       - checkout
       - configure-git
       - install-deps:
-          python_version: "3.12"
+          python_version: "3.13"
       - run: poetry build
       - run: poetry config pypi-token.pypi $PYPI_API_TOKEN
       - run: poetry publish
@@ -68,7 +68,7 @@ workflows:
       - test:
           matrix:
             parameters:
-              python_version: ["3.9", "3.10", "3.11", "3.12"]
+              python_version: ["3.10", "3.11", "3.12", "3.13"]
       - bump:
           requires:
             - test
