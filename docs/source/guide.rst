@@ -965,6 +965,16 @@ module and are divided into following categories:
         Executed only if the field has value assigned. But that is the only
         difference, as these hooks can freely access other fields if needed.
 
+    **Location-based validation hooks**
+        
+        Available via :func:`modelity.hooks.location_validator` decorator.
+
+        Similar to field validation hooks, but allows the caller to access
+        nested field, or collection items of a model if its location suffix
+        matches provided location pattern.
+
+        .. versionadded:: 0.27.0
+
     **Model postvalidation hooks**
 
         Available via :func:`modelity.hooks.model_postvalidator` decorator.
@@ -1450,6 +1460,55 @@ For example:
       repeated_email:
         incorrect repeated e-mail address [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
 
+Using ``location_validator`` hook
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. versionadded:: 0.27.0
+
+This hook can be enabled using :func:`modelity.hooks.location_validator` decorator.
+
+It allows to access fields of a nested model, or individual collection items
+directly from model validator. This allows to add complex validation logic
+based on nested fields with no need to alter existing nested models. Thanks to
+this, same model can be used in different situations, with different validation
+requirements defined for each.
+
+Here's an example:
+
+.. testcode::
+
+    from typing import Optional
+
+    from modelity.model import Model
+    from modelity.hooks import location_validator
+    from modelity.helpers import validate
+
+    class User(Model):
+        email: str
+        name: Optional[str]
+
+    class Storage(Model):
+        users: list[User]
+
+        @location_validator("users.*")
+        def _require_name(value):
+            if not value.name:
+                raise ValueError("stored users must have name assigned")
+
+.. doctest::
+
+    >>> bob = User(email="bob@example.com")
+    >>> accounts = Storage(users=[bob])
+    >>> validate(bob)  # OK; `name` is optional 
+    >>> validate(accounts)  # FAIL; here `name` is required by location validator
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: validation of model 'Storage' failed with 1 error(-s):
+      users.0:
+        stored users must have name assigned [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+
+As you can see, `name` is optional as a part of **User**, but becomes required
+when user is used as an item in `users` list.
 
 Using ``model_postvalidator`` hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
