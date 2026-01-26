@@ -1,4 +1,4 @@
-from typing import TypeVar, Union
+from typing import Optional, TypeVar, Union
 
 from modelity.unset import UnsetType
 
@@ -16,3 +16,13 @@ T = TypeVar("T")
 #:
 #: .. versionadded:: 0.16.0
 StrictOptional = Union[T, UnsetType]
+
+
+#: An extended :obj:`typing.Optional` that additionally allows
+#: :class:`modelity.unset.UnsetType` objects as valid values.
+#:
+#: This can be used to satisfy static code checking tools, when initializing
+#: fields with :obj:`modelity.unset.Unset` object explicitly.
+#:
+#: .. versionadded:: 0.28.0
+LooseOptional = Union[T, None, UnsetType]
