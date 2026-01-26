@@ -46,7 +46,8 @@ jobs:
       - add_ssh_keys
       - install-deps:
           python_version: "3.13"
-      - run: poetry run inv bump
+      - run: pip install bumpify
+      - run: bumpify bump
       - run: git push --set-upstream origin $CIRCLE_BRANCH
       - run: git push --tags
 
