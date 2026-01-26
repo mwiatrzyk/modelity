@@ -1,3 +1,15 @@
+## 0.27.0 (2026-01-26)
+
+### BREAKING CHANGES
+
+- remove hook run methods from the public interface
+- Removed public logic is now made internal.
+
+### Feat
+
+- add `location_validator` hook for validating values based on location suffix pattern
+- drop support for Python 3.9, add support for Python 3.13
+
 ## 0.26.0 (2025-10-09)
 
 ### Fix
