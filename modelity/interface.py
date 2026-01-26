@@ -168,7 +168,7 @@ class ITypeDescriptorFactory(Protocol):
 
 
 @export
-class IModelVisitor(abc.ABC):
+class IModelVisitor(Protocol):
     """Base class for model visitors.
 
     The visitor mechanism is used by Modelity for validation and serialization.
@@ -181,7 +181,11 @@ class IModelVisitor(abc.ABC):
     object might be converted to a string and then passed to
     :meth:`visit_string`.
 
-    .. versionadded:: 0.17.0
+    .. versionchanged:: 0.28.0
+        
+        Now uses structural typing based on :class:`typing.Protocol` instead of
+        :class:`abc.ABC`. This allows nicer implementations of visitor wrappers
+        at the cost of having to remember all the methods needed.
 
     .. versionchanged:: 0.21.0
 
@@ -191,9 +195,10 @@ class IModelVisitor(abc.ABC):
         be called. This feature can be used by dump visitors to exclude things
         from the output, or by validation visitors to prevent some validation
         logic from being called.
+    
+    .. versionadded:: 0.17.0
     """
 
-    @abc.abstractmethod
     def visit_model_begin(self, loc: Loc, value: Any) -> Optional[bool]:
         """Start visiting a model object.
 
@@ -203,8 +208,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The object to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_model_end(self, loc: Loc, value: Any):
         """Finish visiting a model object.
 
@@ -214,8 +219,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited object.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_model_field_begin(self, loc: Loc, value: Any, field: Any) -> Optional[bool]:
         """Start visiting model field.
 
@@ -228,8 +233,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited field's value.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
         """Finish visiting model field.
 
@@ -242,8 +247,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited field's value.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]:
         """Start visiting a mapping object.
 
@@ -253,8 +258,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The object to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_mapping_end(self, loc: Loc, value: Mapping):
         """Finish visiting a mapping object.
 
@@ -264,8 +269,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited object.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_sequence_begin(self, loc: Loc, value: Sequence) -> Optional[bool]:
         """Start visiting a sequence object.
 
@@ -275,8 +280,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The object to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_sequence_end(self, loc: Loc, value: Sequence):
         """Finish visiting a sequence object.
 
@@ -286,8 +291,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited object.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
         """Start visiting a set object.
 
@@ -297,8 +302,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The object to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_set_end(self, loc: Loc, value: Set):
         """Finish visiting a set object.
 
@@ -308,8 +313,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited object..
         """
+        ...
 
-    @abc.abstractmethod
     def visit_supports_validate_begin(self, loc: Loc, value: Any) -> Optional[bool]:
         """Start visiting a type supporting per-type validation.
 
@@ -322,8 +327,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The object to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_supports_validate_end(self, loc: Loc, value: Any):
         """Finish visiting a type supporting per-type validation.
 
@@ -333,8 +338,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The visited object.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_string(self, loc: Loc, value: str):
         """Visit a string value.
 
@@ -344,8 +349,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_bool(self, loc: Loc, value: bool):
         """Visit a boolean value.
 
@@ -355,8 +360,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_number(self, loc: Loc, value: Number):
         """Visit a number value.
 
@@ -366,8 +371,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_none(self, loc: Loc, value: None):
         """Visit a ``None`` value.
 
@@ -377,8 +382,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_unset(self, loc: Loc, value: UnsetType):
         """Visit an :obj:`modelity.unset.Unset` value.
 
@@ -388,8 +393,8 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value to visit.
         """
+        ...
 
-    @abc.abstractmethod
     def visit_any(self, loc: Loc, value: Any):
         """Visit any value.
 
@@ -402,3 +407,4 @@ class IModelVisitor(abc.ABC):
         :param value:
             The value or object to visit.
         """
+        ...

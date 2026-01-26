@@ -20,7 +20,7 @@ __all__ = export = _utils.ExportList()  # type: ignore
 
 
 @export
-class EmptyVisitor(IModelVisitor):
+class EmptyVisitor:
     """A visitor that simply implements
     :class:`modelity.interface.IModelVisitor` interface with methods doing
     nothing.
@@ -29,59 +29,12 @@ class EmptyVisitor(IModelVisitor):
     do not need to overload all the methods.
     """
 
-    def visit_model_begin(self, loc: Loc, value: Any) -> Optional[bool]:
-        pass
+    def __getattr__(self, _):
 
-    def visit_model_end(self, loc: Loc, value: Any):
-        pass
+        def func(*args, **kwargs):
+            pass
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: Any) -> Optional[bool]:
-        pass
-
-    def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
-        pass
-
-    def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]:
-        pass
-
-    def visit_mapping_end(self, loc: Loc, value: Mapping):
-        pass
-
-    def visit_sequence_begin(self, loc: Loc, value: Sequence) -> Optional[bool]:
-        pass
-
-    def visit_sequence_end(self, loc: Loc, value: Sequence):
-        pass
-
-    def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
-        pass
-
-    def visit_set_end(self, loc: Loc, value: Set):
-        pass
-
-    def visit_supports_validate_begin(self, loc: Loc, value: Any) -> Optional[bool]:
-        pass
-
-    def visit_supports_validate_end(self, loc: Loc, value: Any):
-        pass
-
-    def visit_string(self, loc: Loc, value: str):
-        pass
-
-    def visit_number(self, loc: Loc, value: Number):
-        pass
-
-    def visit_bool(self, loc: Loc, value: bool):
-        pass
-
-    def visit_none(self, loc: Loc, value: None):
-        pass
-
-    def visit_any(self, loc: Loc, value: Any):
-        pass
-
-    def visit_unset(self, loc: Loc, value: UnsetType):
-        pass
+        return func
 
 
 @export
