@@ -1,3 +1,4 @@
+from typing import Sequence, Set
 import pytest
 
 from mockify.api import ordered, Return
@@ -26,7 +27,7 @@ class TestAnySet:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.set_parsing_error(common.loc, None)]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [set], [Set, Sequence], [str, bytes])]),
         ]
     )
     def invalid_data(self, request):
@@ -91,8 +92,8 @@ class TestTypedSet:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.set_parsing_error(common.loc, None)]),
-            ([1, "spam"], [ErrorFactory.integer_parsing_error(common.loc + Loc.irrelevant(), "spam")]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [set], [Set, Sequence], [str, bytes])]),
+            ([1, "spam"], [ErrorFactory.parse_error(common.loc + Loc.irrelevant(), "spam", int)]),
         ]
     )
     def invalid_data(self, request):

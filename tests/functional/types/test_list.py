@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Sequence
 import pytest
 
 from mockify.api import ordered, Return
@@ -43,7 +43,7 @@ class TestAnyList:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.list_parsing_error(common.loc, None)]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [list], [Sequence], [str, bytes])]),
         ]
     )
     def invalid_data(self, request):
@@ -109,8 +109,8 @@ class TestTypedList:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.list_parsing_error(common.loc, None)]),
-            ([1, 2, "spam"], [ErrorFactory.integer_parsing_error(common.loc + Loc(2), "spam")]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [list], [Sequence], [str, bytes])]),
+            ([1, 2, "spam"], [ErrorFactory.parse_error(common.loc + Loc(2), "spam", int)]),
         ]
     )
     def invalid_data(self, request):

@@ -155,7 +155,7 @@ class TestModel:
         @pytest.mark.parametrize(
             "args, expected_errors",
             [
-                ({"foo": "spam"}, [ErrorFactory.integer_parsing_error(Loc("foo"), "spam")]),
+                ({"foo": "spam"}, [ErrorFactory.parse_error(Loc("foo"), "spam", int)]),
             ],
         )
         def test_construction_fails_if_argument_could_not_be_parsed_successfully(self, UUT, args, expected_errors):
@@ -203,7 +203,7 @@ class TestModel:
         @pytest.mark.parametrize(
             "given, expected_errors",
             [
-                ("spam", [ErrorFactory.integer_parsing_error(Loc("foo"), "spam")]),
+                ("spam", [ErrorFactory.parse_error(Loc("foo"), "spam", int)]),
             ],
         )
         def test_when_setting_field_to_invalid_value_then_parsing_error_is_raised(self, uut, given, expected_errors):

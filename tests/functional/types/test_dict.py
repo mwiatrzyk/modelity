@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Mapping
 import pytest
 
 from mockify.api import Return, ordered
@@ -43,7 +43,7 @@ class TestAnyDict:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.dict_parsing_error(common.loc, None)]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [dict], [Mapping])]),
         ]
     )
     def invalid_data(self, request):
@@ -108,9 +108,9 @@ class TestTypedDict:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.dict_parsing_error(common.loc, None)]),
-            ({1: 1}, [ErrorFactory.string_value_required(common.loc + Loc.irrelevant(), 1)]),
-            ({"one": "spam"}, [ErrorFactory.integer_parsing_error(common.loc + Loc("one"), "spam")]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [dict], [Mapping])]),
+            ({1: 1}, [ErrorFactory.invalid_type(common.loc + Loc.irrelevant(), 1, [str])]),
+            ({"one": "spam"}, [ErrorFactory.parse_error(common.loc + Loc("one"), "spam", int)]),
         ]
     )
     def invalid_data(self, request):
@@ -177,7 +177,7 @@ class TestTypedDict:
                 sut = SUT()
                 with pytest.raises(ParsingError) as excinfo:
                     sut.foo.setdefault("bar", [1, 3.14, "spam"])
-                assert excinfo.value.errors == (ErrorFactory.integer_parsing_error(Loc("bar", 2), "spam"),)
+                assert excinfo.value.errors == (ErrorFactory.parse_error(Loc("bar", 2), "spam", int),)
 
             def test_does_not_change_value_if_already_exists(self, SUT):
                 sut = SUT()
@@ -212,8 +212,8 @@ class TestTypedDict:
                 with pytest.raises(ParsingError) as excinfo:
                     sut.foo.update({"bar": ["spam"], "baz": [1, 2, "more spam"]})
                 assert excinfo.value.errors == (
-                    ErrorFactory.integer_parsing_error(Loc("bar", 0), "spam"),
-                    ErrorFactory.integer_parsing_error(Loc("baz", 2), "more spam"),
+                    ErrorFactory.parse_error(Loc("bar", 0), "spam", int),
+                    ErrorFactory.parse_error(Loc("baz", 2), "more spam", int),
                 )
 
             def test_update_raises_type_error_if_called_with_incorrect_params(self, SUT):

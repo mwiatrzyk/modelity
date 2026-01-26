@@ -45,18 +45,17 @@ class TestPathlibPath:
                 pathlib.Path,
                 None,
                 None,
-                [ErrorFactory.parsing_error(common.loc, None, "not a valid path value", pathlib.Path)],
+                [ErrorFactory.invalid_type(common.loc, None, [str, bytes, pathlib.Path])],
             ),
             (
                 pathlib.Path,
                 field_info(bytes_encoding="ascii"),
                 b"\xff",
                 [
-                    ErrorFactory.parsing_error(
+                    ErrorFactory.decode_error(
                         common.loc,
                         b"\xff",
-                        "not a valid path value; could not decode bytes using 'ascii' codec",
-                        pathlib.Path,
+                        ["ascii"],
                     )
                 ],
             ),

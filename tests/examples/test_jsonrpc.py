@@ -96,7 +96,7 @@ class TestNotification:
         @pytest.mark.parametrize(
             "value, expected_errors",
             [
-                ("3.0", [ErrorFactory.value_not_allowed(Loc("jsonrpc"), "3.0", ("2.0",))]),
+                ("3.0", [ErrorFactory.invalid_value(Loc("jsonrpc"), "3.0", ["2.0"])]),
             ],
         )
         def test_jsonrpc_invalid(self, value, expected_errors):
@@ -133,13 +133,13 @@ class TestNotification:
                 (
                     123,
                     [
-                        ErrorFactory.union_parsing_error(Loc("params"), 123, (list, dict, UnsetType)),
+                        ErrorFactory.invalid_type(Loc("params"), 123, [list, dict, UnsetType]),
                     ],
                 ),
                 (
                     None,
                     [
-                        ErrorFactory.union_parsing_error(Loc("params"), None, (list, dict, UnsetType)),
+                        ErrorFactory.invalid_type(Loc("params"), None, [list, dict, UnsetType]),
                     ],
                 ),
             ],

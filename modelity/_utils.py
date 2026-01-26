@@ -85,6 +85,17 @@ def to_int_or_str(obj: str) -> int | str:
     return obj
 
 
+def articlify(word: str) -> str:
+    """Return *word* prefixed with either **a** or **an**.
+
+    :param word:
+        The word to prefix.
+    """
+    if not word:
+        return word
+    return f"an {word}" if word[0].lower() in "aeiou" else f"a {word}"
+
+
 class ExportList(list):
     """Helper for making ``__all__`` lists automatically by decorating public
     names."""

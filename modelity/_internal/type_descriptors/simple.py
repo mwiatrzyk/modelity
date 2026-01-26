@@ -1,6 +1,5 @@
 """Parser factories for the built-in simple types."""
 
-from ctypes import Union
 from datetime import date, datetime
 from enum import Enum
 import ipaddress
@@ -9,9 +8,8 @@ import pathlib
 from typing import Any, Literal, TypeVar, cast, get_args
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
-from modelity.error import Error, ErrorFactory
-from modelity.interface import IModelVisitor, ITypeDescriptor
-from modelity.loc import Loc
+from modelity.error import ErrorFactory
+from modelity.interface import ITypeDescriptor
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
@@ -44,7 +42,7 @@ def make_unset_type_descriptor():
         def parse(self, errors, loc, value):
             if value is Unset:
                 return value
-            errors.append(ErrorFactory.value_not_allowed(loc, value, (Unset,)))
+            errors.append(ErrorFactory.invalid_value(loc, value, [Unset]))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -67,7 +65,7 @@ def make_any_type_descriptor():
 
 
 @registry.type_descriptor_factory(bool)
-def make_bool_type_descriptor(type_opts: dict):
+def make_bool_type_descriptor(typ: type, type_opts: dict):
 
     class BoolTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
@@ -78,7 +76,7 @@ def make_bool_type_descriptor(type_opts: dict):
             if value in false_literals:
                 return False
             errors.append(
-                ErrorFactory.bool_parsing_error(loc, value, true_literals=true_literals, false_literals=false_literals)
+                ErrorFactory.parse_error(loc, value, typ, **extra_data),
             )
             return Unset
 
@@ -87,6 +85,11 @@ def make_bool_type_descriptor(type_opts: dict):
 
     true_literals = set(type_opts.get("true_literals") or [])
     false_literals = set(type_opts.get("false_literals") or [])
+    extra_data = {}
+    if true_literals:
+        extra_data["true_literals"] = list(true_literals)
+    if false_literals:
+        extra_data["false_literals"] = list(false_literals)
     return BoolTypeDescriptor()
 
 
@@ -98,14 +101,14 @@ def make_datetime_type_descriptor(type_opts: dict):
             if isinstance(value, datetime):
                 return value
             if not isinstance(value, str):
-                errors.append(ErrorFactory.datetime_parsing_error(loc, value))
+                errors.append(ErrorFactory.invalid_type(loc, value, [datetime, str]))
                 return Unset
             for fmt in compiled_input_formats:
                 try:
                     return datetime.strptime(value, fmt)
                 except ValueError:
                     pass
-            errors.append(ErrorFactory.unsupported_datetime_format(loc, value, input_formats))
+            errors.append(ErrorFactory.invalid_datetime_format(loc, value, input_formats))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -138,14 +141,14 @@ def make_date_type_descriptor(type_opts: dict):
             if isinstance(value, date):
                 return value
             if not isinstance(value, str):
-                errors.append(ErrorFactory.date_parsing_error(loc, value))
+                errors.append(ErrorFactory.invalid_type(loc, value, [date, str]))
                 return Unset
             for fmt in compiled_input_formats:
                 try:
                     return datetime.strptime(value, fmt).date()
                 except ValueError:
                     pass
-            errors.append(ErrorFactory.unsupported_date_format(loc, value, input_formats))
+            errors.append(ErrorFactory.invalid_date_format(loc, value, input_formats))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -169,13 +172,12 @@ def make_enum_type_descriptor(typ: type[Enum]):
             try:
                 return typ(value)
             except ValueError:
-                errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
+                errors.append(ErrorFactory.invalid_enum_value(loc, value, typ))
                 return Unset
 
         def accept(self, visitor, loc, value):
             visitor.visit_any(loc, value.value)
 
-    allowed_values = tuple(typ)
     return EnumTypeDescriptor()
 
 
@@ -184,15 +186,15 @@ def make_literal_type_descriptor(typ):
 
     class LiteralTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
-            if value in allowed_values:
+            if value in expected_values:
                 return value
-            errors.append(ErrorFactory.value_not_allowed(loc, value, allowed_values))
+            errors.append(ErrorFactory.invalid_value(loc, value, list(expected_values)))
             return Unset
 
         def accept(self, visitor, loc, value):
             visitor.visit_any(loc, value)
 
-    allowed_values = get_args(typ)
+    expected_values = get_args(typ)
     return LiteralTypeDescriptor()
 
 
@@ -203,7 +205,7 @@ def make_none_type_descriptor():
         def parse(self, errors, loc, value):
             if value is None:
                 return value
-            errors.append(ErrorFactory.value_not_allowed(loc, value, (None,)))
+            errors.append(ErrorFactory.invalid_value(loc, value, [None]))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -220,7 +222,7 @@ def make_int_type_descriptor():
             try:
                 return int(value)
             except (ValueError, TypeError):
-                errors.append(ErrorFactory.integer_parsing_error(loc, value))
+                errors.append(ErrorFactory.parse_error(loc, value, int))
                 return Unset
 
         def accept(self, visitor, loc, value):
@@ -237,7 +239,7 @@ def make_float_type_descriptor():
             try:
                 return float(value)
             except (ValueError, TypeError):
-                errors.append(ErrorFactory.float_parsing_error(loc, value))
+                errors.append(ErrorFactory.parse_error(loc, value, float))
                 return Unset
 
         def accept(self, visitor, loc, value):
@@ -253,7 +255,7 @@ def make_str_type_descriptor():
         def parse(self, errors, loc, value):
             if isinstance(value, str):
                 return value
-            errors.append(ErrorFactory.string_value_required(loc, value))
+            errors.append(ErrorFactory.invalid_type(loc, value, [str]))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -269,7 +271,7 @@ def make_bytes_type_descriptor():
         def parse(self, errors, loc, value):
             if isinstance(value, bytes):
                 return value
-            errors.append(ErrorFactory.bytes_value_required(loc, value))
+            errors.append(ErrorFactory.invalid_type(loc, value, [bytes]))
             return Unset
 
         def accept(self, visitor, loc, value):
@@ -288,7 +290,9 @@ def make_ipv4_address_type_descriptor():
             try:
                 return ipaddress.IPv4Address(value)
             except ipaddress.AddressValueError:
-                errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv4 address", ipaddress.IPv4Address))
+                errors.append(
+                    ErrorFactory.parse_error(loc, value, ipaddress.IPv4Address, msg="Not a valid IPv4 address")
+                )
                 return Unset
 
         def accept(self, visitor, loc, value):
@@ -307,7 +311,9 @@ def make_ipv6_address_type_descriptor():
             try:
                 return ipaddress.IPv6Address(value)
             except ipaddress.AddressValueError:
-                errors.append(ErrorFactory.parsing_error(loc, value, "not a valid IPv6 address", ipaddress.IPv6Address))
+                errors.append(
+                    ErrorFactory.parse_error(loc, value, ipaddress.IPv6Address, msg="Not a valid IPv6 address")
+                )
                 return Unset
 
         def accept(self, visitor, loc, value):
@@ -328,23 +334,15 @@ def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
                 try:
                     value = value.decode(bytes_encoding)
                 except UnicodeDecodeError:
-                    errors.append(
-                        ErrorFactory.parsing_error(
-                            loc,
-                            value,
-                            f"{parsing_error_msg}; could not decode bytes using {bytes_encoding!r} codec",
-                            typ,
-                        )
-                    )
+                    errors.append(ErrorFactory.decode_error(loc, value, [bytes_encoding]))
                     return Unset
             if not isinstance(value, str):
-                errors.append(ErrorFactory.parsing_error(loc, value, parsing_error_msg, typ))
+                errors.append(ErrorFactory.invalid_type(loc, value, [str, bytes, typ]))
                 return Unset
             return pathlib.Path(value)
 
         def accept(self, visitor, loc, value):
             visitor.visit_string(loc, str(value))
 
-    parsing_error_msg = "not a valid path value"
     bytes_encoding = type_opts.get("bytes_encoding", "utf-8")
     return PathlibPathTypeDescriptor()

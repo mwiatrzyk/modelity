@@ -1,3 +1,4 @@
+from typing import Mapping
 import pytest
 
 from mockify.api import ordered, Return
@@ -28,7 +29,7 @@ class TestNestedModel:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.model_parsing_error(common.loc, None, SUT.Nested)]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [SUT.Nested], [Mapping])]),
         ]
     )
     def invalid_data(self, request):

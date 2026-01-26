@@ -182,7 +182,7 @@ class IModelVisitor(Protocol):
     :meth:`visit_string`.
 
     .. versionchanged:: 0.28.0
-        
+
         Now uses structural typing based on :class:`typing.Protocol` instead of
         :class:`abc.ABC`. This allows nicer implementations of visitor wrappers
         at the cost of having to remember all the methods needed.
@@ -195,7 +195,7 @@ class IModelVisitor(Protocol):
         be called. This feature can be used by dump visitors to exclude things
         from the output, or by validation visitors to prevent some validation
         logic from being called.
-    
+
     .. versionadded:: 0.17.0
     """
 

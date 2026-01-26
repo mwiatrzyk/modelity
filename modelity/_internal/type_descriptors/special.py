@@ -2,7 +2,7 @@ from typing import cast, Annotated, Any, Iterator, Union, get_args
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IConstraint, IModelVisitor, IValidatableTypeDescriptor, ITypeDescriptor
+from modelity.interface import IConstraint, IValidatableTypeDescriptor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.unset import Unset
 
@@ -62,7 +62,7 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 result = parser.parse(inner_errors, loc, value)
                 if result is not Unset:
                     return result
-            errors.append(ErrorFactory.union_parsing_error(loc, value, types))
+            errors.append(ErrorFactory.invalid_type(loc, value, list(types)))
             return Unset
 
         def accept(self, visitor, loc, value):

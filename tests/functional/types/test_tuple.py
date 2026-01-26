@@ -1,3 +1,4 @@
+from typing import Sequence
 import pytest
 
 from mockify.api import ordered, Return
@@ -26,7 +27,7 @@ class TestAnyTuple:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.tuple_parsing_error(common.loc, None)]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple], [Sequence], [str, bytes])]),
         ]
     )
     def invalid_data(self, request):
@@ -90,8 +91,8 @@ class TestAnyLengthTypedTuple:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.tuple_parsing_error(common.loc, None)]),
-            ([1, 2, "spam"], [ErrorFactory.integer_parsing_error(common.loc + Loc(2), "spam")]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple], [Sequence], [str, bytes])]),
+            ([1, 2, "spam"], [ErrorFactory.parse_error(common.loc + Loc(2), "spam", int)]),
         ]
     )
     def invalid_data(self, request):
@@ -154,14 +155,14 @@ class TestFixedLengthTypedTuple:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.tuple_parsing_error(common.loc, None)]),
-            ([], [ErrorFactory.invalid_tuple_format(common.loc, [], (int, float, str))]),
-            ([1, 3.14], [ErrorFactory.invalid_tuple_format(common.loc, [1, 3.14], (int, float, str))]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple], [Sequence], [str, bytes])]),
+            ([], [ErrorFactory.invalid_tuple_length(common.loc, [], (int, float, str))]),
+            ([1, 3.14], [ErrorFactory.invalid_tuple_length(common.loc, [1, 3.14], (int, float, str))]),
             (
                 [1, 3.14, "spam", "more spam"],
-                [ErrorFactory.invalid_tuple_format(common.loc, [1, 3.14, "spam", "more spam"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_length(common.loc, [1, 3.14, "spam", "more spam"], (int, float, str))],
             ),
-            ([1, 3.14, 123], [ErrorFactory.string_value_required(common.loc + Loc(2), 123)]),
+            ([1, 3.14, 123], [ErrorFactory.invalid_type(common.loc + Loc(2), 123, [str])]),
         ]
     )
     def invalid_data(self, request):

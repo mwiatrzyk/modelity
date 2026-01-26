@@ -1,5 +1,6 @@
 import dataclasses
 from datetime import date, datetime
+from enum import Enum
 from typing import Any, Optional, Sequence
 
 from modelity import _utils
@@ -17,20 +18,43 @@ class ErrorCode:
     class.
     """
 
+    #: Error code reported by :meth:`ErrorFactory.parse_error` method.
+    PARSE_ERROR = "modelity.PARSE_ERROR"
+
+    #: Error code reported by :meth:`ErrorFactory.invalid_value` method.
+    INVALID_VALUE = "modelity.INVALID_VALUE"
+
+    #: Error code reported by :meth:`ErrorFactory.invalid_enum_value` method.
+    INVALID_ENUM_VALUE = "modelity.INVALID_ENUM_VALUE"
+
+    #: Error code reported by :meth:`ErrorFactory.invalid_type` method.
+    INVALID_TYPE = "modelity.INVALID_TYPE"
+
+    #: Error code reported by :meth:`ErrorFactory.invalida_datetime_format` method.
+    INVALID_DATETIME_FORMAT = "modelity.INVALID_DATETIME_FORMAT"
+
+    #: Error code reported by :meth:`ErrorFactory.invalid_date_format` method.
+    INVALID_DATE_FORMAT = "modelity.INVALID_DATE_FORMAT"
+
+    #: Error code reported by :meth:`ErrorFactory.decode_error` method.
+    DECODE_ERROR = "modelity.DECODE_ERROR"
+
+    #: Error code reported by :meth:`ErrorFactory.conversion_error` method.
+    CONVERSION_ERROR = "modelity.CONVERSION_ERROR"
+
+    #: Error code reported by :meth:`ErrorFactory.invalid_tuple` method.
+    INVALID_TUPLE_LENGTH = "modelity.INVALID_TUPLE_LENGTH"
+
+    # Old below:
+
     #: Error code reported by :meth:`ErrorFactory.parsing_error` method.
-    PARSING_ERROR = "modelity.PARSING_ERROR"
+    PARSING_ERROR = "modelity.PARSING_ERROR"  # TODO: remove; use PARSE_ERROR
 
     #: Error code reported by :meth:`ErrorFactory.union_parsing_error` method.
     UNION_PARSING_ERROR = "modelity.UNION_PARSING_ERROR"
 
     #: Error code reported by :meth:`ErrorFactory.invalid_tuple_format` method.
     INVALID_TUPLE_FORMAT = "modelity.INVALID_TUPLE_FORMAT"
-
-    #: Error code reported by :meth:`ErrorFactory.unsupported_datetime_format` method.
-    UNSUPPORTED_DATETIME_FORMAT = "modelity.UNSUPPORTED_DATETIME_FORMAT"
-
-    #: Error code reported by :meth:`ErrorFactory.unsupported_date_format` method.
-    UNSUPPORTED_DATE_FORMAT = "modelity.UNSUPPORTED_DATE_FORMAT"
 
     #: Error code reported by :meth:`ErrorFactory.value_not_allowed` method.
     VALUE_NOT_ALLOWED = "modelity.VALUE_NOT_ALLOWED"
@@ -96,6 +120,255 @@ class Error:
 class ErrorFactory:
     """Class grouping factory methods for creating built-in errors."""
 
+    # TODO: parse_error -> only from string/bytes
+    @staticmethod
+    def parse_error(loc: Loc, value: Any, expected_type: type, msg: Optional[str] = None, **extra_data) -> Error:
+        """Generic error reported when it was not possible to parse *value*
+        as instance of *target_type*.
+
+        :param loc:
+            Value location in the model.
+
+        :param value:
+            Value given.
+
+        :param expected_type:
+            Expected value type.
+
+        :param msg:
+            Optional message to override default one.
+
+        :param `**extra_data`:
+            Additional keyword arguments to be passed into error data.
+        """
+        return Error(
+            loc,
+            ErrorCode.PARSE_ERROR,
+            msg or f"Not a valid {expected_type.__name__} value",
+            value,
+            data={"expected_type": expected_type, **extra_data},
+        )
+
+    @staticmethod
+    def conversion_error(loc: Loc, value: Any, reason: str, expected_type: type) -> Error:
+        """Create conversion error.
+
+        This signals that value could not be converted into instance of
+        *expected_type* due to the reason explained in error message.
+
+        .. important::
+
+            This error is reserved only for failing conversion where input
+            value is non-string. If input value is string or bytes then it is
+            better to use :meth:`parse_error` factory instead.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Input value that could not be converted.
+
+        :param reason:
+            The reason text.
+
+        :param expected_type:
+            Expected type after successful conversion.
+        """
+        msg = f"Cannot convert {type(value).__name__} to {expected_type.__name__}; {reason}"
+        return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type})
+
+    @staticmethod
+    def invalid_value(loc: Loc, value: Any, expected_values: list, **extra_data) -> Error:
+        """Error reported when value given is out of predefined set of allowed
+        values.
+
+        :param loc:
+            Value location in the model.
+
+        :param value:
+            Value given.
+
+        :param expected_values:
+            List with expected values.
+
+        :param `**extra_data`:
+            Optional extra error data.
+        """
+        expected_values_str = ", ".join(repr(x) for x in expected_values)
+        return Error(
+            loc,
+            ErrorCode.INVALID_VALUE,
+            f"Not a valid value; expected one of: {expected_values_str}",
+            value,
+            data={"expected_values": expected_values, **extra_data},
+        )
+
+    @staticmethod
+    def invalid_type(
+        loc: Loc,
+        value: Any,
+        expected_types: list[type],
+        allowed_types: Optional[list[type]] = None,
+        forbidden_types: Optional[list[type]] = None,
+        **extra_data,
+    ) -> Error:
+        """Error reported when input value has incorrect type.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Incorrect input value.
+
+        :param expected_types:
+            List with expected types.
+
+        :param allowed_types:
+            Optional list with allowed types.
+
+            This is information that if one of these types is used as type of
+            the input value then it will be accepted and converted to one of
+            expected types.
+
+            For example, a set can be constructed from set, list or tuple of
+            items.
+
+        :param forbidden_types:
+            Optional list of forbidden types.
+
+            This is used to specify types that are arbitrary forbidden and will
+            fail value processing immediately when encountered.
+
+        :param `**extra_data`:
+            Optional extra error data.
+        """
+        expected_types_str = ", ".join(x.__name__ for x in expected_types)
+        msg = "Not a valid value"
+        if len(expected_types) > 1:
+            msg += f"; expected one of: {expected_types_str}"
+        else:
+            msg += f"; expected {_utils.articlify(expected_types_str)}"
+        data = {"expected_types": expected_types}
+        if allowed_types is not None:
+            data["allowed_types"] = allowed_types
+        if forbidden_types is not None:
+            data["forbidden_types"] = forbidden_types
+        data.update(extra_data)
+        return Error(loc, ErrorCode.INVALID_TYPE, msg, value=value, data=data)
+
+    @staticmethod
+    def invalid_datetime_format(loc: Loc, value: str, expected_formats: list[str]) -> Error:
+        """Error reported when given datetime string did not match any of the
+        expected formats.
+
+        :param loc:
+            Value location in the model.
+
+        :param value:
+            Value given.
+
+        :param expected_formats:
+            List with expected datetime formats.
+        """
+        expected_formats_str = ", ".join(expected_formats)
+        return Error(
+            loc,
+            ErrorCode.INVALID_DATETIME_FORMAT,
+            f"Not a valid datetime format; expected one of: {expected_formats_str}",
+            value=value,
+            data={"expected_formats": expected_formats},
+        )
+
+    @staticmethod
+    def invalid_date_format(loc: Loc, value: str, expected_formats: Sequence[str]):
+        """Error reported when given date string did not match any of the
+        expected date formats.
+
+        :param loc:
+            Value location in the model.
+
+        :param value:
+            Value given.
+
+        :param expected_formats:
+            List with expected date formats.
+        """
+        expected_formats_str = ", ".join(expected_formats)
+        return Error(
+            loc,
+            ErrorCode.INVALID_DATE_FORMAT,
+            f"Not a valid date format; expected one of: {expected_formats_str}",
+            value=value,
+            data={"expected_formats": expected_formats},
+        )
+
+    @staticmethod
+    def invalid_enum_value(loc: Loc, value: Any, expected_enum_type: type[Enum]) -> Error:
+        """Error reported when value could not be matched to any of the values
+        provided by given enum type.
+
+        :param loc:
+            Value location in the model.
+
+        :param value:
+            Value given.
+
+        :param expected_enum_type:
+            Expected enum type.
+        """
+        expected_values_str = ", ".join(repr(x.value) for x in tuple(expected_enum_type))
+        return Error(
+            loc,
+            ErrorCode.INVALID_ENUM_VALUE,
+            f"Not a valid value; expected one of: {expected_values_str}",
+            value=value,
+            data={"expected_enum_type": expected_enum_type},
+        )
+
+    @staticmethod
+    def decode_error(loc: Loc, value: bytes, expected_encodings: list[str]) -> Error:
+        """Error reported when given bytes value could not be decoded into
+        string using any of the provided encodings.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Input value.
+
+        :param expected_encodings:
+            List of expected encodings.
+        """
+        return Error(
+            loc, ErrorCode.DECODE_ERROR, "Invalid text encoding", value, data={"expected_encodings": expected_encodings}
+        )
+
+    @staticmethod
+    def invalid_tuple_length(loc: Loc, value: tuple, expected_tuple: tuple[type, ...]) -> Error:
+        """Error reported if input value is a tuple that has incorrect number
+        of items.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Incorrect input enum.
+
+        :param expected_tuple:
+            Expected tuple shape.
+        """
+        msg = f"Not a valid tuple; expected {len(expected_tuple)} elements, got {len(value)}"
+        return Error(
+            loc,
+            ErrorCode.INVALID_TUPLE_LENGTH,
+            msg,
+            value,
+            data={
+                "expected_tuple": expected_tuple
+            }
+        )
+
+    # TODO: Remove
     @staticmethod
     def parsing_error(loc: Loc, value: Any, msg: str, target_type: type, **extra_data) -> Error:
         """Error reported when *value* could not be parsed as a *target_type*
@@ -318,52 +591,6 @@ class ErrorFactory:
             The invalid value.
         """
         return cls.parsing_error(loc, value, "could not parse value as date", date)
-
-    @staticmethod
-    def unsupported_datetime_format(loc: Loc, value: str, supported_formats: Sequence[str]) -> Error:
-        """Error reported when datetime string *value* did not match any of the
-        formats provided via *supported_formats* argument.
-
-        :param loc:
-            The location of the error.
-
-        :param value:
-            The invalid value.
-
-        :param supported_formats:
-            Tuple with supported datetime formats.
-        """
-        supported_formats_str = ", ".join(supported_formats)
-        return Error(
-            loc,
-            ErrorCode.UNSUPPORTED_DATETIME_FORMAT,
-            f"unsupported datetime format; supported formats: {supported_formats_str}",
-            value=value,
-            data={"supported_formats": tuple(supported_formats)},
-        )
-
-    @staticmethod
-    def unsupported_date_format(loc: Loc, value: str, supported_formats: Sequence[str]):
-        """Same as for :meth:`ErrorFactory.unsupported_datetime_format` method,
-        but reported for :class:`datetime.date` type.
-
-        :param loc:
-            The location of the error.
-
-        :param value:
-            The invalid value.
-
-        :param supported_formats:
-            Tuple with supported date formats.
-        """
-        supported_formats_str = ", ".join(supported_formats)
-        return Error(
-            loc,
-            ErrorCode.UNSUPPORTED_DATE_FORMAT,
-            f"unsupported date format; supported formats: {supported_formats_str}",
-            value=value,
-            data={"supported_formats": tuple(supported_formats)},
-        )
 
     @staticmethod
     def value_not_allowed(loc: Loc, value: Any, allowed_values: tuple):

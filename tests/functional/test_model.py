@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from enum import Enum
 import textwrap
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Mapping, Optional, Sequence, Set, Union
 
 import pytest
 
@@ -194,71 +194,72 @@ class TestModelWithOneField:
                 "2019-12-31",
                 [ErrorFactory.ge_constraint_failed(Loc("foo"), datetime(2019, 12, 31), datetime(2020, 1, 1))],
             ),
-            (dict, None, 123, [ErrorFactory.dict_parsing_error(Loc("foo"), 123)]),
-            (dict[str, int], None, {1: 1}, [ErrorFactory.string_value_required(Loc("foo", "_"), 1)]),
+            (dict, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [dict], [Mapping])]),
+            (dict[str, int], None, {1: 1}, [ErrorFactory.invalid_type(Loc("foo", "_"), 1, [str])]),
             (
                 dict[str, int],
                 None,
                 {"one": "invalid"},
-                [ErrorFactory.integer_parsing_error(Loc("foo", "one"), "invalid")],
+                [ErrorFactory.parse_error(Loc("foo", "one"), "invalid", int)],
             ),
-            (int, None, "spam", [ErrorFactory.integer_parsing_error(Loc("foo"), "spam")]),
-            (list, None, "spam", [ErrorFactory.list_parsing_error(Loc("foo"), "spam")]),
-            (list[int], None, [1, 2, "invalid"], [ErrorFactory.integer_parsing_error(Loc("foo", 2), "invalid")]),
-            (set, None, 123, [ErrorFactory.set_parsing_error(Loc("foo"), 123)]),
-            (set[int], None, 123, [ErrorFactory.set_parsing_error(Loc("foo"), 123)]),
+            (int, None, "spam", [ErrorFactory.parse_error(Loc("foo"), "spam", int)]),
+            (
+                list,
+                None,
+                "spam",
+                [ErrorFactory.invalid_type(Loc("foo"), "spam", [list], [Sequence], [str, bytes])],
+            ),
+            (list[int], None, [1, 2, "invalid"], [ErrorFactory.parse_error(Loc("foo", 2), "invalid", int)]),
+            (set, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set], [Set, Sequence], [str, bytes])]),
+            (set[int], None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set], [Set, Sequence], [str, bytes])]),
             (
                 set[int],
                 None,
                 [1, 2, "three", 4, "five"],
                 [
-                    ErrorFactory.integer_parsing_error(Loc("foo") + Loc.irrelevant(), "three"),
-                    ErrorFactory.integer_parsing_error(Loc("foo") + Loc.irrelevant(), "five"),
+                    ErrorFactory.parse_error(Loc("foo") + Loc.irrelevant(), "three", int),
+                    ErrorFactory.parse_error(Loc("foo") + Loc.irrelevant(), "five", int),
                 ],
             ),
-            (tuple, None, 123, [ErrorFactory.tuple_parsing_error(Loc("foo"), 123)]),
-            (tuple[int, ...], None, [1, 2, "three"], [ErrorFactory.integer_parsing_error(Loc("foo", 2), "three")]),
+            (tuple, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [tuple], [Sequence], [str, bytes])]),
+            (tuple[int, ...], None, [1, 2, "three"], [ErrorFactory.parse_error(Loc("foo", 2), "three", int)]),
             (
                 tuple[int, float],
                 None,
                 [1, 2.71, "spam"],
-                [ErrorFactory.invalid_tuple_format(Loc("foo"), [1, 2.71, "spam"], (int, float))],
+                [ErrorFactory.invalid_tuple_length(Loc("foo"), [1, 2.71, "spam"], (int, float))],
             ),
-            (tuple[int, float], None, [1], [ErrorFactory.invalid_tuple_format(Loc("foo"), [1], (int, float))]),
-            (Nested, None, 123, [ErrorFactory.model_parsing_error(Loc("foo"), 123, Nested)]),
-            (Nested, None, {"bar": "invalid"}, [ErrorFactory.integer_parsing_error(Loc("foo", "bar"), "invalid")]),
-            (bool, None, "foo", [ErrorFactory.bool_parsing_error(Loc("foo"), "foo")]),
+            (tuple[int, float], None, [1], [ErrorFactory.invalid_tuple_length(Loc("foo"), [1], (int, float))]),
+            (Nested, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [Nested], [Mapping])]),
+            (Nested, None, {"bar": "invalid"}, [ErrorFactory.parse_error(Loc("foo", "bar"), "invalid", int)]),
+            (bool, None, "foo", [ErrorFactory.parse_error(Loc("foo"), "foo", bool)]),
             (
                 bool,
                 FieldInfo(type_opts={"true_literals": ["on"]}),
                 "foo",
-                [ErrorFactory.bool_parsing_error(Loc("foo"), "foo", true_literals=set(["on"]))],
+                [ErrorFactory.parse_error(Loc("foo"), "foo", bool, true_literals=["on"])],
             ),
             (
                 bool,
                 FieldInfo(type_opts={"false_literals": ["off"]}),
                 "foo",
-                [ErrorFactory.bool_parsing_error(Loc("foo"), "foo", false_literals=set(["off"]))],
+                [ErrorFactory.parse_error(Loc("foo"), "foo", bool, false_literals=["off"])],
             ),
             (
                 bool,
                 FieldInfo(type_opts={"true_literals": ["on"], "false_literals": ["off"]}),
                 "foo",
-                [
-                    ErrorFactory.bool_parsing_error(
-                        Loc("foo"), "foo", true_literals=set(["on"]), false_literals=set(["off"])
-                    )
-                ],
+                [ErrorFactory.parse_error(Loc("foo"), "foo", bool, true_literals=["on"], false_literals=["off"])],
             ),
             (
                 datetime,
                 None,
                 "spam",
                 [
-                    ErrorFactory.unsupported_datetime_format(
+                    ErrorFactory.invalid_datetime_format(
                         Loc("foo"),
                         "spam",
-                        supported_formats=(
+                        expected_formats=[
                             "YYYY-MM-DDThh:mm:ssZZZZ",
                             "YYYY-MM-DD hh:mm:ssZZZZ",
                             "YYYY-MM-DD hh:mm:ss ZZZZ",
@@ -268,38 +269,38 @@ class TestModelWithOneField:
                             "YYYYMMDDThhmmss",
                             "YYYYMMDDhhmmssZZZZ",
                             "YYYYMMDDhhmmss",
-                        ),
+                        ],
                     )
                 ],
             ),
-            (datetime, None, 123, [ErrorFactory.datetime_parsing_error(Loc("foo"), 123)]),
+            (datetime, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [datetime, str])]),
             (
                 datetime,
                 FieldInfo(type_opts={"input_datetime_formats": ["YYYY-MM-DD"]}),
                 "1999-01-31T10:11:22",
-                [ErrorFactory.unsupported_datetime_format(Loc("foo"), "1999-01-31T10:11:22", ("YYYY-MM-DD",))],
+                [ErrorFactory.invalid_datetime_format(Loc("foo"), "1999-01-31T10:11:22", ["YYYY-MM-DD"])],
             ),
-            (date, None, 123, [ErrorFactory.date_parsing_error(Loc("foo"), 123)]),
+            (date, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [date, str])]),
             (
                 date,
                 FieldInfo(type_opts={"input_date_formats": ["DD-MM-YYYY"]}),
                 "1999-01-01",
-                [ErrorFactory.unsupported_date_format(Loc("foo"), "1999-01-01", ("DD-MM-YYYY",))],
+                [ErrorFactory.invalid_date_format(Loc("foo"), "1999-01-01", ["DD-MM-YYYY"])],
             ),
-            (EDummy, None, 123, [ErrorFactory.value_not_allowed(Loc("foo"), 123, (EDummy.ONE, EDummy.TWO))]),
-            (Literal[1, 2, "foo"], None, "spam", [ErrorFactory.value_not_allowed(Loc("foo"), "spam", (1, 2, "foo"))]),
-            (type(None), None, "spam", [ErrorFactory.value_not_allowed(Loc("foo"), "spam", (None,))]),
-            (int, None, "invalid", [ErrorFactory.integer_parsing_error(Loc("foo"), "invalid")]),
-            (float, None, "invalid", [ErrorFactory.float_parsing_error(Loc("foo"), "invalid")]),
-            (str, None, 123, [ErrorFactory.string_value_required(Loc("foo"), 123)]),
-            (bytes, None, 123, [ErrorFactory.bytes_value_required(Loc("foo"), 123)]),
-            (Optional[int], None, "invalid", [ErrorFactory.integer_parsing_error(Loc("foo"), "invalid")]),
+            (EDummy, None, 123, [ErrorFactory.invalid_enum_value(Loc("foo"), 123, EDummy)]),
+            (Literal[1, 2, "foo"], None, "spam", [ErrorFactory.invalid_value(Loc("foo"), "spam", [1, 2, "foo"])]),
+            (type(None), None, "spam", [ErrorFactory.invalid_value(Loc("foo"), "spam", [None])]),
+            (int, None, "invalid", [ErrorFactory.parse_error(Loc("foo"), "invalid", int)]),
+            (float, None, "invalid", [ErrorFactory.parse_error(Loc("foo"), "invalid", float)]),
+            (str, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [str])]),
+            (bytes, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [bytes])]),
+            (Optional[int], None, "invalid", [ErrorFactory.parse_error(Loc("foo"), "invalid", int)]),
             (
                 Union[int, str],
                 None,
                 {},
                 [
-                    ErrorFactory.union_parsing_error(Loc("foo"), {}, (int, str)),
+                    ErrorFactory.invalid_type(Loc("foo"), {}, [int, str]),
                 ],
             ),
         ],
@@ -500,8 +501,8 @@ class TestModelWithModelField:
     @pytest.mark.parametrize(
         "initial_foo, initial_bar, expected_errors",
         [
-            ({}, "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
-            (SUT.Foo(), "spam", [ErrorFactory.integer_parsing_error(Loc("bar"), "spam")]),
+            ({}, "spam", [ErrorFactory.parse_error(Loc("bar"), "spam", int)]),
+            (SUT.Foo(), "spam", [ErrorFactory.parse_error(Loc("bar"), "spam", int)]),
         ],
     )
     def test_when_assigning_incorrect_value_then_parsing_error_is_raised(
@@ -536,7 +537,7 @@ class TestModelWithDictField:
 
     @pytest.mark.parametrize(
         "args, key, value, expected_errors",
-        [({"foo": {}}, "one", "spam", [ErrorFactory.integer_parsing_error(Loc("one"), "spam")])],
+        [({"foo": {}}, "one", "spam", [ErrorFactory.parse_error(Loc("one"), "spam", int)])],
     )
     def test_setting_item_to_invalid_value_causes_error(self, sut: SUT, key, value, expected_errors):
         with pytest.raises(ParsingError) as excinfo:
@@ -558,7 +559,7 @@ class TestModelWithDictField:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo.setdefault("one", "spam")
         assert excinfo.value.typ is self.SUT.__model_fields__["foo"].typ
-        assert excinfo.value.errors == (ErrorFactory.integer_parsing_error(Loc("one"), "spam"),)
+        assert excinfo.value.errors == (ErrorFactory.parse_error(Loc("one"), "spam", int),)
 
 
 class TestModelWithListField:
@@ -584,8 +585,8 @@ class TestModelWithListField:
     @pytest.mark.parametrize(
         "initial, given, expected_errors",
         [
-            ([], "spam", [ErrorFactory.integer_parsing_error(Loc(0), "spam")]),
-            ([1, 2, 3], "spam", [ErrorFactory.integer_parsing_error(Loc(3), "spam")]),
+            ([], "spam", [ErrorFactory.parse_error(Loc(0), "spam", int)]),
+            ([1, 2, 3], "spam", [ErrorFactory.parse_error(Loc(3), "spam", int)]),
         ],
     )
     def test_append_failed(self, sut: SUT, given, expected_errors):

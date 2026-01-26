@@ -28,8 +28,8 @@ class TestAnnotated:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.integer_parsing_error(common.loc, None)]),
-            ("spam", [ErrorFactory.integer_parsing_error(common.loc, "spam")]),
+            (None, [ErrorFactory.parse_error(common.loc, None, int)]),
+            ("spam", [ErrorFactory.parse_error(common.loc, "spam", int)]),
             (-1, [ErrorFactory.ge_constraint_failed(common.loc, -1, 0)]),
         ]
     )

@@ -20,7 +20,7 @@ def make_model_type_descriptor(typ: type[Model]) -> ITypeDescriptor:
             if isinstance(value, typ):
                 return value
             if not isinstance(value, Mapping):
-                errors.append(ErrorFactory.model_parsing_error(loc, value, typ))
+                errors.append(ErrorFactory.invalid_type(loc, value, [typ], [Mapping]))
                 return Unset
             try:
                 return typ(**value)
