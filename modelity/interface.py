@@ -1,6 +1,6 @@
 import abc
 from numbers import Number
-from typing import Any, ClassVar, Mapping, Optional, Protocol, Sequence, Set, TypeGuard, Union
+from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union
 
 from modelity import _utils
 from modelity.error import Error
@@ -8,112 +8,6 @@ from modelity.loc import Loc
 from modelity.unset import UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
-
-
-@export
-class IBaseHook(Protocol):
-    """Base class for hook protocols.
-
-    Hooks are used to wrap user-defined functions and use them to inject extra
-    logic to either parsing or validation stages of model's data processing.
-    """
-
-    #: The sequential ID number assigned for this hook.
-    #:
-    #: This is used to sort hooks by their declaration order when they are
-    #: collected from the model.
-    __modelity_hook_id__: int
-
-    #: The name of this hook.
-    __modelity_hook_name__: str
-
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        """Invoke this hook.
-
-        The actual parameters and type of return value is implementation
-        specific.
-        """
-        ...
-
-
-@export
-class IModelHook(IBaseHook, Protocol):
-    """Protocol describing model-level hooks.
-
-    This kind of hooks are executed on model instances.
-    """
-
-
-@export
-class IFieldHook(IBaseHook, Protocol):
-    """Protocol describing field-level hooks.
-
-    This kind of hooks are executed on model fields independently.
-    """
-
-    #: Field names this hook will be used for.
-    #:
-    #: Empty set means that it will be used for all fields, non-empty set means
-    #: that it will be used for a subset of model fields.
-    __modelity_hook_field_names__: set[str]
-
-
-@export
-class ILocationHook(IBaseHook, Protocol):
-    """Protocol describing value-level, location specific hooks.
-
-    This kind of hooks are executed on model values where value location
-    matches location defined in hook. The actual interpretation of what a match
-    is is implementation specific.
-
-    .. versionadded:: 0.27.0
-    """
-
-    #: Set of value locations.
-    #:
-    #: Empty set means that this hook will match every single location.
-    #: Non-empty meaning is implementation specific.
-    __modelity_hook_value_locations__: set[Loc]
-
-
-@export
-def is_base_hook(obj: object) -> TypeGuard[IBaseHook]:
-    """Check if *obj* is instance of :class:`modelity.interface.IBaseHook`
-    protocol.
-
-    .. versionadded:: 0.27.0
-    """
-    return callable(obj) and hasattr(obj, "__modelity_hook_id__") and hasattr(obj, "__modelity_hook_name__")
-
-
-@export
-def is_model_hook(obj: object) -> TypeGuard[IModelHook]:
-    """Check if *obj* satisfies requirements of the :class:`IModelHook`
-    protocol.
-
-    .. versionadded:: 0.27.0
-    """
-    return is_base_hook(obj)
-
-
-@export
-def is_field_hook(obj: object) -> TypeGuard[IFieldHook]:
-    """Check if *obj* satisfies requirements of the :class:`IFieldHook`
-    interface.
-
-    .. versionadded:: 0.27.0
-    """
-    return is_model_hook(obj) and hasattr(obj, "__modelity_hook_field_names__")
-
-
-@export
-def is_location_hook(obj: object) -> TypeGuard[ILocationHook]:
-    """Check if *obj* satisfies requirements of the :class:`ILocationHook`
-    interface.
-
-    .. versionadded:: 0.27.0
-    """
-    return is_model_hook(obj) and hasattr(obj, "__modelity_hook_value_locations__")
 
 
 @export

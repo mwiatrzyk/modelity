@@ -5,12 +5,8 @@ import functools
 from typing import Any, Callable, cast, Union, TypeVar
 
 from modelity import _utils
+from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.interface import (
-    IModelHook,
-    IFieldHook,
-    ILocationHook,
-)
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 from modelity.model import Model
@@ -105,7 +101,7 @@ def field_preprocessor(*field_names: str):
 
         supported_param_names = ("cls", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldHook, proxy)
+        hook = cast(_int_hooks.IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_preprocessor.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -211,7 +207,7 @@ def field_postprocessor(*field_names: str):
 
         supported_param_names = ("cls", "self", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldHook, proxy)
+        hook = cast(_int_hooks.IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_postprocessor.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -369,7 +365,7 @@ def field_validator(*field_names: str):
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(IFieldHook, proxy)
+        hook = cast(_int_hooks.IFieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = field_validator.__name__
         hook.__modelity_hook_field_names__ = set(field_names)
@@ -494,10 +490,12 @@ def location_validator(*loc_suffix_patterns: str):
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(ILocationHook, proxy)
+        hook = cast(_int_hooks.ILocationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_name__ = location_validator.__name__
-        hook.__modelity_hook_value_locations__ = set(Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns)
+        hook.__modelity_hook_value_locations__ = set(
+            Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns
+        )
         return hook
 
     return decorator
@@ -530,7 +528,7 @@ def type_descriptor_factory(typ: Any):
     return decorator
 
 
-def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
+def _make_model_validator(func: Callable, hook_name: str) -> _int_hooks.IModelHook:
 
     @functools.wraps(func)
     def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Any:
@@ -552,7 +550,7 @@ def _make_model_validator(func: Callable, hook_name: str) -> IModelHook:
 
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
     given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-    hook = cast(IModelHook, proxy)
+    hook = cast(_int_hooks.IModelHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_name__ = hook_name
     return hook

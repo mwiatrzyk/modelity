@@ -131,7 +131,6 @@ def test_validator_matched_to_nested_model_field_is_still_called_with_parent_mod
         def _validate_nested_foo(cls, self, root, loc, value):
             mock.validate_nested_foo(cls, self, root, loc, value)
 
-
     sut = SUT(nested=SUT.Nested(foo=123))
     mock.validate_nested_foo.expect_call(SUT, sut, sut, Loc("nested", "foo"), 123)
     with ordered(mock):

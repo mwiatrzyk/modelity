@@ -8,7 +8,6 @@ from typing import (
     Iterator,
     Mapping,
     Optional,
-    Sequence,
     Union,
     TypeVar,
     cast,
@@ -21,10 +20,8 @@ from modelity._internal import hooks as _int_hooks, model as _int_model
 from modelity.error import Error
 from modelity.exc import ParsingError
 from modelity.interface import (
-    IBaseHook,
     IModelVisitor,
     ITypeDescriptor,
-    is_base_hook,
 )
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
@@ -36,7 +33,6 @@ T = TypeVar("T")
 
 _IGNORED_FIELD_NAMES = {
     "__model_fields__",
-    "__model_hooks__",
 }
 
 
@@ -201,22 +197,14 @@ class ModelMeta(type):
     #: the created model class.
     __model_fields__: Mapping[str, Field]
 
-    #: Sequence of user-defined hooks.
-    #:
-    #: Hooks are registered using decorators defined in the
-    #: :mod:`modelity.hooks` module. A hook registered in a base class is also
-    #: inherited by a child class. The order of this sequence reflects hook
-    #: declaration order.
-    __model_hooks__: Sequence[IBaseHook]
-
     def __new__(tp, name: str, bases: tuple, attrs: dict):
         attrs["__model_fields__"] = fields = dict[str, Field]()
-        attrs["__model_hooks__"] = hooks = list[IBaseHook]()
+        attrs["_modelity_hooks"] = hooks = list[_int_hooks.IBaseHook]()
         for base in bases:
             fields.update(getattr(base, "__model_fields__", {}))
-            model_hooks = getattr(base, "__model_hooks__", None)
-            if model_hooks is not None:
-                hooks.extend(model_hooks)
+            modelity_hooks = getattr(base, "_modelity_hooks", None)
+            if modelity_hooks is not None:
+                hooks.extend(modelity_hooks)
             else:
                 hooks.extend(_collect_hooks_from_mixin_class(base))
         annotations = attrs.pop("__annotations__", {})
@@ -232,7 +220,7 @@ class ModelMeta(type):
             fields[field_name] = bound_field
         for key in dict(attrs):
             attr_value = attrs[key]
-            if is_base_hook(attr_value):
+            if _int_hooks.is_base_hook(attr_value):
                 hooks.append(attr_value)
                 del attrs[key]
         hooks.sort(key=lambda x: x.__modelity_hook_id__)
@@ -274,9 +262,6 @@ class Model(metaclass=ModelMeta):
 
     #: A per-instance view of the :attr:`ModelMeta.__model_fields__` attribute.
     __model_fields__: ClassVar[Mapping[str, Field]]
-
-    #: A per-instance view of the :attr:`ModelMeta.__model_hooks__` attribute.
-    __model_hooks__: ClassVar[Sequence[IBaseHook]]
 
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []
@@ -379,8 +364,8 @@ def _run_field_postprocessors(
     return value
 
 
-def _collect_hooks_from_mixin_class(cls: type) -> Iterator[IBaseHook]:
+def _collect_hooks_from_mixin_class(cls: type) -> Iterator[_int_hooks.IBaseHook]:
     for name in dir(cls):
         value = getattr(cls, name)
-        if is_base_hook(value):
+        if _int_hooks.is_base_hook(value):
             yield value

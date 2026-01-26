@@ -73,7 +73,7 @@ def extract_given_param_names_subsequence(func: Callable, supported_param_names:
     return set(given_param_names)
 
 
-def to_int_or_str(obj: str) -> int|str:
+def to_int_or_str(obj: str) -> int | str:
     """Convert *obj* to integer if it is a numeric string, or leave it as is
     otherwise.
 

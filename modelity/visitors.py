@@ -5,14 +5,13 @@ interface.
 """
 
 import collections
-import itertools
 from numbers import Number
 from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, Union, cast
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.interface import ILocationHook, IModelVisitor, IValidatableTypeDescriptor
+from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Field, Model
 from modelity.unset import Unset, UnsetType
@@ -187,9 +186,7 @@ class DefaultValidateVisitor(EmptyVisitor):
     def visit_model_begin(self, loc: Loc, value: Model):
         model_type = value.__class__
         location_validators = _int_hooks.collect_location_validator_hooks(model_type)
-        self._memo[loc] = {
-            "has_location_validators": bool(location_validators)
-        }
+        self._memo[loc] = {"has_location_validators": bool(location_validators)}
         if location_validators:
             self._push_location_validators(value, location_validators)
         self._push_model(value)
@@ -244,13 +241,13 @@ class DefaultValidateVisitor(EmptyVisitor):
     def visit_any(self, loc: Loc, value: Any):
         self._run_location_validators(loc, value)
 
-    def _push_location_validators(self, model: Model, location_validators: dict[Loc, list[ILocationHook]]):
+    def _push_location_validators(self, model: Model, location_validators: dict[Loc, list[_int_hooks.ILocationHook]]):
         self._location_validators_stack.append((model, location_validators))
 
     def _pop_location_validators(self):
         self._location_validators_stack.pop()
 
-    def _iter_location_validators(self) -> Iterator[tuple[Model, dict[Loc, list[ILocationHook]]]]:
+    def _iter_location_validators(self) -> Iterator[tuple[Model, dict[Loc, list[_int_hooks.ILocationHook]]]]:
         for item in self._location_validators_stack:
             yield item
 
