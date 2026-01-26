@@ -1,3 +1,4 @@
+import functools
 from typing import Any, Iterator, Protocol, TypeGuard
 
 from modelity.loc import Loc
@@ -135,6 +136,7 @@ def collect_location_validator_hooks(model_type: type) -> dict[Loc, list[ILocati
     return _collect_location_validator_hooks(model_type)
 
 
+@functools.lru_cache()
 def _collect_model_hooks_impl(model_type: type, hook_name: str) -> list[IModelHook]:
     out = []
     for hook in find_hooks_by_name(model_type, hook_name):
@@ -143,6 +145,7 @@ def _collect_model_hooks_impl(model_type: type, hook_name: str) -> list[IModelHo
     return out
 
 
+@functools.lru_cache()
 def _collect_field_hooks_impl(model_type: type, hook_name: str, field_name: str) -> list[IFieldHook]:
     out = []
     for hook in find_field_hooks_by_name(model_type, hook_name, field_name):
@@ -150,6 +153,7 @@ def _collect_field_hooks_impl(model_type: type, hook_name: str, field_name: str)
     return out
 
 
+@functools.lru_cache()
 def _collect_location_validator_hooks(model_type: type) -> dict[Loc, list[ILocationHook]]:
     out: dict[Loc, list[ILocationHook]] = {}
     for hook in find_hooks_by_name(model_type, "location_validator"):
