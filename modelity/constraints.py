@@ -1,3 +1,6 @@
+import dataclasses
+import functools
+from numbers import Number
 import re
 from typing import Any
 
@@ -10,29 +13,21 @@ __all__ = export = _utils.ExportList()  # type: ignore
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class Ge(IConstraint):
-    """Minimum inclusive value constraint.
+    """Greater-or-equal constraint.
+
+    Used to specify minimum inclusive value for a numeric field.
 
     :param min_inclusive:
         The minimum inclusive value.
     """
 
     #: The minimum inclusive value set for this constraint.
-    min_inclusive: Any
-
-    def __init__(self, min_inclusive):
-        self.min_inclusive = min_inclusive
+    min_inclusive: int | float | Number
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_inclusive!r})"
-
-    def __hash__(self):
-        return hash((self.__class__, self.min_inclusive))
-
-    def __eq__(self, other):
-        if type(other) is not self.__class__:
-            return NotImplemented
-        return self.min_inclusive == other.min_inclusive
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value >= self.min_inclusive:
@@ -42,18 +37,18 @@ class Ge(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class Gt(IConstraint):
-    """Minimum exclusive value constraint.
+    """Greater-than constraint.
+
+    Used to specify minimum exclusive value for a numeric field.
 
     :param min_exclusive:
         The minimum exclusive value.
     """
 
     #: The minimum exclusive value set for this constraint.
-    min_exclusive: Any
-
-    def __init__(self, min_exclusive):
-        self.min_exclusive = min_exclusive
+    min_exclusive: int | float | Number
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_exclusive!r})"
@@ -66,8 +61,11 @@ class Gt(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class Le(IConstraint):
-    """Maximum inclusive value constraint.
+    """Less-or-equal constraint.
+
+    Used to set maximum inclusive value for a numeric field.
 
     :param max_inclusive:
         The maximum inclusive value.
@@ -75,9 +73,6 @@ class Le(IConstraint):
 
     #: The maximum inclusive value set for this constraint.
     max_inclusive: Any
-
-    def __init__(self, max_inclusive):
-        self.max_inclusive = max_inclusive
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.max_inclusive!r})"
@@ -90,8 +85,11 @@ class Le(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class Lt(IConstraint):
-    """Maximum exclusive value constraint.
+    """Less-than constraint.
+
+    Used to set maximum exclusive value for a numeric field.
 
     :param max_exclusive:
         The maximum exclusive value.
@@ -99,9 +97,6 @@ class Lt(IConstraint):
 
     #: The maximum exclusive value set for this constraint.
     max_exclusive: Any
-
-    def __init__(self, max_exclusive):
-        self.max_exclusive = max_exclusive
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.max_exclusive!r})"
@@ -114,18 +109,19 @@ class Lt(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class MinLen(IConstraint):
     """Minimum length constraint.
 
+    Used to set minimum allowed number of characters/bytes for a text/bytes
+    field or minimum number of elements for collection fields.
+
     :param min_len:
-        The minimum value length.
+        The minimum length.
     """
 
     #: The minimum length.
     min_len: int
-
-    def __init__(self, min_len: int):
-        self.min_len = min_len
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_len!r})"
@@ -138,18 +134,19 @@ class MinLen(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class MaxLen(IConstraint):
     """Maximum length constraint.
 
+    Used to set maximum allowed number of characters/bytes in a text/bytes
+    field or a maximum number of elements for collection fields.
+
     :param max_len:
-        The maximum value length.
+        The maximum length.
     """
 
     #: The minimum length.
     max_len: int
-
-    def __init__(self, max_len: int):
-        self.max_len = max_len
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.max_len!r})"
@@ -162,6 +159,7 @@ class MaxLen(IConstraint):
 
 
 @export
+@dataclasses.dataclass(frozen=True)
 class Regex(IConstraint):
     """Regular expression constraint.
 
@@ -172,15 +170,15 @@ class Regex(IConstraint):
         Regular expression pattern.
     """
 
-    def __init__(self, pattern: str):
-        self._compiled_pattern = re.compile(pattern)
+    #: Regular expression pattern.
+    pattern: str
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self._compiled_pattern.pattern!r})"
+        return f"{self.__class__.__name__}({self.pattern!r})"
 
-    @property
-    def pattern(self) -> str:
-        return self._compiled_pattern.pattern
+    @functools.cached_property
+    def _compiled_pattern(self) -> re.Pattern:
+        return re.compile(self.pattern)
 
     def __call__(self, errors: list[Error], loc: Loc, value: str):
         if self._compiled_pattern.match(value):
