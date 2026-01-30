@@ -1,7 +1,9 @@
 import dataclasses
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Optional, Sequence
+from numbers import Number
+from os import stat
+from typing import Any, Optional, Sequence, Sized
 
 from modelity import _utils
 from modelity.loc import Loc
@@ -44,6 +46,15 @@ class ErrorCode:
 
     #: Error code reported by :meth:`ErrorFactory.invalid_tuple` method.
     INVALID_TUPLE_LENGTH = "modelity.INVALID_TUPLE_LENGTH"
+
+    #: Error code reported by :meth:`out_of_range` method.
+    OUT_OF_RANGE = "modelity.OUT_OF_RANGE"
+
+    #: Error code reported by :meth:`invalid_length` method.
+    INVALID_LENGTH = "modelity.INVALID_LENGTH"
+
+    #: Error code reported by :meth:`invalid_string_format` method.
+    INVALID_STRING_FORMAT = "modelity.INVALID_STRING_FORMAT"
 
     # Old below:
 
@@ -358,13 +369,111 @@ class ErrorFactory:
             Expected tuple shape.
         """
         msg = f"Not a valid tuple; expected {len(expected_tuple)} elements, got {len(value)}"
+        return Error(loc, ErrorCode.INVALID_TUPLE_LENGTH, msg, value, data={"expected_tuple": expected_tuple})
+
+    @staticmethod
+    def out_of_range(
+        loc: Loc,
+        value: int | float,
+        min_inclusive: Optional[int | float] = None,
+        min_exclusive: Optional[int | float] = None,
+        max_inclusive: Optional[int | float] = None,
+        max_exclusive: Optional[int | float] = None,
+    ) -> Error:
+        """Error reported by range constraint checks if value is out of
+        required bounds.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Incorrect input value.
+
+        :param min_inclusive:
+            Minimum value (inclusive).
+
+        :param min_exclusive:
+            Minimum value (exclusive).
+
+        :param max_inclusive:
+            Maximum value (inclusive).
+
+        :param max_exclusive:
+            Maximum value (exclusive).
+        """
+        data = {}
+        if min_inclusive is not None:
+            data["min_inclusive"] = min_inclusive
+        if min_exclusive is not None:
+            data["min_exclusive"] = min_exclusive
+        if max_inclusive is not None:
+            data["max_inclusive"] = max_inclusive
+        if max_exclusive is not None:
+            data["max_exclusive"] = max_exclusive
+        # TODO: on or after, on or before for dates
+        if "min_inclusive" in data:
+            msg = f"Value must be greater than or equal to {min_inclusive}"
+        elif "min_exclusive" in data:
+            msg = f"Value must be greater than {min_exclusive}"
+        elif "max_inclusive" in data:
+            msg = f"Value must be less than or equal to {max_inclusive}"
+        else:
+            msg = f"Value must be less than {max_exclusive}"
+        return Error(loc, ErrorCode.OUT_OF_RANGE, msg, value, data=data)
+
+    @staticmethod
+    def invalid_length(
+        loc: Loc, value: Sized, min_length: Optional[int] = None, max_length: Optional[int] = None
+    ) -> Error:
+        """Create invalid length error.
+
+        This error is reported for containers or other sized fields when length
+        constraints are not satisfied.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Incorrect input value.
+
+        :param min_length:
+            Minimum length.
+
+        :param max_length:
+            Maximum length.
+        """
+        data = {}
+        if min_length is not None:
+            data["min_length"] = min_length
+        if max_length is not None:
+            data["max_length"] = max_length
+        #: TODO: Length must be between {min_length} and {max_length}
+        if "min_length" in data:
+            msg = f"Length must be at least {min_length}"
+        else:
+            msg = f"Length must be at most {max_length}"
+        return Error(loc, ErrorCode.INVALID_LENGTH, msg, value, data=data)
+
+    @staticmethod
+    def invalid_string_format(loc: Loc, value: str, expected_pattern: str) -> Error:
+        """Create :attr:`ErrorCode.INVALID_STRING_FORMAT` error.
+
+        :param loc:
+            Error location in the model.
+
+        :param value:
+            Incorrect input string.
+
+        :param expected_pattern:
+            Expected string pattern (f.e. regex pattern).
+        """
         return Error(
             loc,
-            ErrorCode.INVALID_TUPLE_LENGTH,
-            msg,
+            ErrorCode.INVALID_STRING_FORMAT,
+            "String does not match the expected format",
             value,
             data={
-                "expected_tuple": expected_tuple
+                "expected_pattern": expected_pattern,
             }
         )
 

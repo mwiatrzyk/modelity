@@ -24,7 +24,7 @@ class Ge(IConstraint):
     """
 
     #: The minimum inclusive value set for this constraint.
-    min_inclusive: int | float | Number
+    min_inclusive: int | float
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_inclusive!r})"
@@ -32,7 +32,7 @@ class Ge(IConstraint):
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value >= self.min_inclusive:
             return True
-        errors.append(ErrorFactory.ge_constraint_failed(loc, value, self.min_inclusive))
+        errors.append(ErrorFactory.out_of_range(loc, value, min_inclusive=self.min_inclusive))
         return False
 
 
@@ -48,7 +48,7 @@ class Gt(IConstraint):
     """
 
     #: The minimum exclusive value set for this constraint.
-    min_exclusive: int | float | Number
+    min_exclusive: int | float
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.min_exclusive!r})"
@@ -56,7 +56,7 @@ class Gt(IConstraint):
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value > self.min_exclusive:
             return True
-        errors.append(ErrorFactory.gt_constraint_failed(loc, value, self.min_exclusive))
+        errors.append(ErrorFactory.out_of_range(loc, value, min_exclusive=self.min_exclusive))
         return False
 
 
@@ -80,7 +80,7 @@ class Le(IConstraint):
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value <= self.max_inclusive:
             return True
-        errors.append(ErrorFactory.le_constraint_failed(loc, value, self.max_inclusive))
+        errors.append(ErrorFactory.out_of_range(loc, value, max_inclusive=self.max_inclusive))
         return False
 
 
@@ -104,7 +104,7 @@ class Lt(IConstraint):
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
         if value < self.max_exclusive:
             return True
-        errors.append(ErrorFactory.lt_constraint_failed(loc, value, self.max_exclusive))
+        errors.append(ErrorFactory.out_of_range(loc, value, max_exclusive=self.max_exclusive))
         return False
 
 
@@ -113,23 +113,23 @@ class Lt(IConstraint):
 class MinLen(IConstraint):
     """Minimum length constraint.
 
-    Used to set minimum allowed number of characters/bytes for a text/bytes
-    field or minimum number of elements for collection fields.
+    Can be used with sized types, like containers, :class:`byte` or
+    :class:`str`.
 
     :param min_len:
         The minimum length.
     """
 
-    #: The minimum length.
-    min_len: int
+    #: Minimum length.
+    min_length: int
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.min_len!r})"
+        return f"{self.__class__.__name__}({self.min_length!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
-        if len(value) >= self.min_len:
+        if len(value) >= self.min_length:
             return True
-        errors.append(ErrorFactory.min_len_constraint_failed(loc, value, self.min_len))
+        errors.append(ErrorFactory.invalid_length(loc, value, min_length=self.min_length))
         return False
 
 
@@ -137,24 +137,24 @@ class MinLen(IConstraint):
 @dataclasses.dataclass(frozen=True)
 class MaxLen(IConstraint):
     """Maximum length constraint.
-
-    Used to set maximum allowed number of characters/bytes in a text/bytes
-    field or a maximum number of elements for collection fields.
+    
+    Can be used with sized types, like containers, :class:`byte` or
+    :class:`str`.
 
     :param max_len:
         The maximum length.
     """
 
-    #: The minimum length.
-    max_len: int
+    #: Maximum length.
+    max_length: int
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.max_len!r})"
+        return f"{self.__class__.__name__}({self.max_length!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
-        if len(value) <= self.max_len:
+        if len(value) <= self.max_length:
             return True
-        errors.append(ErrorFactory.max_len_constraint_failed(loc, value, self.max_len))
+        errors.append(ErrorFactory.invalid_length(loc, value, max_length=self.max_length))
         return False
 
 
@@ -183,5 +183,5 @@ class Regex(IConstraint):
     def __call__(self, errors: list[Error], loc: Loc, value: str):
         if self._compiled_pattern.match(value):
             return True
-        errors.append(ErrorFactory.regex_constraint_failed(loc, value, self.pattern))
+        errors.append(ErrorFactory.invalid_string_format(loc, value, self.pattern))
         return False

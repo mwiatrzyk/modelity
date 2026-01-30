@@ -30,7 +30,7 @@ class TestAnnotated:
         params=[
             (None, [ErrorFactory.parse_error(common.loc, None, int)]),
             ("spam", [ErrorFactory.parse_error(common.loc, "spam", int)]),
-            (-1, [ErrorFactory.ge_constraint_failed(common.loc, -1, 0)]),
+            (-1, [ErrorFactory.out_of_range(common.loc, -1, min_inclusive=0)]),
         ]
     )
     def invalid_data(self, request):

@@ -659,20 +659,20 @@ class TestAnnotatedTypeDescriptor:
     @pytest.mark.parametrize(
         "typ, input_value, expected_errors",
         [
-            (Annotated[int, Ge(0), Le(5)], -1, [ErrorFactory.ge_constraint_failed(loc, -1, 0)]),
-            (Annotated[int, Ge(0), Le(5)], 6, [ErrorFactory.le_constraint_failed(loc, 6, 5)]),
-            (Annotated[float, Gt(0), Lt(1)], 0, [ErrorFactory.gt_constraint_failed(loc, 0, 0)]),
-            (Annotated[float, Gt(0), Lt(1)], 1, [ErrorFactory.lt_constraint_failed(loc, 1, 1)]),
-            (Annotated[str, MinLen(1), MaxLen(5)], "", [ErrorFactory.min_len_constraint_failed(loc, "", 1)]),
+            (Annotated[int, Ge(0), Le(5)], -1, [ErrorFactory.out_of_range(loc, -1, min_inclusive=0)]),
+            (Annotated[int, Ge(0), Le(5)], 6, [ErrorFactory.out_of_range(loc, 6, max_inclusive=5)]),
+            (Annotated[float, Gt(0), Lt(1)], 0, [ErrorFactory.out_of_range(loc, 0, min_exclusive=0)]),
+            (Annotated[float, Gt(0), Lt(1)], 1, [ErrorFactory.out_of_range(loc, 1, max_exclusive=1)]),
+            (Annotated[str, MinLen(1), MaxLen(5)], "", [ErrorFactory.invalid_length(loc, "", min_length=1)]),
             (
                 Annotated[str, MinLen(1), MaxLen(5)],
                 "spam more spam",
-                [ErrorFactory.max_len_constraint_failed(loc, "spam more spam", 5)],
+                [ErrorFactory.invalid_length(loc, "spam more spam", max_length=5)],
             ),
             (
                 Annotated[str, Regex("^[a-z]+$")],
                 "123",
-                [ErrorFactory.regex_constraint_failed(loc, "123", "^[a-z]+$")],
+                [ErrorFactory.invalid_string_format(loc, "123", "^[a-z]+$")],
             ),
         ],
     )
@@ -716,7 +716,7 @@ class TestAnnotatedTypeDescriptor:
         model.foo.append(4)  # The length will exceed the limit after this
         with pytest.raises(ValidationError) as excinfo:
             validate(model)
-        assert excinfo.value.errors == (ErrorFactory.max_len_constraint_failed(Loc("foo"), [1, 2, 3, 4], 3),)
+        assert excinfo.value.errors == (ErrorFactory.invalid_length(Loc("foo"), [1, 2, 3, 4], max_length=3),)
 
 
 class TestUnionTypeDescriptor:
@@ -1156,11 +1156,7 @@ class TestSetTypeDescriptor:
             (
                 set,
                 [[123]],
-                [
-                    ErrorFactory.conversion_error(
-                        loc, [[123]], "some elements are unhashable", set
-                    )
-                ],
+                [ErrorFactory.conversion_error(loc, [[123]], "some elements are unhashable", set)],
             ),
             (set[int], 123, [ErrorFactory.invalid_type(loc, 123, [set], [Set, Sequence], [str, bytes])]),
             (set[int], "123", [ErrorFactory.invalid_type(loc, "123", [set], [Set, Sequence], [str, bytes])]),
