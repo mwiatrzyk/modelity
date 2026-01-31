@@ -338,12 +338,12 @@ class TestResponse:
                 [
                     ErrorFactory.required_missing(Loc("jsonrpc")),
                     ErrorFactory.required_missing(Loc("id")),
-                    ErrorFactory.exception(Loc(), Unset, "neither 'error' nor 'result' Field set", ValueError),
+                    ErrorFactory.exception(Loc(), Unset, ValueError("neither 'error' nor 'result' Field set")),
                 ],
             ),
             (
                 {"jsonrpc": "2.0", "id": 1},
-                [ErrorFactory.exception(Loc(), Unset, "neither 'error' nor 'result' Field set", ValueError)],
+                [ErrorFactory.exception(Loc(), Unset, ValueError("neither 'error' nor 'result' Field set"))],
             ),
             (
                 {"jsonrpc": "2.0", "id": 1, "error": {}},
@@ -355,7 +355,7 @@ class TestResponse:
             (
                 {"jsonrpc": "2.0", "id": 1, "error": {"code": 1, "message": "a message"}, "result": None},
                 [
-                    ErrorFactory.exception(Loc(), Unset, "cannot set both 'error' and 'result' fields", ValueError),
+                    ErrorFactory.exception(Loc(), Unset, ValueError("cannot set both 'error' and 'result' fields")),
                 ],
             ),
         ],

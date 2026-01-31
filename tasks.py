@@ -11,6 +11,12 @@ def lint(ctx: invoke.Context):
     ctx.run("mypy modelity")
 
 
+@invoke.task(help={"report": "Report type. Run `pytest --help` for more details. Default: term"})
+def coverage(ctx: invoke.Context, report: str = "term"):
+    """Collect test coverage."""
+    ctx.run(f"pytest --cov=modelity --cov-report={report}")
+
+
 @invoke.task
 def test_docs(ctx: invoke.Context):
     """Test snippets from documentation."""
@@ -44,6 +50,13 @@ def build_docs(ctx: invoke.Context):
 def serve_docs(ctx: invoke.Context):
     """Build and serve HTML documentation for Modelity."""
     ctx.run("python -m http.server 8080 --directory docs/build/html")
+
+
+@invoke.task
+def serve_coverage(ctx: invoke.Context, port: int = 9090):
+    """Create HTML coverage report and serve it using local HTTP server."""
+    ctx.run("inv coverage -r html:reports/coverage/html")
+    ctx.run(f"python -m http.server {port} --directory reports/coverage/html")
 
 
 @invoke.task()

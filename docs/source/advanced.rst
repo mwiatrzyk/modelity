@@ -63,7 +63,7 @@ static method that will provide a type descriptor for **Vec2D** type:
                 return value  # Nothing is changed for Vec2D objects
             if isinstance(value, tuple) and len(value) == 2:
                 return Vec2D(*value)  # Convert from tuple
-            errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec2D or 2-element tuple", [Vec2D, tuple]))
+            errors.append(ErrorFactory.invalid_type(loc, value, [Vec2D], [Vec2D, tuple[float, float]]))
 
         # Visitor accepting logic goes in here
         # Choose best suited method here, depending on which one is closest to
@@ -98,9 +98,10 @@ Now, let's see this in action:
     >>> car.position = 'spam'  # fail; not Vec2D, 2-element tuple or dict
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'Car' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Car':
       position:
-        expecting Vec2D or 2-element tuple [code=modelity.UNSUPPORTED_VALUE_TYPE, value_type=<class 'str'>]
+        Not a valid value; expected a Vec2D [code=modelity.INVALID_TYPE, value_type=str, expected_types=[Vec2D], allowed_types=[Vec2D, tuple[float, float]]]
+
 
 Using ``type_descriptor_factory`` decorator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -234,10 +235,9 @@ coordinate:
     >>> cam.direction = 0, 1, 'spam'  # fail; at coordinate z; not a float number
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'Camera' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Camera':
       direction.z:
-        could not parse value as floating point number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
-
+        Not a valid float value [code=modelity.PARSE_ERROR, value_type=str, expected_type=float]
 
 Advanced validation patterns
 ----------------------------
@@ -278,9 +278,10 @@ or not:
     >>> validate(store)  # 'store' is the root model for validators
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'UserStore' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'UserStore':
       users.1.login:
-        the login is forbidden: foo [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        the login is forbidden: foo [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 Why not validating such or similar cases inside **UserStore** object?
 
@@ -296,11 +297,12 @@ verbose error report:
     >>> validate(store)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'UserStore' failed with 2 error(-s):
+    modelity.exc.ValidationError: Found 2 validation errors for model 'UserStore':
       users.1.login:
-        the login is forbidden: foo [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        the login is forbidden: foo [code=modelity.EXCEPTION, exc_type=ValueError]
       users.2.login:
-        the login is forbidden: bar [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        the login is forbidden: bar [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 If you need single combined error, then it would be better to validate
 inside **UserStore** instead.
@@ -361,15 +363,15 @@ validators:
     >>> validate(joe, ctx)  # Validation with context will fail for 'joe'...
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       login:
-        login already in use: joe [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        login already in use: joe [code=modelity.EXCEPTION, exc_type=ValueError]
     >>> validate(alice, ctx)  # ...or 'alice'
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       login:
-        login already in use: alice [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        login already in use: alice [code=modelity.EXCEPTION, exc_type=ValueError]
     >>> jack = User(login='jack', password='password')
     >>> validate(jack, ctx)  # But will succeed for jack
 

@@ -407,9 +407,9 @@ def location_validator(*loc_suffix_patterns: str):
         >>> validate(dummy)
         Traceback (most recent call last):
           ...
-        modelity.exc.ValidationError: validation of model 'Dummy' failed with 1 error(-s):
+        modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
           nested.foo:
-            value at nested.foo must be >= 0 [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+            value at nested.foo must be >= 0 [code=modelity.EXCEPTION, exc_type=ValueError]
 
     Thanks to this validator it is now possible to define entire validation
     logic for a model in one place without affecting nested models which may
@@ -560,12 +560,12 @@ def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, v
     try:
         return func(**kwargs)
     except ValueError as e:
-        errors.append(ErrorFactory.exception(loc, value, str(e), type(e)))
+        errors.append(ErrorFactory.exception(loc, value, e))
 
 
 def _run_processing_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any) -> Union[Any, UnsetType]:
     try:
         return func(**kwargs)
     except TypeError as e:
-        errors.append(ErrorFactory.exception(loc, value, str(e), type(e)))
+        errors.append(ErrorFactory.exception(loc, value, e))
         return Unset

@@ -84,9 +84,9 @@ during model construction:
     >>> bob.age = 'not an int'  # modifying with invalid type will fail
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       age:
-        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
     >>> bob.age = '26'  # this will automatically be converted to integer
     >>> bob.age
     26
@@ -117,9 +117,9 @@ For example, let's create a list of users:
     >>> storage.users.append(123)  # not allowed; cannot be converted to User
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'list' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'list':
       2:
-        could not parse value as User model [code=modelity.PARSING_ERROR, value_type=<class 'int'>]
+        Not a valid value; expected an User [code=modelity.INVALID_TYPE, value_type=int, expected_types=[User], allowed_types=[typing.Mapping]]
 
 .. note::
 
@@ -175,10 +175,9 @@ your app enters the data:
     >>> validate(user)  # failure; required 'age' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       age:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
-
+        This field is required [code=modelity.REQUIRED_MISSING]
 
 Defining a model class
 ----------------------
@@ -303,9 +302,9 @@ Example:
     >>> obj.foo = None  # fail; None is not allowed for strict optionals
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'StrictOptionalExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'StrictOptionalExample':
       foo:
-        could not parse union value; types tried: <class 'int'>, <class 'modelity.unset.UnsetType'> [code=modelity.UNION_PARSING_ERROR, value_type=<class 'NoneType'>]
+        Not a valid value; expected one of: int, UnsetType [code=modelity.INVALID_TYPE, value_type=NoneType, expected_types=[int, UnsetType]]
 
 .. important::
 
@@ -378,9 +377,9 @@ Example:
     >>> obj.foo = None  # fail; None is not allowed
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'StrictOptionalUnionExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'StrictOptionalUnionExample':
       foo:
-        could not parse union value; types tried: <class 'int'>, <class 'str'>, <class 'modelity.unset.UnsetType'> [code=modelity.UNION_PARSING_ERROR, value_type=<class 'NoneType'>]
+        Not a valid value; expected one of: int, str, UnsetType [code=modelity.INVALID_TYPE, value_type=NoneType, expected_types=[int, str, UnsetType]]
 
 .. note::
 
@@ -422,13 +421,13 @@ filled in with data. To check if all required fields are present,
     >>> validate(user)  # will fail, as all required fields are empty
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 3 error(-s):
+    modelity.exc.ValidationError: Found 3 validation errors for model 'User':
       dob:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
       email:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
       name:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
 
 Now let's initialize required fields and validate again. Validation will no
 longer fail:
@@ -626,9 +625,9 @@ given:
     >>> InvalidDefaultExample() # fail; default value is not an integer
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'InvalidDefaultExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'InvalidDefaultExample':
       foo:
-        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
     >>> obj = InvalidDefaultExample(foo=123)  # OK; 123 shadows invalid default value
     >>> obj.foo
     123
@@ -668,9 +667,9 @@ model object is created:
     >>> alice = User(email='alice@example')  # wrong e-mail address
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       email:
-        the value does not match regular expression pattern: [a-z]+\@[a-z]+\.[a-z]{2,3} [code=modelity.CONSTRAINT_FAILED, value_type=<class 'str'>]
+        String does not match the expected format [code=modelity.INVALID_STRING_FORMAT, value_type=str, expected_pattern='[a-z]+\\@[a-z]+\\.[a-z]{2,3}']
 
 Or when model object is modified:
 
@@ -681,9 +680,9 @@ Or when model object is modified:
     >>> bob.email = 'bob'
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       email:
-        the value does not match regular expression pattern: [a-z]+\@[a-z]+\.[a-z]{2,3} [code=modelity.CONSTRAINT_FAILED, value_type=<class 'str'>]
+        String does not match the expected format [code=modelity.INVALID_STRING_FORMAT, value_type=str, expected_pattern='[a-z]+\\@[a-z]+\\.[a-z]{2,3}']
 
 Constraints are also verified during validation. Consider this example:
 
@@ -716,9 +715,9 @@ And now the validation will fail, as the constraints are no longer satisfied:
     >>> validate(obj)  # fail; too many elements
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'MutableListExample' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'MutableListExample':
       foo:
-        the value is too long; maximum length is 4 [code=modelity.CONSTRAINT_FAILED, data={'max_len': 4}]
+        Length must be at most 4 [code=modelity.INVALID_LENGTH, max_length=4]
 
 This is possible thanks to the one of the core features of Modelity library;
 splitting data processing into data parsing and model validation.
@@ -776,9 +775,9 @@ If the field is tried to be set to a value of invalid type, then
     >>> user.age = 'not an int'
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       age:
-        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
     >>> user.age
     27
 
@@ -1051,9 +1050,9 @@ Example 2: Allow only strings as inputs
     >>> user.age = 27  # fail; not a string
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       age:
-        only strings are allowed as input [code=modelity.EXCEPTION, value_type=<class 'int'>]
+        only strings are allowed as input [code=modelity.EXCEPTION, value_type=int, exc_type=TypeError]
     >>> user.age = '27'  # OK
     >>> user.age
     27
@@ -1170,15 +1169,15 @@ assignment of an already valid objects only:
     >>> car.position = Vec2D(x=0)  # fail; 'y' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Vec2D' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'Vec2D':
       y:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
     >>> car.direction = Vec2D(y=4)  # fail; 'x' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Vec2D' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'Vec2D':
       x:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
     >>> car.direction = Vec2D(x=3, y=4)  # OK
     >>> car.direction.length()  # Normalization postprocessor still works
     1.0
@@ -1214,16 +1213,16 @@ the time when field is set, not when validation is performed. For example:
     >>> account.repeated_password = 'p@ssw0rd'  # fail; postprocessor requires 'password' to be set
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'Account' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Account':
       repeated_password:
-        no password set [code=modelity.EXCEPTION, value_type=<class 'str'>]
+        no password set [code=modelity.EXCEPTION, value_type=str, exc_type=TypeError]
     >>> account.password = 'p@ssw0rd'  # now the password is set
     >>> account.repeated_password = 'password'  # fail; the repeated password is incorrect
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'Account' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Account':
       repeated_password:
-        repeated password is incorrect [code=modelity.EXCEPTION, value_type=<class 'str'>]
+        repeated password is incorrect [code=modelity.EXCEPTION, value_type=str, exc_type=TypeError]
     >>> account.repeated_password = 'p@ssw0rd'  # OK
     >>> account
     Account(password='p@ssw0rd', repeated_password='p@ssw0rd')
@@ -1321,9 +1320,10 @@ dependencies on a per-model basis. Here's an example:
     >>> validate(obj)  # failure; wrong color given
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Example' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
       (empty):
-        unsupported color: black [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        unsupported color: black [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 Example 2: Validation skipping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1337,11 +1337,11 @@ without setting **color_selected** field:
     >>> validate(obj)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Example' failed with 2 error(-s):
+    modelity.exc.ValidationError: Found 2 validation errors for model 'Example':
       (empty):
-        unsupported color: Unset [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        unsupported color: Unset [code=modelity.EXCEPTION, exc_type=ValueError]
       color_selected:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
 
 As you can see, our custom model prevalidator was executed along with the
 built-in required field check. In this case this is kind of redundant error, so
@@ -1387,9 +1387,10 @@ And now, there will only be a single error:
     >>> validate(obj)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Example' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
       color_selected:
-        unsupported color: Unset [code=custom.INVALID_VALUE, data={}]
+        unsupported color: Unset [code=custom.INVALID_VALUE]
+
 
 And of course, if valid value is given, then validation will pass:
 
@@ -1438,27 +1439,28 @@ For example:
     >>> validate(bob)  # fail; required fields are missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 2 error(-s):
+    modelity.exc.ValidationError: Found 2 validation errors for model 'User':
       email:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
       repeated_email:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
     >>> bob.email = 'bob@example.com'
     >>> validate(bob)  # fail; 'repeated_email' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       repeated_email:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
     >>> bob.repeated_email = 'bob@example.com'
     >>> validate(bob)  # OK
     >>> alice = User(email='alice@example.com', repeated_email='bob@example.com')
     >>> validate(alice)  # fail; emails are not equal
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       repeated_email:
-        incorrect repeated e-mail address [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        incorrect repeated e-mail address [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 Using ``location_validator`` hook
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1503,9 +1505,10 @@ Here's an example:
     >>> validate(accounts)  # FAIL; here `name` is required by location validator
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'Storage' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'Storage':
       users.0:
-        stored users must have name assigned [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        stored users must have name assigned [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 As you can see, `name` is optional as a part of **User**, but becomes required
 when user is used as an item in `users` list.
@@ -1543,9 +1546,9 @@ example from above to use model postvalidator instead:
     >>> validate(john)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       (empty):
-        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, exc_type=ValueError]
 
 Please note, that postvalidator runs in the model scope, therefore error
 location points to the model. It is empty, because the model is the root model.
@@ -1563,9 +1566,10 @@ For nested model, the error would point to a field in a parent model instead:
     >>> validate(store)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'UserStore' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'UserStore':
       users.0:
-        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, data={'exc_type': <class 'ValueError'>}]
+        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, exc_type=ValueError]
+
 
 Customizing type parsers
 ------------------------
@@ -1660,9 +1664,9 @@ Example:
     >>> obj.foo = '02-01-1999'  # fail; does not match any of the input formats
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'DateTimeExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'DateTimeExample':
       foo:
-        unsupported datetime format; supported formats: YYYY-MM-DD hh:mm:ss, YYYY-MM-DD [code=modelity.UNSUPPORTED_DATETIME_FORMAT, value_type=<class 'str'>]
+        Not a valid datetime format; expected one of: YYYY-MM-DD hh:mm:ss, YYYY-MM-DD [code=modelity.INVALID_DATETIME_FORMAT, value_type=str, expected_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD']]
 
 .. doctest::
 
@@ -1721,9 +1725,9 @@ Example:
     >>> obj.foo = '02-01-1999 11:22:33'  # fail; does not match any of the input formats
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'DateExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'DateExample':
       foo:
-        unsupported date format; supported formats: YYYY-MM-DD, DD-MM-YYYY [code=modelity.UNSUPPORTED_DATE_FORMAT, value_type=<class 'str'>]
+        Not a valid date format; expected one of: YYYY-MM-DD, DD-MM-YYYY [code=modelity.INVALID_DATE_FORMAT, value_type=str, expected_formats=['YYYY-MM-DD', 'DD-MM-YYYY']]
 
 .. doctest::
 
@@ -1761,9 +1765,9 @@ Example:
     >>> obj.foo = b'\xff'  # fail; ascii codec can't decode this
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'PosixPathExample' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'PosixPathExample':
       foo:
-        not a valid path value; could not decode bytes using 'ascii' codec [code=modelity.PARSING_ERROR, value_type=<class 'bytes'>]
+        Invalid text encoding [code=modelity.DECODE_ERROR, value_type=bytes, expected_encodings=['ascii']]
 
 .. doctest::
 

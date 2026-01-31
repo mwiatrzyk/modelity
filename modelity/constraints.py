@@ -137,7 +137,7 @@ class MinLen(IConstraint):
 @dataclasses.dataclass(frozen=True)
 class MaxLen(IConstraint):
     """Maximum length constraint.
-    
+
     Can be used with sized types, like containers, :class:`byte` or
     :class:`str`.
 

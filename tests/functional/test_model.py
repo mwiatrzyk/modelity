@@ -9,7 +9,7 @@ from mockify.api import Mock, ordered, satisfied, Raise, Return
 
 from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
 from modelity.error import Error, ErrorFactory
-from modelity.exc import ParsingError, ParsingError, ValidationError
+from modelity.exc import ParsingError, ParsingError, UnsupportedTypeError, ValidationError
 from modelity.interface import IModelVisitor, ITypeDescriptor
 from modelity.loc import Loc
 from modelity.model import FieldInfo, Model
@@ -43,6 +43,15 @@ def mock():
 @pytest.fixture
 def sut(SUT):
     return SUT()
+
+
+def test_exception_is_raised_if_model_is_created_with_unsupported_type():
+    with pytest.raises(UnsupportedTypeError) as excinfo:
+
+        class Dummy(Model):
+            foo: object
+
+    assert excinfo.value.typ is object
 
 
 class CustomType:
@@ -634,7 +643,7 @@ class TestModelWithModelPrevalidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, ValueError("an error")),)
 
     @pytest.mark.parametrize(
         "arg_name, expect_call_arg",
@@ -789,7 +798,7 @@ class TestModelWithModelPostvalidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc(), Unset, ValueError("an error")),)
 
     @pytest.mark.parametrize(
         "arg_name, expect_call_arg",
@@ -933,7 +942,7 @@ class TestModelWithFieldValidators:
         mock.foo.expect_call().will_once(Raise(ValueError("an error")))
         with pytest.raises(ValidationError) as excinfo:
             validate(sut)
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 1, "an error", ValueError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 1, ValueError("an error")),)
 
     @pytest.mark.parametrize(
         "arg_name, expected_call_arg",
@@ -1282,7 +1291,7 @@ class TestModelWithFieldPreprocessors:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo = 123
         assert excinfo.value.typ is SUT
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, TypeError("an error")),)
 
     def test_field_preprocessor_can_be_provided_by_mixin(self, mock):
         class Mixin:
@@ -1417,7 +1426,7 @@ class TestModelWithFieldPostprocessors:
         with pytest.raises(ParsingError) as excinfo:
             sut.foo = 123
         assert excinfo.value.typ is SUT
-        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, "an error", TypeError),)
+        assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 123, TypeError("an error")),)
 
     def test_field_postprocessor_can_be_provided_by_mixin(self, mock):
         class Mixin:

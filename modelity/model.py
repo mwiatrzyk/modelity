@@ -251,9 +251,9 @@ class Model(metaclass=ModelMeta):
         >>> validate(dummy)  # Validation will fail, as required field `baz` is missing
         Traceback (most recent call last):
             ...
-        modelity.exc.ValidationError: validation of model 'Dummy' failed with 1 error(-s):
+        modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
           baz:
-            this field is required [code=modelity.REQUIRED_MISSING, data={}]
+            This field is required [code=modelity.REQUIRED_MISSING]
         >>> dummy.baz = True  # Now the last field is also set (models are mutable)
         >>> validate(dummy)  # Now the model is valid
         >>> dummy

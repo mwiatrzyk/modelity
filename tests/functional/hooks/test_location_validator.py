@@ -45,7 +45,7 @@ def test_value_error_exception_is_converted_into_error(mock):
     mock.foo.expect_call().will_once(Raise(ValueError("an error")))
     with pytest.raises(ValidationError) as excinfo:
         validate(sut)
-    assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 1, "an error", ValueError),)
+    assert excinfo.value.errors == (ErrorFactory.exception(Loc("foo"), 1, ValueError("an error")),)
 
 
 @pytest.mark.parametrize(

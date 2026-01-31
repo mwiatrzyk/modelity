@@ -58,9 +58,9 @@ is not correct and Modelity failed trying to parse it, then
     >>> bob = User(name='Bob', email='bob@example.com', age='30 yrs')  # age is not valid, as it is not a numeric value
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       age:
-        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
 
 Modelity does not force you to give all the required arguments during
 construction, as presence of required fields is checked during validation
@@ -115,9 +115,10 @@ If the model is valid, the function will not raise any exceptions. Otherwise,
     >>> validate(joe)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 1 error(-s):
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
       age:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
+
 
 Serializing model instances
 ---------------------------
@@ -177,17 +178,17 @@ validation:
     >>> UserLoader(age="25 yrs")
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: parsing failed for type 'User' with 1 error(-s):
+    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
       age:
-        could not parse value as integer number [code=modelity.PARSING_ERROR, value_type=<class 'str'>]
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
 
 .. doctest::
 
     >>> UserLoader(name="Mike")
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: validation of model 'User' failed with 2 error(-s):
+    modelity.exc.ValidationError: Found 2 validation errors for model 'User':
       age:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
       email:
-        this field is required [code=modelity.REQUIRED_MISSING, data={}]
+        This field is required [code=modelity.REQUIRED_MISSING]
