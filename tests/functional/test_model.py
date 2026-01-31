@@ -7,7 +7,7 @@ import pytest
 
 from mockify.api import Mock, ordered, satisfied, Raise, Return
 
-from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Regex
+from modelity.constraints import Ge, Gt, Le, Lt, MinLen, MaxLen, Range, Regex
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ParsingError, UnsupportedTypeError, ValidationError
 from modelity.interface import IModelVisitor, ITypeDescriptor
@@ -104,6 +104,7 @@ class TestModelWithOneField:
             (Annotated[float, Ge(0.0), Le(1.0)], None, "1.0", 1.0),
             (Annotated[float, Ge(0.0), Lt(1.0)], None, "0.999", 0.999),
             (Annotated[float, Gt(0.0), Le(1.0)], None, "0.111", 0.111),
+            (Annotated[float, Range(Gt(0), Le(1))], None, "0.111", 0.111),
             (Annotated[str, MinLen(1), MaxLen(3)], None, "a", "a"),
             (Annotated[str, MinLen(1), MaxLen(3)], None, "foo", "foo"),
             (Annotated[str, Regex(r"^[0-9]+$")], None, "0123456789", "0123456789"),
@@ -189,6 +190,10 @@ class TestModelWithOneField:
             (Annotated[float, Gt(0.0)], None, 0.0, [ErrorFactory.out_of_range(Loc("foo"), 0.0, min_exclusive=0.0)]),
             (Annotated[float, Le(1.0)], None, 1.1, [ErrorFactory.out_of_range(Loc("foo"), 1.1, max_inclusive=1.0)]),
             (Annotated[float, Lt(1.0)], None, 1.0, [ErrorFactory.out_of_range(Loc("foo"), 1.0, max_exclusive=1.0)]),
+            (Annotated[float, Range(Ge(0), Le(1))], None, 2.0, [ErrorFactory.out_of_range(Loc("foo"), 2.0, min_inclusive=0, max_inclusive=1)]),
+            (Annotated[float, Range(Ge(0), Lt(1))], None, 1.0, [ErrorFactory.out_of_range(Loc("foo"), 1.0, min_inclusive=0, max_exclusive=1)]),
+            (Annotated[float, Range(Gt(0), Le(1))], None, 0, [ErrorFactory.out_of_range(Loc("foo"), 0, min_exclusive=0, max_inclusive=1)]),
+            (Annotated[float, Range(Gt(0), Lt(1))], None, 1, [ErrorFactory.out_of_range(Loc("foo"), 1, min_exclusive=0, max_exclusive=1)]),
             (Annotated[str, MinLen(1)], None, "", [ErrorFactory.invalid_length(Loc("foo"), "", min_length=1)]),
             (Annotated[str, MaxLen(3)], None, "spam", [ErrorFactory.invalid_length(Loc("foo"), "spam", max_length=3)]),
             (

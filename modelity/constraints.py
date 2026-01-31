@@ -18,9 +18,6 @@ class Ge(IConstraint):
     """Greater-or-equal constraint.
 
     Used to specify minimum inclusive value for a numeric field.
-
-    :param min_inclusive:
-        The minimum inclusive value.
     """
 
     #: The minimum inclusive value set for this constraint.
@@ -42,9 +39,6 @@ class Gt(IConstraint):
     """Greater-than constraint.
 
     Used to specify minimum exclusive value for a numeric field.
-
-    :param min_exclusive:
-        The minimum exclusive value.
     """
 
     #: The minimum exclusive value set for this constraint.
@@ -66,9 +60,6 @@ class Le(IConstraint):
     """Less-or-equal constraint.
 
     Used to set maximum inclusive value for a numeric field.
-
-    :param max_inclusive:
-        The maximum inclusive value.
     """
 
     #: The maximum inclusive value set for this constraint.
@@ -90,9 +81,6 @@ class Lt(IConstraint):
     """Less-than constraint.
 
     Used to set maximum exclusive value for a numeric field.
-
-    :param max_exclusive:
-        The maximum exclusive value.
     """
 
     #: The maximum exclusive value set for this constraint.
@@ -110,14 +98,49 @@ class Lt(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
+class Range(IConstraint):
+    """Range constraint.
+
+    Used to set allowed value range for a numeric field using one of
+    :class:`Lt` or :class:`Gt` for minimum value, and one of :class:`Lt` or
+    :class:`Le` for maximum value.
+
+    .. versionadded:: 0.28.0
+    """
+
+    #: The minimum value.
+    min: Gt | Ge
+
+    #: The maximum value.
+    max: Lt | Le
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.min!r}, {self.max!r})"
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        tmp_errors = []
+        if self.min(tmp_errors, loc, value) and self.max(tmp_errors, loc, value):
+            return True
+        kwargs = {}
+        if isinstance(self.min, Gt):
+            kwargs["min_exclusive"] = self.min.min_exclusive
+        else:
+            kwargs["min_inclusive"] = self.min.min_inclusive
+        if isinstance(self.max, Lt):
+            kwargs["max_exclusive"] = self.max.max_exclusive
+        else:
+            kwargs["max_inclusive"] = self.max.max_inclusive
+        errors.append(ErrorFactory.out_of_range(loc, value, **kwargs))
+        return False
+
+
+@export
+@dataclasses.dataclass(frozen=True)
 class MinLen(IConstraint):
     """Minimum length constraint.
 
     Can be used with sized types, like containers, :class:`byte` or
     :class:`str`.
-
-    :param min_len:
-        The minimum length.
     """
 
     #: Minimum length.
