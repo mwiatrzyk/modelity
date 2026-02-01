@@ -31,21 +31,20 @@ inheritance handling and generation of the ``__slots__`` attribute in models.
 Modelity does not override field reading in any way, there is Python's built-in
 logic used underneath when fields are read. Instead, Modelity overrides
 ``__setattr__`` and injects data parsing logic there. As a result, model read
-operations are fast, while write operations are costly.
+operations are fast.
 
-Built-in sentinel for representing unset fields
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Built-in ``Unset`` constant for unset fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Modelity uses special built-in :class:`modelity.unset.UnsetType` singleton
 class with provided built-in :obj:`modelity.unset.Unset` object to
 represent the unset state of model fields. When model object is created,
-all fields are initially set to this ``Unset`` value, unless user-defined
-value is provided:
+all fields are initially set to ``Unset``, unless user-defined value is
+provided:
 
 .. testcode::
 
-    from modelity.model import Model
-    from modelity.unset import Unset
+    from modelity.api import Model, Unset
 
     class User(Model):
         name: str
@@ -64,17 +63,15 @@ value is provided:
 
 Thanks to this special sentinel, fields that are unset are different from
 fields that are set to ``None``. Moreover, with this feature ``None``
-becomes a **first-class value** that must by accepted by the field that you
-try to assign ``None`` for (like once using :obj:`typing.Optional`, for
-instance).
+becomes a **first-class value** and must be explicitly accepted as a field's
+valid value.
 
-Mutability is a first-class citizen
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Mutability of models is important
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Modelity aims to provide full support for mutable types to prevent from
-breaking the model constraints when model, or mutable model fields, are
-modified. For example, modifying *age* invokes same parsing logic as used
-during model construction:
+breaking model constraints when model is modified. For example, modifying *age*
+invokes same parsing logic as used during model construction:
 
 .. doctest::
 
@@ -133,29 +130,28 @@ For example, let's create a list of users:
 Input data parsing is separated from model validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Modelity splits data processing into two stages:
+Modelity splits data processing into two stages: **parsing**, where models are
+constructed from raw data, and **validation**, where integrity of existing
+model instance is checked.
 
-* input data parsing,
-* and model validation.
+Input data parsing is executed automatically whenever model object is created,
+field in an existing model is set, or when field of mutable type is modified.
+The role of this stage is to ensure that input value has the right type at the
+end of assignment or modification. Data parsing is executed for each field in
+separation. If the type of the input value is incorrect and conversion was not
+successful, then :exc:`modelity.exc.ParsingError` exception is raised at this
+stage.
 
-Input data parsing is executed automatically whenever model object is
-created, when field in an existing model is set, or when field of mutable
-type is modified. The role of this stage is to ensure that input value has
-the right type at the end of assignment or modification. Data parsing is
-executed for each field in separation. If the type of the input value is
-incorrect and conversion was not successful, then
-:exc:`modelity.exc.ParsingError` exception is raised at this stage.
-
-Model validation, unlike input data parsing, happens on user's demand and
-is performed with :func:`modelity.helpers.validate` helper. The role of
-this stage is to ensure presence of required fields and to ensure that any
-user-defined cross-field dependencies are met. Model validation happens on
-per-model basis, therefore validators have access to entire model.
-Validators also does not have to check field types, as this was already
-performed by input data parsing stage. The ability to run validation on
-demand allows the user to progressively fill the model with data and
-validate once the model initialization is done. Failure of validation is
-signalled using :exc:`modelity.exc.ValidationError` exception.
+Model validation, unlike input data parsing, happens on user's demand and is
+performed with :func:`modelity.helpers.validate` helper. The role of this stage
+is to ensure presence of required fields and to ensure that any user-defined
+cross-field dependencies are met. Model validation happens on per-model basis,
+therefore validators have access to entire model. Validators also do not have
+to check field types, as this was already performed by input data parsing
+stage. The ability to run validation on demand allows the user to progressively
+fill the model with data and validate once the model initialization is done.
+Failure of validation is signalled using :exc:`modelity.exc.ValidationError`
+exception.
 
 Presence of required fields is checked at validation stage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -164,12 +160,13 @@ Although this may be pointed out as error by static code analyzers,
 Modelity does not force you to initialize your model classes with all
 required fields set. You can, of course, but this is not required. Thanks
 to this, it is possible to initialize models progressively, as user of
-your app enters the data:
+your app enters the data, with no need of filling required fields with fake
+data:
 
 .. doctest::
 
     >>> from modelity.helpers import validate
-    >>> user = User()  # OK
+    >>> user = User()  # OK for Modelity, but linters may point this as error
     >>> user.name = 'John'
     >>> user.email = 'john@example.com'
     >>> validate(user)  # failure; required 'age' is missing
@@ -178,6 +175,8 @@ your app enters the data:
     modelity.exc.ValidationError: Found 1 validation error for model 'User':
       age:
         This field is required [code=modelity.REQUIRED_MISSING]
+    >>> user.age = 32  # Fill the missing data
+    >>> validate(user)  # OK
 
 Defining a model class
 ----------------------
