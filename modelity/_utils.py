@@ -1,6 +1,5 @@
 """General purpose common utility functions."""
 
-import functools
 import inspect
 import itertools
 from typing import (
@@ -11,10 +10,8 @@ from typing import (
     MutableSequence,
     Sequence,
     TypeVar,
-    Union,
     get_args,
     get_origin,
-    overload,
 )
 
 T = TypeVar("T")
@@ -72,8 +69,6 @@ def describe(obj: Any) -> str:
         return "Literal"
     if obj is Ellipsis:
         return "..."
-    if isinstance(obj, type):
-        return obj.__qualname__
     if isinstance(obj, (str, bytes)):
         return repr(obj)
     if isinstance(obj, Mapping):
@@ -90,6 +85,8 @@ def describe(obj: Any) -> str:
             return f"{describe(origin)}[{', '.join(describe(x) for x in args)}]"
         else:
             return describe(origin)
+    if isinstance(obj, type):
+        return obj.__qualname__
     return repr(obj)
 
 
