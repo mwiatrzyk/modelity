@@ -1,4 +1,4 @@
-from typing_extensions import TypeGuard
+from typing import Final, TypeGuard
 
 from modelity import _utils
 
@@ -39,4 +39,4 @@ def is_unset(obj: object) -> TypeGuard[UnsetType]:
 
 
 #: Singleton instance of the UnsetType.
-Unset = UnsetType()
+Unset: Final = UnsetType()
