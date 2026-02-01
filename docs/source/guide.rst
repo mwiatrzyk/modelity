@@ -119,7 +119,7 @@ For example, let's create a list of users:
       ...
     modelity.exc.ParsingError: Found 1 parsing error for type 'list':
       2:
-        Not a valid value; expected an User [code=modelity.INVALID_TYPE, value_type=int, expected_types=[User], allowed_types=[typing.Mapping]]
+        Not a valid value; expected: User [code=modelity.INVALID_TYPE, value_type=int, expected_types=[User], allowed_types=[typing.Mapping]]
 
 .. note::
 

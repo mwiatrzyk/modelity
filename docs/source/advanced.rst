@@ -100,8 +100,7 @@ Now, let's see this in action:
       ...
     modelity.exc.ParsingError: Found 1 parsing error for type 'Car':
       position:
-        Not a valid value; expected a Vec2D [code=modelity.INVALID_TYPE, value_type=str, expected_types=[Vec2D], allowed_types=[Vec2D, tuple[float, float]]]
-
+        Not a valid value; expected: Vec2D [code=modelity.INVALID_TYPE, value_type=str, expected_types=[Vec2D], allowed_types=[Vec2D, tuple[float, float]]]
 
 Using ``type_descriptor_factory`` decorator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

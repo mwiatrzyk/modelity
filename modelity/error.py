@@ -270,7 +270,7 @@ class ErrorFactory:
         if len(expected_types) > 1:
             msg += f"; expected one of: {expected_types_str}"
         else:
-            msg += f"; expected {_utils.articlify(expected_types_str)}"
+            msg += f"; expected: {expected_types_str}"
         data = {"expected_types": expected_types}
         if allowed_types is not None:
             data["allowed_types"] = allowed_types

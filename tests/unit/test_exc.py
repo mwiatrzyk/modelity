@@ -46,7 +46,7 @@ class TestModelError:
                 ],
                 {},
                 "foo:\n"
-                "  Not a valid value; expected a str",
+                "  Not a valid value; expected: str",
             ),
             (
                 [
@@ -65,7 +65,7 @@ class TestModelError:
                 ],
                 {"show_value": True},
                 "foo:\n"
-                "  Not a valid value; expected a str [value=123]",
+                "  Not a valid value; expected: str [value=123]",
             ),
             (
                 [
@@ -73,7 +73,7 @@ class TestModelError:
                 ],
                 {"show_value_type": True},
                 "foo:\n"
-                "  Not a valid value; expected a str [value_type=int]",
+                "  Not a valid value; expected: str [value_type=int]",
             ),
             (
                 [
@@ -81,7 +81,7 @@ class TestModelError:
                 ],
                 {"show_data": True},
                 "foo:\n"
-                "  Not a valid value; expected a str [expected_types=[str], allowed_types=[bytes], forbidden_types=[int, float]]",
+                "  Not a valid value; expected: str [expected_types=[str], allowed_types=[bytes], forbidden_types=[int, float]]",
             ),
         ],
     )
