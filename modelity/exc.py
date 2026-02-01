@@ -75,10 +75,7 @@ class ModelError(ModelityError):
     @property
     def typ_name(self) -> str:
         """Return the name of the type."""
-        name = getattr(self.typ, "__qualname__", None)
-        if name is not None:
-            return name
-        return self.typ.__name__
+        return _utils.describe(self.typ)
 
     def format_errors(
         self,

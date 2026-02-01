@@ -117,7 +117,7 @@ For example, let's create a list of users:
     >>> storage.users.append(123)  # not allowed; cannot be converted to User
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'list':
+    modelity.exc.ParsingError: Found 1 parsing error for type 'list[User]':
       2:
         Not a valid value; expected: User [code=modelity.INVALID_TYPE, value_type=int, expected_types=[User], allowed_types=[typing.Mapping]]
 
@@ -717,7 +717,7 @@ And now the validation will fail, as the constraints are no longer satisfied:
       ...
     modelity.exc.ValidationError: Found 1 validation error for model 'MutableListExample':
       foo:
-        Length must be at most 4 [code=modelity.INVALID_LENGTH, max_length=4]
+        Expected length <= 4 [code=modelity.INVALID_LENGTH, max_length=4]
 
 This is possible thanks to the one of the core features of Modelity library;
 splitting data processing into data parsing and model validation.

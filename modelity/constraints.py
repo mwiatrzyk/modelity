@@ -118,7 +118,7 @@ class Range(IConstraint):
         return f"{self.__class__.__name__}({self.min!r}, {self.max!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
-        tmp_errors = []
+        tmp_errors: list[Error] = []
         if self.min(tmp_errors, loc, value) and self.max(tmp_errors, loc, value):
             return True
         kwargs = {}

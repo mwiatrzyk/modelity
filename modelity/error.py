@@ -175,7 +175,7 @@ class ErrorFactory:
         return Error(
             loc,
             ErrorCode.PARSE_ERROR,
-            msg or f"Not a valid {expected_type.__name__} value",
+            msg or f"Not a valid {_utils.describe(expected_type)} value",
             value,
             data={"expected_type": expected_type, **extra_data},
         )
@@ -205,7 +205,7 @@ class ErrorFactory:
         :param expected_type:
             Expected value type.
         """
-        msg = f"Cannot convert {type(value).__name__} to {expected_type.__name__}; {reason}"
+        msg = f"Cannot convert {_utils.describe(type(value))} to {_utils.describe(expected_type)}; {reason}"
         return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type})
 
     @staticmethod
@@ -221,11 +221,16 @@ class ErrorFactory:
         :param expected_values:
             List with expected values.
         """
-        expected_values_str = ", ".join(repr(x) for x in expected_values)
+        expected_values_str = ", ".join(_utils.describe(x) for x in expected_values)
+        msg = "Not a valid value; expected"
+        if len(expected_values) > 1:
+            msg += f" one of: {expected_values_str}"
+        else:
+            msg += f": {expected_values_str}"
         return Error(
             loc,
             ErrorCode.INVALID_VALUE,
-            f"Not a valid value; expected one of: {expected_values_str}",
+            msg,
             value,
             data={"expected_values": expected_values},
         )
@@ -265,7 +270,7 @@ class ErrorFactory:
             This is used to specify types that are arbitrary forbidden and will
             fail value processing immediately when encountered.
         """
-        expected_types_str = ", ".join(x.__name__ for x in expected_types)
+        expected_types_str = ", ".join(_utils.describe(x) for x in expected_types)
         msg = "Not a valid value"
         if len(expected_types) > 1:
             msg += f"; expected one of: {expected_types_str}"
@@ -292,10 +297,15 @@ class ErrorFactory:
             List with expected datetime formats.
         """
         expected_formats_str = ", ".join(expected_formats)
+        msg = "Not a valid datetime format; expected"
+        if len(expected_formats) > 1:
+            msg += f" one of: {expected_formats_str}"
+        else:
+            msg += f": {expected_formats_str}"
         return Error(
             loc,
             ErrorCode.INVALID_DATETIME_FORMAT,
-            f"Not a valid datetime format; expected one of: {expected_formats_str}",
+            msg,
             value=value,
             data={"expected_formats": expected_formats},
         )
@@ -314,10 +324,15 @@ class ErrorFactory:
             List with expected date formats.
         """
         expected_formats_str = ", ".join(expected_formats)
+        msg = "Not a valid date format; expected"
+        if len(expected_formats) > 1:
+            msg += f" one of: {expected_formats_str}"
+        else:
+            msg += f": {expected_formats_str}"
         return Error(
             loc,
             ErrorCode.INVALID_DATE_FORMAT,
-            f"Not a valid date format; expected one of: {expected_formats_str}",
+            msg,
             value=value,
             data={"expected_formats": expected_formats},
         )
@@ -417,19 +432,29 @@ class ErrorFactory:
             data["max_inclusive"] = max_inclusive
         if max_exclusive is not None:
             data["max_exclusive"] = max_exclusive
-        if "min_inclusive" in data and "min_exclusive" in data:
+        if min_inclusive is not None and min_exclusive is not None:
             raise ValueError("cannot have both 'min_inclusive' and 'min_exclusive' arguments set")
-        if "max_inclusive" in data and "max_exclusive" in data:
+        if max_inclusive is not None and max_exclusive is not None:
             raise ValueError("cannot have both 'max_inclusive' and 'max_exclusive' arguments set")
         # TODO: on or after, on or before for dates
-        if "min_inclusive" in data:
-            msg = f"Value must be greater than or equal to {min_inclusive}"
-        elif "min_exclusive" in data:
-            msg = f"Value must be greater than {min_exclusive}"
-        elif "max_inclusive" in data:
-            msg = f"Value must be less than or equal to {max_inclusive}"
+        if min_inclusive is not None and max_inclusive is not None:
+            msg = f"Expected value in range [{min_inclusive}, {max_inclusive}]"
+        elif min_inclusive is not None and max_exclusive is not None:
+            msg = f"Expected value in range [{min_inclusive}, {max_exclusive})"
+        elif min_exclusive is not None and max_inclusive is not None:
+            msg = f"Expected value in range ({min_exclusive}, {max_inclusive}]"
+        elif min_exclusive is not None and max_exclusive is not None:
+            msg = f"Expected value in range ({min_exclusive}, {max_exclusive})"
+        elif min_inclusive is not None:
+            msg = f"Value must be >= {min_inclusive}"
+        elif min_exclusive is not None:
+            msg = f"Value must be > {min_exclusive}"
+        elif max_inclusive is not None:
+            msg = f"Value must be <= {max_inclusive}"
+        elif max_exclusive is not None:
+            msg = f"Value must be < {max_exclusive}"
         else:
-            msg = f"Value must be less than {max_exclusive}"
+            raise TypeError("need one or more range arguments: min_inclusive, min_exclusive, max_inclusive, max_exclusive")
         return Error(loc, ErrorCode.OUT_OF_RANGE, msg, value, data=data)
 
     @staticmethod
@@ -453,20 +478,23 @@ class ErrorFactory:
         :param max_length:
             Maximum length.
         """
+        if min_length is not None and max_length is not None:
+            msg = f"Expected length in range [{min_length}, {max_length}]"
+        elif min_length is not None:
+            msg = f"Expected length >= {min_length}"
+        elif max_length is not None:
+            msg = f"Expected length <= {max_length}"
+        else:
+            raise TypeError("need 'min_length', 'max_length' or both")
         data = {}
         if min_length is not None:
             data["min_length"] = min_length
         if max_length is not None:
             data["max_length"] = max_length
-        #: TODO: Length must be between {min_length} and {max_length}
-        if "min_length" in data:
-            msg = f"Length must be at least {min_length}"
-        else:
-            msg = f"Length must be at most {max_length}"
         return Error(loc, ErrorCode.INVALID_LENGTH, msg, value, data=data)
 
     @staticmethod
-    def invalid_string_format(loc: Loc, value: str, expected_pattern: str) -> Error:
+    def invalid_string_format(loc: Loc, value: str, expected_pattern: str, msg: Optional[str]=None) -> Error:
         """Create invalid string format error.
 
         :param loc:
@@ -477,11 +505,14 @@ class ErrorFactory:
 
         :param expected_pattern:
             Expected string pattern (f.e. regex pattern).
+
+        :param msg:
+            Optional user-defined message to use instead of built-in one.
         """
         return Error(
             loc,
             ErrorCode.INVALID_STRING_FORMAT,
-            "String does not match the expected format",
+            "String does not match the expected format" if msg is None else msg,
             value,
             data={
                 "expected_pattern": expected_pattern,

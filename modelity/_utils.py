@@ -1,8 +1,9 @@
 """General purpose common utility functions."""
 
+import functools
 import inspect
 import itertools
-from typing import Any, Callable, Sequence, TypeVar, Union, overload
+from typing import Any, Callable, Literal, Mapping, MutableSequence, Sequence, TypeVar, Union, get_args, get_origin, overload
 
 T = TypeVar("T")
 
@@ -47,6 +48,37 @@ def is_neither_str_nor_bytes_sequence(obj: object) -> bool:
 def format_signature(sig: Sequence[str]) -> str:
     """Format function's signature as string."""
     return f"({', '.join(sig)})"
+
+
+def describe(obj: Any) -> str:
+    """Describe object as string for the purpose of error formatting.
+
+    :param obj:
+        The object to get string representation for.
+    """
+    if obj is Literal:
+        return "Literal"
+    if obj is Ellipsis:
+        return "..."
+    if isinstance(obj, type):
+        return obj.__qualname__
+    if isinstance(obj, (str, bytes)):
+        return repr(obj)
+    if isinstance(obj, Mapping):
+        items = (f"{k!r}: {describe(v)}" for k, v in obj.items())
+        return "{" + ", ".join(items) + "}"
+    if isinstance(obj, MutableSequence):
+        return f"[{', '.join(describe(x) for x in obj)}]"
+    if isinstance(obj, Sequence):
+        return f"({', '.join(describe(x) for x in obj)})"
+    origin = get_origin(obj)
+    if origin is not None:
+        args = get_args(obj)
+        if args:
+            return f"{describe(origin)}[{', '.join(describe(x) for x in args)}]"
+        else:
+            return describe(origin)
+    return repr(obj)
 
 
 def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
