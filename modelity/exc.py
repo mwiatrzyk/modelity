@@ -1,13 +1,10 @@
-from typing import Any, Callable, Literal, Optional, cast
+from io import StringIO
+from typing import Any, Optional
 
 from modelity import _utils
-from modelity.error import Error
+from modelity.error import Error, ErrorWriter
 
 __all__ = export = _utils.ExportList()  # type: ignore
-
-
-def _sort_by_loc(error: Error) -> Any:
-    return error.loc
 
 
 @export
@@ -77,83 +74,6 @@ class ModelError(ModelityError):
         """Return the name of the type."""
         return _utils.describe(self.typ)
 
-    def format_errors(
-        self,
-        indent_string: str = "  ",
-        indent_level: int = 0,
-        sort_key: Optional[Callable[[Error], Any]] = None,
-        show_code: bool = False,
-        show_value: bool = False,
-        show_value_type: bool = False,
-        show_data: bool = False,
-    ) -> str:
-        """Format error list as string.
-
-        Returns errors formatted according to options provided.
-
-        .. versionadded:: 0.28.0
-            This method replaced ``formatted_errors`` property used earlier.
-
-        :param indent_string:
-            Indentation string.
-
-        :param indent_level:
-            Indentation level.
-
-        :param sort_key:
-            Sort errors using given sort key or set to ``None`` to disable
-            sorting.
-
-        :param show_code:
-            Display error code for each formatted error.
-
-        :param show_value:
-            Display value for each formatted error.
-
-        :param show_value_type:
-            Display value type for each formatted error.
-
-        :param show_data:
-            Display content of :attr:`modelity.error.Error.data` attribute.
-        """
-        out = []
-        loc_indent = indent_string * indent_level
-        msg_indent = indent_string * (indent_level + 1)
-        if sort_key is not None:
-            errors = sorted(self.errors, key=sort_key)
-        else:
-            errors = cast(list[Error], self.errors)
-        for error in errors:
-            params = {}
-            if show_code:
-                params["code"] = error.code
-            if show_value:
-                params["value"] = str(error.value)
-            if show_value_type:
-                params["value_type"] = error.value.__class__.__name__
-            if show_data:
-                params.update((k, self._format_any(v)) for k, v in error.data.items())
-            params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-            if params_str:
-                params_str = f" [{params_str}]"
-            out.append(f"{loc_indent}{error.loc}:")
-            out.append(f"{msg_indent}{error.msg}{params_str}")
-        return "\n".join(out)
-
-    @classmethod
-    def _format_any(cls, obj: Any) -> str:
-        if isinstance(obj, list):
-            return cls._format_list(obj)
-        if isinstance(obj, type):
-            return obj.__name__
-        if isinstance(obj, str):
-            return repr(obj)
-        return str(obj)
-
-    @classmethod
-    def _format_list(cls, obj: list) -> str:
-        return f"[{', '.join(cls._format_any(x) for x in obj)}]"
-
 
 @export
 class ParsingError(ModelError):
@@ -166,10 +86,11 @@ class ParsingError(ModelError):
     def __str__(self) -> str:
         error_count = len(self.errors)
         error_or_errors = "error" if error_count == 1 else "errors"
-        formatted_errors = self.format_errors(
-            indent_level=1, sort_key=_sort_by_loc, show_code=True, show_value_type=True, show_data=True
-        )
-        return f"Found {error_count} parsing {error_or_errors} for type {self.typ_name!r}:\n{formatted_errors}"
+        buffer = StringIO()
+        writer = ErrorWriter(buffer, indent_level=1, show_code=True, show_value_type=True, show_data=True)
+        for error in sorted(self.errors, key=lambda x: x.loc):
+            writer.write(error)
+        return f"Found {error_count} parsing {error_or_errors} for type {self.typ_name!r}:\n{buffer.getvalue().rstrip()}"
 
 
 @export
@@ -199,5 +120,8 @@ class ValidationError(ModelError):
     def __str__(self) -> str:
         error_count = len(self.errors)
         error_or_errors = "error" if error_count == 1 else "errors"
-        formatted_errors = self.format_errors(indent_level=1, sort_key=_sort_by_loc, show_code=True, show_data=True)
-        return f"Found {error_count} validation {error_or_errors} for model {self.typ_name!r}:\n{formatted_errors}"
+        buffer = StringIO()
+        writer = ErrorWriter(buffer, indent_level=1, show_code=True, show_data=True)
+        for error in sorted(self.errors, key=lambda x: x.loc):
+            writer.write(error)
+        return f"Found {error_count} validation {error_or_errors} for model {self.typ_name!r}:\n{buffer.getvalue().rstrip()}"

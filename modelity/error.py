@@ -1,6 +1,6 @@
 import dataclasses
 from enum import Enum
-from typing import Any, Optional, Sequence, Sized
+from typing import Any, Optional, Sequence, Sized, TextIO
 
 from modelity import _utils
 from modelity.loc import Loc
@@ -147,6 +147,78 @@ class Error:
     def value_type(self) -> type:
         """The type of the incorrect value."""
         return type(self.value)
+
+
+@export
+class ErrorWriter:
+    """Class that formats errors as string and appends to the end of provided
+    text buffer.
+
+    :param out:
+        The output text buffer.
+
+    :param indent_string:
+        Indentation string.
+
+    :param indent_level:
+        Indentation level.
+
+    :param show_code:
+        Display error code.
+
+    :param show_value:
+        Display input value.
+
+    :param show_value_type:
+        Display input value type.
+
+    :param show_data:
+        Display additional error data.
+
+    .. versionadded:: 0.28.0
+    """
+
+    def __init__(
+        self,
+        out: TextIO,
+        indent_string: str = "  ",
+        indent_level: int = 0,
+        show_code: bool = False,
+        show_value: bool = False,
+        show_value_type: bool = False,
+        show_data: bool = False,
+    ):
+        self._out = out
+        self._loc_indent = indent_string * indent_level
+        self._msg_indent = indent_string * (indent_level + 1)
+        self._show_code = show_code
+        self._show_value = show_value
+        self._show_value_type = show_value_type
+        self._show_data = show_data
+
+    def write(self, obj: Error):
+        """Format given error object and write to the end of the text buffer
+        provided in the constructor.
+
+        :param obj:
+            The error object.
+        """
+        attrs = {}
+        attrs_str = ""
+        if self._show_code:
+            attrs["code"] = obj.code
+        if self._show_value:
+            attrs["value"] = _utils.describe(obj.value)
+        if self._show_value_type:
+            attrs["value_type"] = _utils.describe(type(obj.value))
+        if self._show_data:
+            for k, v in obj.data.items():
+                attrs[k] = _utils.describe(v)
+        if len(attrs) > 0:
+            attrs_str = ", ".join(f"{k}={v}" for k, v in attrs.items())
+            attrs_str = f" [{attrs_str}]"
+        self._out.write(f"{self._loc_indent}{obj.loc}:\n")
+        self._out.write(f"{self._msg_indent}{obj.msg}{attrs_str}\n")
 
 
 @export
@@ -350,7 +422,7 @@ class ErrorFactory:
         :param expected_enum_type:
             Expected enum type.
         """
-        expected_values_str = ", ".join(repr(x.value) for x in tuple(expected_enum_type))
+        expected_values_str = ", ".join(_utils.describe(x.value) for x in tuple(expected_enum_type))
         return Error(
             loc,
             ErrorCode.INVALID_ENUM_VALUE,
@@ -436,7 +508,6 @@ class ErrorFactory:
             raise ValueError("cannot have both 'min_inclusive' and 'min_exclusive' arguments set")
         if max_inclusive is not None and max_exclusive is not None:
             raise ValueError("cannot have both 'max_inclusive' and 'max_exclusive' arguments set")
-        # TODO: on or after, on or before for dates
         if min_inclusive is not None and max_inclusive is not None:
             msg = f"Expected value in range [{min_inclusive}, {max_inclusive}]"
         elif min_inclusive is not None and max_exclusive is not None:
@@ -454,7 +525,9 @@ class ErrorFactory:
         elif max_exclusive is not None:
             msg = f"Value must be < {max_exclusive}"
         else:
-            raise TypeError("need one or more range arguments: min_inclusive, min_exclusive, max_inclusive, max_exclusive")
+            raise TypeError(
+                "need one or more range arguments: min_inclusive, min_exclusive, max_inclusive, max_exclusive"
+            )
         return Error(loc, ErrorCode.OUT_OF_RANGE, msg, value, data=data)
 
     @staticmethod
@@ -494,7 +567,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.INVALID_LENGTH, msg, value, data=data)
 
     @staticmethod
-    def invalid_string_format(loc: Loc, value: str, expected_pattern: str, msg: Optional[str]=None) -> Error:
+    def invalid_string_format(loc: Loc, value: str, expected_pattern: str, msg: Optional[str] = None) -> Error:
         """Create invalid string format error.
 
         :param loc:

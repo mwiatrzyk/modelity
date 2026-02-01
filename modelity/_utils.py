@@ -3,7 +3,19 @@
 import functools
 import inspect
 import itertools
-from typing import Any, Callable, Literal, Mapping, MutableSequence, Sequence, TypeVar, Union, get_args, get_origin, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Mapping,
+    MutableSequence,
+    Sequence,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    overload,
+)
 
 T = TypeVar("T")
 
