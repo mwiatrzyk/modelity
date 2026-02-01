@@ -1,3 +1,21 @@
+## 0.28.0 (2026-02-01)
+
+### BREAKING CHANGES
+
+- remove hook introspection from the public interface
+- error code refactoring of built-in type parsers
+- error code refactoring for built-in constraints
+- Some of error codes were dropped and replace with new,
+more generic ones.
+
+### Feat
+
+- add `modelity.types.LooseOptional` type; an extended optional allowing `Unset` as a valid value
+- constraints are now built using dataclasses for __eq__ and __hash__ automation
+- add `Range` constraint
+- add `LenRange` constraint
+- add `ErrorWriter` class for formatting errors and writing to given buffer
+
 ## 0.27.0 (2026-01-26)
 
 ### BREAKING CHANGES
