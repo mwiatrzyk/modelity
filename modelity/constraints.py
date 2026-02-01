@@ -163,9 +163,6 @@ class MaxLen(IConstraint):
 
     Can be used with sized types, like containers, :class:`byte` or
     :class:`str`.
-
-    :param max_len:
-        The maximum length.
     """
 
     #: Maximum length.
@@ -183,14 +180,37 @@ class MaxLen(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
+class LenRange(IConstraint):
+    """Length range constraint.
+
+    Combines both minimum and maximum length constraints.
+
+    .. versionadded:: 0.28.0
+    """
+
+    #: Minimum length.
+    min_length: int
+
+    #: Maximum length.
+    max_length: int
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.min_length!r}, {self.max_length!r})"
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any) -> bool:
+        if self.min_length <= len(value) <= self.max_length:
+            return True
+        errors.append(ErrorFactory.invalid_length(loc, value, min_length=self.min_length, max_length=self.max_length))
+        return False
+
+
+@export
+@dataclasses.dataclass(frozen=True)
 class Regex(IConstraint):
     """Regular expression constraint.
 
     Allows values matching given regular expression and reject all other. Can
     only operate on strings.
-
-    :param pattern:
-        Regular expression pattern.
     """
 
     #: Regular expression pattern.
