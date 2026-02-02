@@ -150,6 +150,15 @@ class Field:
         """
         return self._optional
 
+    def is_required(self) -> bool:
+        """Check if this field is required.
+
+        This is the opposite of :meth:`is_optional`.
+
+        .. versionadded:: 0.29.0
+        """
+        return not self.is_optional()
+
     def has_default(self) -> bool:
         """Check if this field has default value set.
 

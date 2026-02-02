@@ -1,3 +1,4 @@
+from multiprocessing.spawn import is_forking
 from typing import Optional
 import pytest
 
@@ -33,7 +34,7 @@ class TestField:
     def uut(self, name, type, field_info):
         return Field(name, type, make_type_descriptor(type), field_info)
 
-    class TestOptional:
+    class TestIsOptionalAndIsRequired:
 
         @pytest.mark.parametrize(
             "type, expected_status",
@@ -46,6 +47,7 @@ class TestField:
         )
         def test_check_if_field_is_optional(self, uut: Field, expected_status):
             assert uut.is_optional() == expected_status
+            assert uut.is_required() == (not uut.is_optional())
 
         @pytest.mark.parametrize(
             "field_info, expected_status",
@@ -57,6 +59,7 @@ class TestField:
         )
         def test_field_is_optional_if_default_value_is_assigned(self, uut: Field, expected_status):
             assert uut.is_optional() == expected_status
+            assert uut.is_required() == (not uut.is_optional())
 
     class TestComputeDefault:
 
