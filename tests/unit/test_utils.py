@@ -1,4 +1,4 @@
-from typing import List, Literal, Mapping, Set
+from typing import List, Literal, Mapping, Set, Union
 import pytest
 
 from modelity._utils import describe, is_subsequence
@@ -40,6 +40,7 @@ def test_is_subsequence(candidate, sequence, expected_result):
         (List[int], "list[int]"),
         (Mapping, "Mapping"),
         (Mapping[str, int], "Mapping[str, int]"),
+        (Union[str, int, float], "Union[str, int, float]"),
         (list[str], "list[str]"),
         (list[Dummy], "list[Dummy]"),
         (tuple[Dummy.Nested, ...], "tuple[Dummy.Nested, ...]"),

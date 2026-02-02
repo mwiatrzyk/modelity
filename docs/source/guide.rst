@@ -255,7 +255,7 @@ Example:
     from modelity.helpers import validate
 
     class OptionalExample(Model):
-        foo: Optional[int]
+        foo: Optional[int] = None
 
 .. doctest::
 
@@ -303,7 +303,7 @@ Example:
       ...
     modelity.exc.ParsingError: Found 1 parsing error for type 'StrictOptionalExample':
       foo:
-        Not a valid value; expected one of: int, UnsetType [code=modelity.INVALID_TYPE, value_type=NoneType, expected_types=[int, UnsetType]]
+        This field does not allow None; expected: Union[int, UnsetType] [code=modelity.NONE_NOT_ALLOWED, value_type=NoneType, expected_type=Union[int, UnsetType]]
 
 .. important::
 
@@ -330,7 +330,7 @@ Example:
     from modelity.helpers import validate
 
     class OptionalUnionExample(Model):
-        foo: Union[int, str, None]
+        foo: Union[int, str, None] = None
 
 .. doctest::
 
@@ -1486,7 +1486,7 @@ Here's an example:
 
     class User(Model):
         email: str
-        name: Optional[str]
+        name: Optional[str] = None
 
     class Storage(Model):
         users: list[User]

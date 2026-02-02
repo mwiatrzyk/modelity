@@ -10,6 +10,7 @@ from typing import (
     MutableSequence,
     Sequence,
     TypeVar,
+    Union,
     get_args,
     get_origin,
 )
@@ -67,6 +68,8 @@ def describe(obj: Any) -> str:
     """
     if obj is Literal:
         return "Literal"
+    if obj is Union:
+        return "Union"
     if obj is Ellipsis:
         return "..."
     if isinstance(obj, (str, bytes)):

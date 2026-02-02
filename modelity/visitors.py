@@ -155,9 +155,12 @@ class DefaultValidateVisitor(EmptyVisitor):
             self._pop_location_validators()
 
     def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
-        if value is Unset and not field.is_optional():
-            self._errors.append(ErrorFactory.required_missing(loc))
-            return True  # Skip other validators if required field is missing
+        if value is Unset:
+            if field.is_required():
+                self._errors.append(ErrorFactory.required_missing(loc))
+            elif not field.is_unsetable():
+                self._errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))
+            return True  # Skip other validators
         self._push_field(field)
 
     def visit_model_field_end(self, loc: Loc, value: Any, field: Any):

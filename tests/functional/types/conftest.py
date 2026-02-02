@@ -5,6 +5,8 @@ import pytest
 
 from modelity.model import Model
 
+pytest.register_assert_rewrite("tests.functional.types.base")
+
 
 def _validate_data_format(data: tuple):
     if len(data) != 5:
@@ -78,12 +80,12 @@ def SUT(field_type, field_info):
     if field_info is None:
 
         class SUT(Model):
-            foo: field_type
+            foo: field_type  # type: ignore
 
-        return SUT
+    else:
 
-    class SUT(Model):
-        foo: field_type = field_info
+        class SUT(Model):
+            foo: field_type = field_info  # type: ignore
 
     return SUT
 

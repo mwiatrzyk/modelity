@@ -1,8 +1,9 @@
 from enum import Enum
 from io import StringIO
-from typing import Sequence
+from typing import Optional, Sequence
 import pytest
 
+from modelity.types import StrictOptional
 from modelity.error import Error, ErrorCode, ErrorFactory, ErrorWriter
 from modelity.loc import Loc
 
@@ -338,6 +339,25 @@ class TestErrorFactory:
             (
                 ErrorFactory.exception(loc, 123, ValueError("an error")),
                 Error(loc, ErrorCode.EXCEPTION, "an error", 123, data={"exc_type": ValueError}),
+            ),
+            (
+                ErrorFactory.unset_not_allowed(loc, Optional[int]),
+                Error(
+                    loc,
+                    ErrorCode.UNSET_NOT_ALLOWED,
+                    "This field does not allow Unset; expected: Union[int, NoneType]",
+                    data={"expected_type": Optional[int]},
+                ),
+            ),
+            (
+                ErrorFactory.none_not_allowed(loc, StrictOptional[int]),
+                Error(
+                    loc,
+                    ErrorCode.NONE_NOT_ALLOWED,
+                    "This field does not allow None; expected: Union[int, UnsetType]",
+                    None,
+                    data={"expected_type": StrictOptional[int]},
+                ),
             ),
         ],
     )

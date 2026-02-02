@@ -90,7 +90,9 @@ class ParsingError(ModelError):
         writer = ErrorWriter(buffer, indent_level=1, show_code=True, show_value_type=True, show_data=True)
         for error in sorted(self.errors, key=lambda x: x.loc):
             writer.write(error)
-        return f"Found {error_count} parsing {error_or_errors} for type {self.typ_name!r}:\n{buffer.getvalue().rstrip()}"
+        return (
+            f"Found {error_count} parsing {error_or_errors} for type {self.typ_name!r}:\n{buffer.getvalue().rstrip()}"
+        )
 
 
 @export

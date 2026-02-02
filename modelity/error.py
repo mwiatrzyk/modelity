@@ -4,7 +4,7 @@ from typing import Any, Optional, Sequence, Sized, TextIO
 
 from modelity import _utils
 from modelity.loc import Loc
-from modelity.unset import Unset
+from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
@@ -103,6 +103,37 @@ class ErrorCode:
     #:
     #: Use :meth:`ErrorFactory.exception` to create errors with this code.
     EXCEPTION = "modelity.EXCEPTION"
+
+    #: Reported during validation for :obj:`typing.Optional` fields that remain
+    #: unset during validation.
+    #:
+    #: To allow usage of ``Unset`` please use
+    #: :obj:`modelity.types.StrictOptional` or :obj:`modelity.types.LooseOptional`
+    #: type wrappers. Check their docs for more details.
+    #:
+    #: This error can be avoided by setting default values for optional fields.
+    #:
+    #: Use :meth:`ErrorFactory.unset_not_allowed` to create errors with this code.
+    #:
+    #: .. versionadded:: 0.29.0
+    UNSET_NOT_ALLOWED = "modelity.UNSET_NOT_ALLOWED"
+
+    #: Reported during parsing of :obj:`modelity.types.StrictOptional` wrapped
+    #: fields if ``None`` is used as input value.
+    #:
+    #: Strict optional fields require the field to either be set to instance of
+    #: type T, or not set at all (unlike :obj:`typing.Optional`, which allows ``None``).
+    #: Modelity needs to provide such clean separation to make sure that model
+    #: satisfies all type constraints after validation.
+    #:
+    #: .. important::
+    #:      This error is reserved for :obj:`modelity.types.StrictOptional` wrapper
+    #:      and should not be used elsewhere.
+    #:
+    #: Use :meth:`ErrorFactory.none_not_allowed` to create errors with this code.
+    #:
+    #: .. versionadded:: 0.29.0
+    NONE_NOT_ALLOWED = "modelity.NONE_NOT_ALLOWED"
 
 
 @export
@@ -615,3 +646,46 @@ class ErrorFactory:
             The exception object.
         """
         return Error(loc, ErrorCode.EXCEPTION, str(exc), value, {"exc_type": exc.__class__})
+
+    @staticmethod
+    def unset_not_allowed(loc: Loc, expected_type: Any) -> Error:
+        """Create ``UNSET_NOT_ALLOWED`` error.
+
+        See :attr:`ErrorCode.UNSET_NOT_ALLOWED` for more details.
+
+        .. versionadded:: 0.29.0
+
+        :param loc:
+            Error location in the model.
+
+        :param expected_types:
+            The expected type.
+        """
+        return Error(
+            loc,
+            ErrorCode.UNSET_NOT_ALLOWED,
+            f"This field does not allow Unset; expected: {_utils.describe(expected_type)}",
+            data={"expected_type": expected_type},
+        )
+
+    @staticmethod
+    def none_not_allowed(loc: Loc, expected_type: Any) -> Error:
+        """Create ``NONE_NOT_ALLOWED`` error.
+
+        See :attr:`ErrorCode.NONE_NOT_ALLOWED` for more details.
+
+        .. versionadded:: 0.29.0
+
+        :param loc:
+            Error location in the model.
+
+        :param expected_types:
+            The expected type.
+        """
+        return Error(
+            loc,
+            ErrorCode.NONE_NOT_ALLOWED,
+            f"This field does not allow None; expected: {_utils.describe(expected_type)}",
+            None,
+            data={"expected_type": expected_type},
+        )

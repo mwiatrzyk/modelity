@@ -2,9 +2,9 @@ from typing import cast, Annotated, Any, Iterator, Union, get_args
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IConstraint, IValidatableTypeDescriptor, ITypeDescriptor
+from modelity.interface import IConstraint, IModelVisitor, IValidatableTypeDescriptor, ITypeDescriptor
 from modelity.loc import Loc
-from modelity.unset import Unset
+from modelity.unset import Unset, UnsetType
 
 registry = TypeDescriptorFactoryRegistry()
 
@@ -52,6 +52,20 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                 return visitor.visit_none(loc, value)
             type_descriptor.accept(visitor, loc, value)
 
+    class StrictOptionalTypeDescriptor(ITypeDescriptor):
+        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+            if value is Unset:
+                return value
+            if value is None:
+                errors.append(ErrorFactory.none_not_allowed(loc, typ))
+                return Unset
+            return type_descriptor.parse(errors, loc, value)
+
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            if value is Unset:
+                return visitor.visit_unset(loc, value)
+            return type_descriptor.accept(visitor, loc, value)
+
     class UnionTypeDescriptor(ITypeDescriptor):
         def parse(self, errors, loc, value):
             for t in types:
@@ -71,8 +85,11 @@ def make_union_type_descriptor(typ, make_type_descriptor, type_opts) -> ITypeDes
                     return descriptor.accept(visitor, loc, value)
 
     types = get_args(typ)
-    if len(types) == 2 and types[-1] is type(None):
+    if len(types) == 2:
         type_descriptor: ITypeDescriptor = make_type_descriptor(types[0], type_opts)
-        return OptionalTypeDescriptor()
+        if types[-1] is type(None):
+            return OptionalTypeDescriptor()
+        elif types[-1] is UnsetType:
+            return StrictOptionalTypeDescriptor()
     type_descriptors: list[ITypeDescriptor] = [make_type_descriptor(typ, type_opts) for typ in types]
     return UnionTypeDescriptor()

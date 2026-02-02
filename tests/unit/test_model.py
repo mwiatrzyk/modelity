@@ -1,4 +1,3 @@
-from multiprocessing.spawn import is_forking
 from typing import Optional
 import pytest
 

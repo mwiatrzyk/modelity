@@ -8,7 +8,7 @@ import pytest
 from mockify.api import Mock, ordered, satisfied, Raise, Return
 
 from modelity.constraints import Ge, Gt, Le, LenRange, Lt, MinLen, MaxLen, Range, Regex
-from modelity.error import Error, ErrorFactory
+from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ParsingError, UnsupportedTypeError, ValidationError
 from modelity.interface import ITypeDescriptor
 from modelity.loc import Loc
@@ -20,7 +20,8 @@ from modelity.hooks import (
     model_postvalidator,
     model_prevalidator,
 )
-from modelity.unset import Unset, UnsetType
+from modelity.types import LooseOptional, StrictOptional
+from modelity.unset import Unset
 from modelity.helpers import dump, validate
 
 
@@ -343,6 +344,8 @@ class TestModelWithOneField:
             (str, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [str])]),
             (bytes, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [bytes])]),
             (Optional[int], None, "invalid", [ErrorFactory.parse_error(Loc("foo"), "invalid", int)]),
+            (StrictOptional[int], None, "invalid", [ErrorFactory.parse_error(Loc("foo"), "invalid", int)]),
+            (StrictOptional[int], None, None, [ErrorFactory.none_not_allowed(Loc("foo"), StrictOptional[int])]),
             (
                 Union[int, str],
                 None,
@@ -1109,13 +1112,13 @@ class TestModelWithFieldValidators:
     def test_field_validator_is_not_called_if_value_is_not_set(self, mock):
 
         class SUT(Model):
-            foo: Optional[int]
+            foo: LooseOptional[int]
 
             @field_validator("foo")
             def _validate_foo():
                 mock.foo()
 
-        sut = SUT()
+        sut = SUT(foo=Unset)
         mock.foo.expect_call().times(0)
         with ordered(mock):
             validate(sut)

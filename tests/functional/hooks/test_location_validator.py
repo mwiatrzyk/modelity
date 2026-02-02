@@ -11,6 +11,8 @@ from modelity.helpers import validate
 from modelity.hooks import location_validator
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import LooseOptional
+from modelity.unset import Unset
 
 
 class Dummy(Model):
@@ -210,13 +212,13 @@ def test_validator_declared_without_field_names_is_applied_to_every_model_value(
 def test_validator_is_not_called_if_value_is_not_set(mock):
 
     class SUT(Model):
-        foo: Optional[int]
+        foo: LooseOptional[int]
 
         @location_validator("foo")
         def _validate_foo():
             mock.foo()
 
-    sut = SUT()
+    sut = SUT(foo=Unset)
     mock.foo.expect_call().times(0)
     with ordered(mock):
         validate(sut)
