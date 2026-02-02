@@ -134,22 +134,21 @@ class Field:
     #: Field's user-defined info object.
     field_info: Optional[FieldInfo] = None
 
-    @functools.cached_property
-    def optional(self) -> bool:
-        """Flag telling if the field is optional.
+    def is_optional(self) -> bool:
+        """Check if this field is optional.
 
-        A field is optional if at least one of following criteria is met:
+        A field is optional if at least one of the following criteria is met:
 
         * it is annotated with :class:`typing.Optional` type annotation,
         * it is annotated with :class:`modelity.types.StrictOptional` type annotation,
+        * it is annotated with :class:`modelity.types.LooseOptional` type annotation,
         * it is annotated with :class:`typing.Union` that allows ``None`` or ``Unset`` as one of valid values,
         * it has default value assigned.
+
+        .. versionadded:: 0.29.0
+            Replaced ``optional`` property used earlier.
         """
-        if self.has_default():
-            return True
-        origin = get_origin(self.typ)
-        args = get_args(self.typ)
-        return origin is Union and (type(None) in args or UnsetType in args)
+        return self._optional
 
     def has_default(self) -> bool:
         """Check if this field has default value set.
@@ -176,6 +175,14 @@ class Field:
             return default_factory()
         else:
             return Unset
+
+    @functools.cached_property
+    def _optional(self):
+        if self.has_default():
+            return True
+        origin = get_origin(self.typ)
+        args = get_args(self.typ)
+        return origin is Union and (type(None) in args or UnsetType in args)
 
 
 @export
@@ -281,7 +288,7 @@ class Model(metaclass=ModelMeta):
         return f"{self.__class__.__qualname__}({', '.join(kv)})"
 
     def __eq__(self, value):
-        if self.__class__ is not value.__class__:
+        if type(self) is not type(value):
             return NotImplemented
         for k in self.__class__.__model_fields__:
             if getattr(self, k) != getattr(value, k):

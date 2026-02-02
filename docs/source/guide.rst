@@ -511,7 +511,7 @@ info etc.
     'name'
     >>> field.typ
     <class 'str'>
-    >>> field.optional
+    >>> field.is_optional()
     False
 
 Setting default values
@@ -964,7 +964,7 @@ module and are divided into following categories:
         difference, as these hooks can freely access other fields if needed.
 
     **Location-based validation hooks**
-        
+
         Available via :func:`modelity.hooks.location_validator` decorator.
 
         Similar to field validation hooks, but allows the caller to access
@@ -1500,7 +1500,7 @@ Here's an example:
 
     >>> bob = User(email="bob@example.com")
     >>> accounts = Storage(users=[bob])
-    >>> validate(bob)  # OK; `name` is optional 
+    >>> validate(bob)  # OK; `name` is optional
     >>> validate(accounts)  # FAIL; here `name` is required by location validator
     Traceback (most recent call last):
       ...

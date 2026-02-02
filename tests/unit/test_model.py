@@ -5,7 +5,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import Field, FieldInfo, Model
-from modelity.types import StrictOptional
+from modelity.types import LooseOptional, StrictOptional
 from modelity.unset import Unset
 from modelity.helpers import has_fields_set
 from modelity._internal.model import make_type_descriptor
@@ -41,10 +41,11 @@ class TestField:
                 (int, False),
                 (Optional[int], True),
                 (StrictOptional[int], True),
+                (LooseOptional[int], True),
             ],
         )
         def test_check_if_field_is_optional(self, uut: Field, expected_status):
-            assert uut.optional == expected_status
+            assert uut.is_optional() == expected_status
 
         @pytest.mark.parametrize(
             "field_info, expected_status",
@@ -55,7 +56,7 @@ class TestField:
             ],
         )
         def test_field_is_optional_if_default_value_is_assigned(self, uut: Field, expected_status):
-            assert uut.optional == expected_status
+            assert uut.is_optional() == expected_status
 
     class TestComputeDefault:
 
@@ -116,6 +117,17 @@ class TestModel:
         a = A(foo=1)
         b = B(foo=1)
         assert a != b
+
+    def test_when_field_parsing_fails_then_the_old_value_remains(self):
+
+        class UUT(Model):
+            foo: int
+
+        uut = UUT(foo=123)
+        assert uut.foo == 123
+        with pytest.raises(ParsingError):
+            uut.foo = "not an int"  # type: ignore
+        assert uut.foo == 123
 
     class TestModelWithFooIntField:
 
