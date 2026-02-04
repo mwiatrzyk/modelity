@@ -135,6 +135,11 @@ class ErrorCode:
     #: .. versionadded:: 0.29.0
     NONE_NOT_ALLOWED = "modelity.NONE_NOT_ALLOWED"
 
+    #: Default error code for the :exc:`modelity.exc.UserError` exception.
+    #:
+    #: .. versionadded:: 0.30.0
+    USER_ERROR = "modelity.USER_ERROR"
+
 
 @export
 @dataclasses.dataclass

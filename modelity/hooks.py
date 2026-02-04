@@ -7,6 +7,7 @@ from typing import Any, Callable, cast, Union, TypeVar
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
+from modelity.exc import UserError
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 from modelity.model import Model
@@ -556,9 +557,22 @@ def _make_model_validator(func: Callable, hook_name: str) -> _int_hooks.IModelHo
     return hook
 
 
+def _error_from_user_error(exc: UserError, loc: Loc, value: Any = Unset) -> Error:
+    data = exc.data or {}
+    if exc.loc is not None:
+        loc = exc.loc
+    if exc.value is not Unset:
+        value = exc.value
+    return Error(loc, exc.code, exc.msg, value, data)
+
+
 def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any = Unset) -> Any:
     try:
         return func(**kwargs)
+    except UserError as e:
+        errors.append(_error_from_user_error(e, loc, value))
+        if e.skip:
+            return True
     except ValueError as e:
         errors.append(ErrorFactory.exception(loc, value, e))
 
@@ -566,6 +580,9 @@ def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, v
 def _run_processing_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any) -> Union[Any, UnsetType]:
     try:
         return func(**kwargs)
+    except UserError as e:
+        errors.append(_error_from_user_error(e, loc, value))
+        return Unset
     except TypeError as e:
         errors.append(ErrorFactory.exception(loc, value, e))
         return Unset

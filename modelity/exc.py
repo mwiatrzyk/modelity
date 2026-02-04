@@ -2,7 +2,9 @@ from io import StringIO
 from typing import Any, Optional
 
 from modelity import _utils
-from modelity.error import Error, ErrorWriter
+from modelity.error import Error, ErrorCode, ErrorWriter
+from modelity.loc import Loc
+from modelity.unset import Unset
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
@@ -21,6 +23,70 @@ class ModelityError(Exception):
         if self.__message_template__ is None:
             return super().__str__()
         return self.__message_template__.format(self=self)
+
+
+@export
+class UserError(ModelityError):
+    """Exception raised by user-defined hooks to report a single error.
+
+    When raised inside a hook, this exception is intercepted by Modelity and
+    converted into a :class:`modelity.error.Error` instance during the parsing
+    or validation stage (depending on the hook type; see
+    :mod:`modelity.hooks`).
+
+    Using this exception is optional - hooks may also report errors using
+    other supported mechanisms.
+
+    .. versionadded:: 0.30.0
+    """
+
+    #: Error message.
+    msg: str
+
+    #: Error code.
+    #:
+    #: By default, :attr:`modelity.errors.ErrorCode.USER_ERROR` is used.
+    code: str
+
+    #: Error location.
+    #:
+    #: If not set, then the current location from the hook context is used.
+    loc: Optional[Loc]
+
+    #: Invalid input value.
+    #:
+    #: If not set, then the current value from the hook context is used.
+    value: Any
+
+    #: Additional error data.
+    #:
+    #: Optional dictionary with extra context (e.g. ``{"min": 0, "max": 10}``).
+    data: Optional[dict]
+
+    #: Skipping flag.
+    #:
+    #: Some validators (e.g. :func:`modelity.hooks.model_prevalidator`) can
+    #: return boolean ``True`` to skip other validators for the current model
+    #: instance. This flag allows to enable that feature.
+    skip: bool
+
+    def __init__(
+        self,
+        msg: str,
+        *,
+        code: str = ErrorCode.USER_ERROR,
+        loc: Optional[Loc] = None,
+        value: Any = Unset,
+        data: Optional[dict] = None,
+        skip: bool = False,
+    ):
+        super().__init__()
+        self.msg = msg
+        self.code = code
+        self.loc = loc
+        self.value = value
+        self.data = data
+        self.skip = skip
 
 
 @export
@@ -56,7 +122,7 @@ class ModelError(ModelityError):
 
     #: The type for which this error has happened.
     #:
-    #: .. versionchanghttps://stackoverflow.com/questions/49220022/how-can-mypy-ignore-a-single-line-in-a-source-fileed:: 0.28.0
+    #: .. versionchanged:: 0.28.0
     #:      Moved from :class:`ParsingError` class and now made available for all
     #:      subclasses for ease of use.
     typ: type

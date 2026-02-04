@@ -5,8 +5,8 @@ import pytest
 from mockify.api import Raise, ordered
 
 from modelity.constraints import Ge
-from modelity.error import ErrorFactory
-from modelity.exc import ValidationError
+from modelity.error import Error, ErrorCode, ErrorFactory
+from modelity.exc import UserError, ValidationError
 from modelity.helpers import validate
 from modelity.hooks import location_validator
 from modelity.loc import Loc
@@ -17,6 +17,43 @@ from modelity.unset import Unset
 
 class Dummy(Model):
     bar: int
+
+
+@pytest.mark.parametrize(
+    "factory, expected_error",
+    [
+        (lambda: UserError("a message"), Error(Loc("foo"), ErrorCode.USER_ERROR, "a message", 123)),
+        (
+            lambda: UserError("a message", code=ErrorCode.PARSE_ERROR),
+            Error(Loc("foo"), ErrorCode.PARSE_ERROR, "a message", 123),
+        ),
+        (
+            lambda: UserError("a message", loc=Loc("bar")),
+            Error(Loc("bar"), ErrorCode.USER_ERROR, "a message", 123),
+        ),
+        (
+            lambda: UserError("a message", value=456),
+            Error(Loc("foo"), ErrorCode.USER_ERROR, "a message", 456),
+        ),
+        (
+            lambda: UserError("a message", data={"min": 0, "max": 10}),
+            Error(Loc("foo"), ErrorCode.USER_ERROR, "a message", 123, data={"min": 0, "max": 10}),
+        ),
+    ],
+)
+def test_user_error_raised_is_converted_to_error(factory, expected_error):
+
+    class SUT(Model):
+        foo: int
+
+        @location_validator("foo")
+        def _location_validator():
+            raise factory()
+
+    sut = SUT(foo=123)
+    with pytest.raises(ValidationError) as excinfo:
+        validate(sut)
+    assert excinfo.value.errors == (expected_error,)
 
 
 def test_declare_validator_without_args(mock):
