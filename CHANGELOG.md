@@ -1,3 +1,24 @@
+## 0.29.0 (2026-02-04)
+
+### BREAKING CHANGES
+
+- drop `Field.optional` property and use `Field.is_optional` method instead
+- All other field properties were not computed, just the
+`optional` one, so I decided to use an `is_optional()` method instead.
+Now the class has better interface, especially when there was
+`has_default()` method already defined.
+- `Optional[T]` now fails validation if Unset
+- Previously `Optional[T]` was allowed to be Unset after
+validation and that was causing type contract issues, as `Optional[T]`
+defacto allowed 3 types (T, None, UnsetType), not 2 types (T, None). Now
+it fails validation when not set while still being optional.
+
+### Feat
+
+- drop `Field.optional` property and use `Field.is_optional` method instead
+- add `Field.is_required()` method as the opposite for `Field.is_optional()`
+- `Optional[T]` now fails validation if Unset
+
 ## 0.28.0 (2026-02-01)
 
 ### BREAKING CHANGES
