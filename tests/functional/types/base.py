@@ -1,3 +1,7 @@
+# TODO: Refactor all other tests to use this base test case suite instead of
+# common.py; it plays well with Pytest and allows to extend test suite for all
+# types simply by adding new tests.
+
 import pytest
 
 from modelity.api import validate, dump
