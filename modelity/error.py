@@ -4,7 +4,7 @@ from typing import Any, Optional, Sequence, Sized, TextIO
 
 from modelity import _utils
 from modelity.loc import Loc
-from modelity.unset import Unset, UnsetType
+from modelity.unset import Unset
 
 __all__ = export = _utils.ExportList()  # type: ignore
 

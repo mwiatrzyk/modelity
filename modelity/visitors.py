@@ -6,7 +6,7 @@ interface.
 
 import collections
 from numbers import Number
-from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, Union, cast
+from typing import Any, Callable, Iterator, Mapping, Sequence, Set, Union, cast
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks

@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar, Union
+from typing import TypeVar, Union
 
 from modelity.unset import UnsetType
 

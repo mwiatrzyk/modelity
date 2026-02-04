@@ -1,6 +1,5 @@
 import dataclasses
 import functools
-from numbers import Number
 import re
 from typing import Any
 

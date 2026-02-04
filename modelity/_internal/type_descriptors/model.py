@@ -1,12 +1,11 @@
-from typing import Any, Mapping, Union
+from typing import Any, Mapping
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
-from modelity.interface import IModelVisitor, ITypeDescriptor
-from modelity.loc import Loc
+from modelity.interface import ITypeDescriptor
 from modelity.model import Model
-from modelity.unset import Unset, UnsetType
+from modelity.unset import Unset
 
 registry = TypeDescriptorFactoryRegistry()
 
