@@ -45,7 +45,7 @@ class UserError(ModelityError):
 
     #: Error code.
     #:
-    #: By default, :attr:`modelity.errors.ErrorCode.USER_ERROR` is used.
+    #: By default, :attr:`modelity.error.ErrorCode.USER_ERROR` is used.
     code: str
 
     #: Error location.

@@ -245,6 +245,32 @@ Values allowed:
 * instances of type **U** that can be parsed into **T**
 * ``None`` value
 
+.. important::
+
+   Since version 0.29.0 optional fields do not allow ``Unset`` as a valid
+   value and all unset ``Optional[T]`` fields will be rejected during model
+   validation phase.
+
+   This is due to the fact that ``Optional[T]`` is basically ``Union[T,
+   NoneType]`` and ``Unset`` simply does not fit. Thanks to this additional
+   check you can safely write e.g.::
+
+        model = load_model_from_somewhere()  # `model.foo` can either be T, None or Unset
+        ...
+        validate(model)  # Validate model; will fail if `model.foo` is unset
+        if model.foo is not None:  # Now `model.foo` will either be T, or None 
+            return model.foo  # Not None, so it will be T
+
+   The best way to avoid leaving optional fields unset is to declare such
+   fields with ``None`` as default value::
+
+        class Dummy(Model):
+            foo: Optional[int] = None
+
+   See also:
+   
+   * :obj:`modelity.types.LooseOptional`
+
 Example:
 
 .. testcode::
@@ -277,7 +303,7 @@ Using ``modelity.types.StrictOptional[T]``
 Values allowed:
 
 * instances of type **T**
-* instances of type **U** that can be parsed into **T**
+* instances of type **U** that can be parsed as or converted into **T**
 
 Example:
 
@@ -310,15 +336,51 @@ Example:
     Strict optionals do not allow ``None``; the field can only be set to valid
     instance of type **T** or not set at all.
 
+Using ``modelity.types.LooseOptional[T]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 0.28.0
+
+Values allowed:
+
+* instances of type **T**
+* instances of type **U** that can be parsed as or converted into **T**
+* ``None`` value
+* ``Unset`` value
+
+Example:
+
+.. testcode::
+
+    from modelity.api import Model, validate, LooseOptional
+
+    class LooseOptionalExample(Model):
+        foo: LooseOptional[int]
+
+.. doctest::
+
+    >>> obj = LooseOptionalExample()
+    >>> validate(obj)  # OK
+    >>> obj.foo = 123  # OK; valid integer
+    >>> obj.foo = '456'  # OK; can be converted to integer
+    >>> obj.foo
+    456
+    >>> obj.foo = None  # OK
+    >>> obj.foo is None
+    True
+    >>> obj.foo = Unset  # OK
+    >>> obj.foo
+    Unset
+
 Using ``typing.Union[T, U, ..., None]``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Values allowed:
 
-* instances of type **T**,
-* instances of type **U**,
+* instances of type **T**
+* instances of type **U**
 * ...
-* ``None`` values.
+* ``None`` value
 
 Example:
 
@@ -340,19 +402,15 @@ Example:
     >>> obj.foo = 'spam'  # OK; valid string
     >>> obj.foo = None  # OK
 
-.. note::
-
-    This is equivalent to :ref:`typing.Optional<guide-optional-optional>`, but
-    allowing more types.
-
 Using ``typing.Union[T, U, ..., UnsetType]``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Values allowed:
 
-* instances of type **T**,
-* instances of type **U**,
+* instances of type **T**
+* instances of type **U**
 * ...
+* ``Unset`` value
 
 Example:
 
@@ -380,11 +438,38 @@ Example:
       foo:
         Not a valid value; expected one of: int, str, UnsetType [code=modelity.INVALID_TYPE, value_type=NoneType, expected_types=[int, str, UnsetType]]
 
-.. note::
+Using ``typing.Union[T, U, ..., NoneType, UnsetType]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    This is equivalent to
-    :ref:`modelity.types.StrictOptional<guide-optional-strictOptional>` but
-    allowing more types.
+Values allowed:
+
+* instances of type **T**
+* instances of type **U**
+* ...
+* ``None`` value
+* ``Unset`` value
+
+Example:
+
+.. testcode::
+
+    from typing import Union
+
+    from modelity.model import Model
+    from modelity.types import UnsetType
+    from modelity.helpers import validate
+
+    class StrictOptionalUnionExample(Model):
+        foo: Union[int, str, None, UnsetType]
+
+.. doctest::
+
+    >>> obj = StrictOptionalUnionExample()
+    >>> validate(obj)  # OK
+    >>> obj.foo = 123  # OK; valid integer
+    >>> obj.foo = 'spam'  # OK; valid string
+    >>> obj.foo = None  # OK
+    >>> obj.foo = Unset  # OK
 
 Required fields
 ^^^^^^^^^^^^^^^
@@ -1569,6 +1654,176 @@ For nested model, the error would point to a field in a parent model instead:
       users.0:
         the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, exc_type=ValueError]
 
+
+Reporting errors from user-defined hooks
+----------------------------------------
+
+By raising ``TypeError``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+When :exc:`TypeError` is raised by any of the following hooks:
+
+* :func:`modelity.hooks.field_preprocessor`
+* :func:`modelity.hooks.field_postprocessor`
+
+then it is intercepted by Modelity and converted into
+:class:`modelity.error.Error` object and attached to
+:exc:`modelity.exc.ParsingError` exception.
+
+For example:
+
+.. testcode::
+
+    from modelity.api import Model, field_preprocessor
+
+    class Dummy(Model):
+        foo: int
+
+        @field_preprocessor()
+        def _ensure_string(value):
+            if not isinstance(value, str):
+                raise TypeError("Only strings are accepted")
+            return value
+
+.. doctest::
+
+    >>> dummy = Dummy()
+    >>> dummy.foo = "123"  # OK
+    >>> dummy.foo
+    123
+    >>> dummy.foo = 123  # FAIL; for some reason we want all input to be string
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Dummy':
+      foo:
+        Only strings are accepted [code=modelity.EXCEPTION, value_type=int, exc_type=TypeError]
+
+By raising ``ValueError``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When :exc:`ValueError` is raised by any of the following hooks:
+
+* :func:`modelity.hooks.model_prevalidator`
+* :func:`modelity.hooks.model_postvalidator`
+* :func:`modelity.hooks.field_validator`
+* :func:`modelity.hooks.location_validator`
+
+then it is intercepted by Modelity and converted into
+:class:`modelity.error.Error` object and attached to
+:exc:`modelity.exc.ValidationError` exception.
+
+For example:
+
+.. testcode::
+
+    from modelity.api import Model, field_preprocessor, StrictOptional, Unset, validate
+
+    class Dummy(Model):
+        foo: StrictOptional[int]
+        bar: StrictOptional[int]
+
+        @model_prevalidator()
+        def _ensure_either_foo_or_bar(self):
+            if self.foo is not Unset and self.bar is not Unset:
+                raise ValueError("Either `foo` or `bar` can be set, not both")
+
+.. doctest::
+
+    >>> dummy = Dummy()
+    >>> validate(dummy)  # OK; both are optional
+    >>> dummy.foo = 123
+    >>> validate(dummy)  # OK; just `foo` given so far
+    >>> dummy.bar = 456
+    >>> validate(dummy)  # FAIL; both given
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
+      (empty):
+        Either `foo` or `bar` can be set, not both [code=modelity.EXCEPTION, exc_type=ValueError]
+
+By raising ``modelity.exc.UserError``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. versionadded:: 0.30.0
+
+This is the most generic way of reporting errors from user-defined hooks. It
+can be used by any hook and, depending on the hook type, will result in an
+:class:`modelity.error.Error` object being attached to either
+:exc:`modelity.exc.ParsingError` or :exc:`modelity.exc.ValidationError`
+exception.
+
+For example:
+
+   .. testcode::
+
+    from modelity.api import Model, field_validator, validate, UserError
+
+    class User(Model):
+        email: str
+        repeated_email: str
+
+        @field_validator("repeated_email")
+        def _check_if_repeated_same(self, value):
+            if self.email != value:
+                raise UserError("Repeated e-mail does not match e-mail", data={'email': self.email, 'repeated_email': value})
+
+.. doctest::
+
+    >>> user = User(email="jd@example.com", repeated_email="j.d@example.com")
+    >>> validate(user)  # FAIL
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
+      repeated_email:
+        Repeated e-mail does not match e-mail [code=modelity.USER_ERROR, email='jd@example.com', repeated_email='j.d@example.com']
+
+Check :exc:`modelity.exc.UserError` docs for more options.
+
+By manually modifying ``errors`` list
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is the most generic way of reporting errors. You basically create
+:class:`modelity.error.Error` objects by hand and manually adding it to
+``errors`` list.
+
+For example:
+
+.. testcode::
+
+    from modelity.api import Model, Error, field_preprocessor
+
+    class Dummy(Model):
+        foo: int
+
+        @field_preprocessor()
+        def _ensure_string(errors: list[Error], loc, value):
+            if not isinstance(value, str):
+                errors.append(Error(loc, "user.USER_ERROR", "Only strings are accepted", value, data={"given_type": type(value)}))
+                return Unset
+            return value
+
+.. doctest::
+
+    >>> dummy = Dummy()
+    >>> dummy.foo = 123
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Dummy':
+      foo:
+        Only strings are accepted [code=user.USER_ERROR, value_type=int, given_type=int]
+
+This is the most verbose way of reporting errors, but it also offers the
+greatest flexibility for customization. For example, you can easily modify
+location of the error.
+
+Check :exc:`modelity.error.Error` for the list of options available.
+
+.. tip::
+
+   Since ``errors`` list is mutable and shared across all hooks when parsing or
+   validating, you can also *remove* errors from the list if needed. This is
+   especially useful with :func:`modelity.hooks.model_postvalidator` hook that
+   runs after all other validation hooks defined for a model.
 
 Customizing type parsers
 ------------------------

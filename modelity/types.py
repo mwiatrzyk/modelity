@@ -2,7 +2,7 @@ from typing import TypeVar, Union
 
 from modelity.unset import UnsetType
 
-__all__ = ["StrictOptional"]
+__all__ = ["StrictOptional", "LooseOptional"]
 
 T = TypeVar("T")
 

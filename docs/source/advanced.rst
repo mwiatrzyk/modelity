@@ -1,6 +1,8 @@
 Advanced user's guide
 =====================
 
+.. _registering-3rd-party-types-label:
+
 Registering custom types
 ------------------------
 
@@ -312,6 +314,8 @@ inside **UserStore** instead.
     validate inside parent model. Although both have their pros and cons,
     accessing parent model from a child model provides direct dependency
     towards parent model.
+
+.. _guide-validation-using_context:
 
 Validating with user-defined context
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
