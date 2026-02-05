@@ -1,3 +1,9 @@
+## 0.30.0 (2026-02-05)
+
+### Feat
+
+- add `UserError` exception allowing to raise errors from user hooks instead of manually modifying errors list
+
 ## 0.29.0 (2026-02-04)
 
 ### BREAKING CHANGES
