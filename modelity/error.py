@@ -262,7 +262,7 @@ class ErrorFactory:
     """Class grouping factory methods for creating built-in errors."""
 
     @staticmethod
-    def parse_error(loc: Loc, value: Any, expected_type: type, msg: Optional[str] = None, **extra_data) -> Error:
+    def parse_error(loc: Loc, value: Any, expected_type: type, msg: Optional[str] = None, /, **extra_data) -> Error:
         """Create parse error.
 
         :param loc:

@@ -65,7 +65,7 @@ class TestIPv4:
                         Loc("foo"),
                         None,
                         IPv4Address,
-                        msg="Not a valid IPv4 address",
+                        "Not a valid IPv4 address",
                     )
                 ],
             ),
@@ -113,7 +113,7 @@ class TestIPv6:
                         Loc("foo"),
                         None,
                         IPv6Address,
-                        msg="Not a valid IPv6 address",
+                        "Not a valid IPv6 address",
                     )
                 ],
             ),
@@ -242,15 +242,15 @@ class TestBoolTypeDescriptor:
 class TestDateTimeTypeDescriptor:
 
     @pytest.fixture
-    def input_datetime_formats(self):
+    def expected_datetime_formats(self):
         return None
 
     @pytest.fixture
-    def type_opts(self, input_datetime_formats):
-        return {"input_datetime_formats": input_datetime_formats}
+    def type_opts(self, expected_datetime_formats):
+        return {"expected_datetime_formats": expected_datetime_formats}
 
     @pytest.mark.parametrize(
-        "input_datetime_formats, input_value, output_value",
+        "expected_datetime_formats, input_value, output_value",
         [
             (None, datetime(2025, 2, 22, 10, 11, 22), datetime(2025, 2, 22, 10, 11, 22)),
             (None, "2025-02-22T10:11:22", datetime(2025, 2, 22, 10, 11, 22)),
@@ -276,7 +276,7 @@ class TestDateTimeTypeDescriptor:
         assert model.foo == output_value
 
     @pytest.mark.parametrize(
-        "input_datetime_formats, input_value, expected_errors",
+        "expected_datetime_formats, input_value, expected_errors",
         [
             (None, 123, [ErrorFactory.invalid_type(loc, 123, [datetime, str])]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.invalid_datetime_format(loc, "spam", ["YYYY-MM-DD"])]),
@@ -309,15 +309,15 @@ class TestDateTimeTypeDescriptor:
 class TestDateTypeDescriptor:
 
     @pytest.fixture
-    def input_date_formats(self):
+    def expected_date_formats(self):
         return None
 
     @pytest.fixture
-    def type_opts(self, input_date_formats):
-        return {"input_date_formats": input_date_formats}
+    def type_opts(self, expected_date_formats):
+        return {"expected_date_formats": expected_date_formats}
 
     @pytest.mark.parametrize(
-        "input_date_formats, input_value, output_value",
+        "expected_date_formats, input_value, output_value",
         [
             (None, date(2025, 2, 22), date(2025, 2, 22)),
             (None, "2025-02-22", date(2025, 2, 22)),
@@ -328,7 +328,7 @@ class TestDateTypeDescriptor:
         assert model.foo == output_value
 
     @pytest.mark.parametrize(
-        "input_date_formats, input_value, expected_errors",
+        "expected_date_formats, input_value, expected_errors",
         [
             (None, 123, [ErrorFactory.invalid_type(loc, 123, [date, str])]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.invalid_date_format(loc, "spam", ["YYYY-MM-DD"])]),

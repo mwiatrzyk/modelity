@@ -6,6 +6,7 @@ import ipaddress
 import pathlib
 from typing import Any, Literal, TypeVar, get_args
 
+from modelity import _utils
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IModelVisitor, ITypeDescriptor
@@ -14,7 +15,7 @@ from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
 
-_DEFAULT_INPUT_DATETIME_FORMATS = [
+_DEFAULT_EXPECTED_DATETIME_FORMATS = [
     "YYYY-MM-DDThh:mm:ssZZZZ",
     "YYYY-MM-DDThh:mm:ss",
     "YYYY-MM-DD hh:mm:ssZZZZ",
@@ -26,11 +27,7 @@ _DEFAULT_INPUT_DATETIME_FORMATS = [
     "YYYYMMDDhhmmss",
 ]
 
-_DEFAULT_INPUT_DATE_FORMATS = ["YYYY-MM-DD"]
-
-_DEFAULT_OUTPUT_DATETIME_FORMAT = "YYYY-MM-DDThh:mm:ssZZZZ"
-
-_DEFAULT_OUTPUT_DATE_FORMAT = "YYYY-MM-DD"
+_DEFAULT_EXPECTED_DATE_FORMATS = ["YYYY-MM-DD"]
 
 registry = TypeDescriptorFactoryRegistry()
 
@@ -103,35 +100,19 @@ def make_datetime_type_descriptor(type_opts: dict):
             if not isinstance(value, str):
                 errors.append(ErrorFactory.invalid_type(loc, value, [datetime, str]))
                 return Unset
-            for fmt in compiled_input_formats:
+            for fmt in compiled_expected_formats:
                 try:
                     return datetime.strptime(value, fmt)
                 except ValueError:
                     pass
-            errors.append(ErrorFactory.invalid_datetime_format(loc, value, input_formats))
+            errors.append(ErrorFactory.invalid_datetime_format(loc, value, expected_formats))
             return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            # visitor.visit_any(loc, value.strftime(compiled_output_format))
             visitor.visit_scalar(loc, value)
 
-    def compile_format(fmt: str) -> str:
-        return (
-            fmt.replace("YYYY", "%Y")
-            .replace("MM", "%m")
-            .replace("DD", "%d")
-            .replace("hh", "%H")
-            .replace("mm", "%M")
-            .replace("ss", "%S")
-            .replace("ZZZZ", "%z")
-        )
-
-    input_formats = (
-        type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS
-    )  # TODO: expected_datetime_formats
-    output_format = type_opts.get("output_datetime_format") or _DEFAULT_OUTPUT_DATETIME_FORMAT
-    compiled_input_formats = [compile_format(x) for x in input_formats]
-    # compiled_output_format = compile_format(output_format)
+    expected_formats = type_opts.get("expected_datetime_formats") or _DEFAULT_EXPECTED_DATETIME_FORMATS
+    compiled_expected_formats = [_utils.compile_datetime_format(x) for x in expected_formats]
     return DateTimeTypeDescriptor()
 
 
@@ -146,25 +127,19 @@ def make_date_type_descriptor(type_opts: dict):
             if not isinstance(value, str):
                 errors.append(ErrorFactory.invalid_type(loc, value, [date, str]))
                 return Unset
-            for fmt in compiled_input_formats:
+            for fmt in compiled_formats:
                 try:
                     return datetime.strptime(value, fmt).date()
                 except ValueError:
                     pass
-            errors.append(ErrorFactory.invalid_date_format(loc, value, input_formats))
+            errors.append(ErrorFactory.invalid_date_format(loc, value, expected_formats))
             return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            # visitor.visit_string(loc, value.strftime(compiled_output_format))
             visitor.visit_scalar(loc, value)
 
-    def compile_format(fmt: str) -> str:
-        return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
-
-    input_formats = type_opts.get("input_date_formats") or _DEFAULT_INPUT_DATE_FORMATS  # TODO: expected_date_formats
-    output_format = type_opts.get("output_date_format") or _DEFAULT_OUTPUT_DATE_FORMAT
-    compiled_input_formats = [compile_format(x) for x in input_formats]
-    compiled_output_format = compile_format(output_format)
+    expected_formats = type_opts.get("expected_date_formats") or _DEFAULT_EXPECTED_DATE_FORMATS
+    compiled_formats = [_utils.compile_datetime_format(x) for x in expected_formats]
     return DateTypeDescriptor()
 
 
@@ -295,9 +270,7 @@ def make_ipv4_address_type_descriptor():
             try:
                 return ipaddress.IPv4Address(value)
             except ipaddress.AddressValueError:
-                errors.append(
-                    ErrorFactory.parse_error(loc, value, ipaddress.IPv4Address, msg="Not a valid IPv4 address")
-                )
+                errors.append(ErrorFactory.parse_error(loc, value, ipaddress.IPv4Address, "Not a valid IPv4 address"))
                 return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
@@ -316,9 +289,7 @@ def make_ipv6_address_type_descriptor():
             try:
                 return ipaddress.IPv6Address(value)
             except ipaddress.AddressValueError:
-                errors.append(
-                    ErrorFactory.parse_error(loc, value, ipaddress.IPv6Address, msg="Not a valid IPv6 address")
-                )
+                errors.append(ErrorFactory.parse_error(loc, value, ipaddress.IPv6Address, "Not a valid IPv6 address"))
                 return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):

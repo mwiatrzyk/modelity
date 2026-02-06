@@ -1871,7 +1871,7 @@ datetime.datetime
 
 Options available:
 
-``input_datetime_formats: list[str]``
+``expected_datetime_formats: list[str]``
     The list of input datetime formats.
 
     Every string that matches one of these formats will be successfully parsed
@@ -1884,13 +1884,9 @@ Options available:
     * **DD** - 2-digit day number (01..31),
     * **hh** - 2-digit hour (00..23)
     * **mm** - 2-digit minute (00..59)
-    * **ss** - 2-digit second (00-59)
+    * **ss** - 2-digit second (00..59)
+    * **ffffff** - 6-digit microseconds (000000..999999)
     * **ZZZZ** - timezone (f.e. +0200)
-
-``output_datetime_format: str``
-    The format to use when datetime object is formatted as string.
-
-    Same placeholders are used as for ``input_datetime_formats``.
 
 Example:
 
@@ -1902,8 +1898,7 @@ Example:
 
     class DateTimeExample(Model):
         foo: datetime.datetime = field_info(
-            input_datetime_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD'],
-            output_datetime_format='DD-MM-YYYY hh:mm:ss'
+            expected_datetime_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD']
         )
 
 .. doctest::
@@ -1929,14 +1924,14 @@ Example:
     >>> obj.foo
     datetime.datetime(2025, 1, 2, 11, 22, 33)
     >>> dump(obj)  # `output_datetime_format` will be used
-    {'foo': '02-01-2025 11:22:33'}
+    {'foo': '2025-01-02T11:22:33.000000'}
 
 datetime.date
 ^^^^^^^^^^^^^
 
 Options available:
 
-``input_date_formats: list[str]``
+``expected_date_formats: list[str]``
     The list of input date formats.
 
     Every string that matches one of these formats will be successfully parsed
@@ -1948,11 +1943,6 @@ Options available:
     * **MM** - 2-digit month number (01..12),
     * **DD** - 2-digit day number (01..31),
 
-``output_date_format: str``
-    The format to use when date object is formatted as string.
-
-    Same placeholders are used as for ``input_date_formats``.
-
 Example:
 
 .. testcode::
@@ -1963,8 +1953,7 @@ Example:
 
     class DateExample(Model):
         foo: datetime.date = field_info(
-            input_date_formats=['YYYY-MM-DD', 'DD-MM-YYYY'],
-            output_date_format='YYYY-MM-DD'
+            expected_date_formats=['YYYY-MM-DD', 'DD-MM-YYYY']
         )
 
 .. doctest::

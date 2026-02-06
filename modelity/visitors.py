@@ -7,7 +7,7 @@ interface.
 import collections
 import datetime
 import enum
-from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, cast
+from typing import Any, Callable, Iterator, Mapping, Sequence, Set, cast
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
@@ -46,7 +46,7 @@ class DumpVisitor(EmptyVisitor):
         The class was renamed: **DefaultDumpVisitor** -> **DumpVisitor**
 
     :param out:
-        The output dict to be updated.
+        The output dict.
 
     :param datetime_format:
         The format to use for :class:`datetime.datetime` objects.
@@ -60,12 +60,15 @@ class DumpVisitor(EmptyVisitor):
     """
 
     def __init__(
-        self, out: dict, datetime_format: str = "YYYY-MM-DDThh:mm:ss.ffffffZZZZ", date_format: str = "YYYY-MM-DD"
+        self,
+        out: dict,
+        datetime_format: str = "YYYY-MM-DDThh:mm:ss.ffffffZZZZ",
+        date_format: str = "YYYY-MM-DD",
     ):
         self._out = out
         self._datetime_format = _utils.compile_datetime_format(datetime_format)
         self._date_format = _utils.compile_datetime_format(date_format)
-        self._stack = []
+        self._stack: list[tuple] = []
 
     def visit_model_begin(self, loc: Loc, value: Any):
         self._push_dict({} if self._stack else self._out)
