@@ -307,9 +307,9 @@ class TestModelWithOneField:
                         "spam",
                         expected_formats=[
                             "YYYY-MM-DDThh:mm:ssZZZZ",
+                            "YYYY-MM-DDThh:mm:ss",
                             "YYYY-MM-DD hh:mm:ssZZZZ",
                             "YYYY-MM-DD hh:mm:ss ZZZZ",
-                            "YYYY-MM-DDThh:mm:ss",
                             "YYYY-MM-DD hh:mm:ss",
                             "YYYYMMDDThhmmssZZZZ",
                             "YYYYMMDDThhmmss",
