@@ -246,12 +246,8 @@ class TestDateTimeTypeDescriptor:
         return None
 
     @pytest.fixture
-    def output_datetime_format(self):
-        return None
-
-    @pytest.fixture
-    def type_opts(self, input_datetime_formats, output_datetime_format):
-        return {"input_datetime_formats": input_datetime_formats, "output_datetime_format": output_datetime_format}
+    def type_opts(self, input_datetime_formats):
+        return {"input_datetime_formats": input_datetime_formats}
 
     @pytest.mark.parametrize(
         "input_datetime_formats, input_value, output_value",
@@ -292,14 +288,17 @@ class TestDateTimeTypeDescriptor:
         assert excinfo.value.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize(
-        "output_datetime_format, input_value, output_value",
+        "datetime_format, input_value, output_value",
         [
-            (None, "2024-01-31 11:22:33", {"foo": "2024-01-31T11:22:33"}),
+            (None, "2024-01-31 11:22:33", {"foo": "2024-01-31T11:22:33.000000"}),
             ("YYYY-MM-DD", "2024-01-31 11:22:33", {"foo": "2024-01-31"}),
         ],
     )
-    def test_dump(self, model, output_value):
-        assert dump(model) == output_value
+    def test_dump(self, model, datetime_format, output_value):
+        if datetime_format is None:
+            assert dump(model) == output_value
+        else:
+            assert dump(model, datetime_format=datetime_format) == output_value
 
     @pytest.mark.parametrize("input_value", ["2024-01-31 11:22:33"])
     def test_validate_successfully(self, model):
@@ -314,12 +313,8 @@ class TestDateTypeDescriptor:
         return None
 
     @pytest.fixture
-    def output_date_format(self):
-        return None
-
-    @pytest.fixture
-    def type_opts(self, input_date_formats, output_date_format):
-        return {"input_date_formats": input_date_formats, "output_date_format": output_date_format}
+    def type_opts(self, input_date_formats):
+        return {"input_date_formats": input_date_formats}
 
     @pytest.mark.parametrize(
         "input_date_formats, input_value, output_value",
@@ -343,16 +338,24 @@ class TestDateTypeDescriptor:
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
+    
+    @pytest.mark.parametrize(
+        "input_value, output_value",
+        [
+            ("2024-01-31", {"foo": "2024-01-31"}),
+        ],
+    )
+    def test_dump_with_default_format(self, model, output_value):
+        assert dump(model) == output_value
 
     @pytest.mark.parametrize(
-        "output_date_format, input_value, output_value",
+        "date_format, input_value, output_value",
         [
-            (None, "2024-01-31", {"foo": "2024-01-31"}),
             ("DD-MM-YYYY", "2024-01-31", {"foo": "31-01-2024"}),
         ],
     )
-    def test_dump(self, model, output_value):
-        assert dump(model) == output_value
+    def test_dump_with_given_format(self, model, date_format, output_value):
+        assert dump(model, date_format=date_format) == output_value
 
     @pytest.mark.parametrize("input_value", ["2024-01-31"])
     def test_validate_successfully(self, model):

@@ -5,13 +5,14 @@ interface.
 """
 
 import collections
-from numbers import Number
-from typing import Any, Callable, Iterator, Mapping, Sequence, Set, Union, cast
+import datetime
+import enum
+from typing import Any, Callable, Iterator, Mapping, Optional, Sequence, Set, cast
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IModelVisitor, IValidatableTypeDescriptor
+from modelity.interface import IField, IModelVisitor, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Field, Model
 from modelity.unset import Unset, UnsetType
@@ -43,68 +44,107 @@ class DefaultDumpVisitor(EmptyVisitor):
 
     :param out:
         The output dict to be updated.
+
+    :param datetime_format:
+        The format to use for :class:`datetime.datetime` objects.
+
+        .. versionadded:: 0.31.0
+
+    :param date_format:
+        The format to use for :class:`datetime.date` objects.
+
+        .. versionadded:: 0.31.0
     """
 
-    def __init__(self, out: dict):
+    def __init__(self, out: dict, datetime_format: str="YYYY-MM-DDThh:mm:ss.ffffffZZZZ", date_format: str="YYYY-MM-DD"):
         self._out = out
-        self._stack = collections.deque[Any]()
+        self._datetime_format = _utils.compile_datetime_format(datetime_format)
+        self._date_format = _utils.compile_datetime_format(date_format)
+        self._stack = []
 
     def visit_model_begin(self, loc: Loc, value: Any):
-        self._stack.append(dict())
+        self._push_dict({} if self._stack else self._out)
 
     def visit_model_end(self, loc: Loc, value: Any):
-        top = self._stack.pop()
-        if len(self._stack) == 0:
-            self._out.update(top)
-        else:
-            self._add(loc, top)
+        obj, _ = self._stack.pop()
+        if self._stack:
+            self._add(loc, obj)
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping):
-        self._stack.append(dict())
+        self._push_dict({})
 
     def visit_mapping_end(self, loc: Loc, value: Mapping):
-        self._add(loc, self._stack.pop())
+        self._pop_and_add(loc)
 
     def visit_sequence_begin(self, loc: Loc, value: Sequence):
-        self._stack.append([])
+        self._push_array([])
 
     def visit_sequence_end(self, loc: Loc, value: Sequence):
-        self._add(loc, self._stack.pop())
+        self._pop_and_add(loc)
 
     def visit_set_begin(self, loc: Loc, value: Set):
-        self._stack.append([])
+        self._push_array([])
 
     def visit_set_end(self, loc: Loc, value: Set):
-        self._add(loc, self._stack.pop())
-
-    def visit_string(self, loc: Loc, value: str):
-        self._add(loc, value)
-
-    def visit_number(self, loc: Loc, value: Number):
-        self._add(loc, value)
-
-    def visit_bool(self, loc: Loc, value: bool):
-        self._add(loc, value)
+        self._pop_and_add(loc)
 
     def visit_none(self, loc: Loc, value: None):
         self._add(loc, value)
 
-    def visit_any(self, loc: Loc, value: Any):
-        if isinstance(value, str):
-            return self._add(loc, value)
-        if isinstance(value, (Set, Sequence)):
-            return self._add(loc, list(value))
-        return self._add(loc, value)
-
     def visit_unset(self, loc: Loc, value: UnsetType):
         self._add(loc, value)
 
-    def _add(self, loc: Loc, value: Any):
-        top: Union[dict, list] = self._stack[-1]
-        if isinstance(top, dict):
-            top[loc.last] = value
+    def visit_scalar(self, loc: Loc, value: Any):
+        if isinstance(value, (int, float)):
+            return self._add(loc, value)
+        if isinstance(value, bytes):
+            return self._add(loc, value.decode("utf-8"))  # TODO: add option to customize this
+        if isinstance(value, enum.Enum):
+            return self._add(loc, value.value)
+        if isinstance(value, datetime.datetime):
+            return self._add(loc, value.strftime(self._datetime_format))
+        if isinstance(value, datetime.date):
+            return self._add(loc, value.strftime(self._date_format))
+        return self._add(loc, str(value))
+
+    def visit_any(self, loc: Loc, value: Any):
+        if isinstance(value, (str, bytes)):
+            self.visit_scalar(loc, value)
+        elif isinstance(value, Sequence):
+            if self.visit_sequence_begin(loc, value) is not True:
+                for i, el in enumerate(value):
+                    self.visit_any(loc + Loc(i), el)
+                self.visit_sequence_end(loc, value)
         else:
-            top.append(value)
+            self.visit_scalar(loc, value)
+
+    def _add(self, loc: Loc, value: Any):
+        self._stack[-1][-1].add(loc, value)
+
+    def _push_dict(self, obj: dict):
+        self._stack.append((obj, self._DictAdapter(obj)))
+
+    def _push_array(self, obj: list):
+        self._stack.append((obj, self._ArrayAdapter(obj)))
+
+    def _pop_and_add(self, loc: Loc):
+        self._add(loc, self._stack.pop()[0])
+
+    class _DictAdapter:
+
+        def __init__(self, obj: dict):
+            self._obj = obj
+
+        def add(self, loc: Loc, value: Any):
+            self._obj[loc.last] = value
+
+    class _ArrayAdapter:
+
+        def __init__(self, obj: list):
+            self._obj = obj
+
+        def add(self, loc: Loc, value: Any):
+            self._obj.append(value)
 
 
 @export
@@ -154,18 +194,20 @@ class DefaultValidateVisitor(EmptyVisitor):
         if memo["has_location_validators"]:
             self._pop_location_validators()
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
         if value is Unset:
             if field.is_required():
                 self._errors.append(ErrorFactory.required_missing(loc))
-            elif not field.is_unsetable():
+            elif not field.is_unsettable():
                 self._errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))
             return True  # Skip other validators
         self._push_field(field)
 
-    def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
         if value is not Unset:
             self._run_field_validators(loc, value)
+            if isinstance(field.descriptor, IValidatableTypeDescriptor):
+                field.descriptor.validate(self._errors, loc, value)
         self._pop_field()
 
     def visit_mapping_end(self, loc: Loc, value: Mapping):
@@ -177,21 +219,10 @@ class DefaultValidateVisitor(EmptyVisitor):
     def visit_set_end(self, loc: Loc, value: Set):
         self._run_location_validators(loc, value)
 
-    def visit_supports_validate_end(self, loc: Loc, value: Any):
-        field = self._current_field()
-        if isinstance(field.descriptor, IValidatableTypeDescriptor):
-            field.descriptor.validate(self._errors, loc, value)
-
-    def visit_string(self, loc: Loc, value: str):
-        self._run_location_validators(loc, value)
-
-    def visit_number(self, loc: Loc, value: Number):
-        self._run_location_validators(loc, value)
-
-    def visit_bool(self, loc: Loc, value: bool):
-        self._run_location_validators(loc, value)
-
     def visit_none(self, loc: Loc, value: None):
+        self._run_location_validators(loc, value)
+
+    def visit_scalar(self, loc: Loc, value: Any):
         self._run_location_validators(loc, value)
 
     def visit_any(self, loc: Loc, value: Any):
@@ -213,7 +244,7 @@ class DefaultValidateVisitor(EmptyVisitor):
     def _pop_model(self):
         self._model_stack.pop()
 
-    def _push_field(self, field: Field):
+    def _push_field(self, field: IField):
         self._field_stack.append(field)
 
     def _pop_field(self):
@@ -222,7 +253,7 @@ class DefaultValidateVisitor(EmptyVisitor):
     def _current_model(self) -> Model:
         return self._model_stack[-1]
 
-    def _current_field(self) -> Field:
+    def _current_field(self) -> IField:
         return self._field_stack[-1]
 
     def _run_model_prevalidators(self, loc: Loc, value: Model):

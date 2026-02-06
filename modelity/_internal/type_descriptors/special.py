@@ -13,7 +13,7 @@ registry = TypeDescriptorFactoryRegistry()
 def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
 
     class AnnotatedTypeDescriptor(IValidatableTypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             result = type_descriptor.parse(errors, loc, value)
             if result is Unset:
                 return result
@@ -22,10 +22,8 @@ def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
                     return Unset
             return result
 
-        def accept(self, visitor, loc, value):
-            if visitor.visit_supports_validate_begin(loc, value) is not True:
-                type_descriptor.accept(visitor, loc, value)
-                visitor.visit_supports_validate_end(loc, value)
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            type_descriptor.accept(visitor, loc, value)
 
         def validate(self, errors: list[Error], loc: Loc, value: Any):
             for constraint in constraints:

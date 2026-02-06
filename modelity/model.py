@@ -159,12 +159,12 @@ class Field:
         """
         return not self.is_optional()
 
-    def is_unsetable(self) -> bool:
+    def is_unsettable(self) -> bool:
         """Check if this field accepts ``Unset`` as a valid value.
 
         .. versionadded:: 0.29.0
         """
-        return self._unsetable
+        return self._unsettable
 
     def has_default(self) -> bool:
         """Check if this field has default value set.
@@ -201,7 +201,7 @@ class Field:
         return origin is Union and (type(None) in args or UnsetType in args)
 
     @functools.cached_property
-    def _unsetable(self):
+    def _unsettable(self):
         return UnsetType in self._typ_args
 
     @functools.cached_property

@@ -3,13 +3,13 @@
 from datetime import date, datetime
 from enum import Enum
 import ipaddress
-from numbers import Number
 import pathlib
-from typing import Any, Literal, TypeVar, cast, get_args
+from typing import Any, Literal, TypeVar, get_args
 
 from modelity._internal.registry import TypeDescriptorFactoryRegistry
-from modelity.error import ErrorFactory
-from modelity.interface import ITypeDescriptor
+from modelity.error import Error, ErrorFactory
+from modelity.interface import IModelVisitor, ITypeDescriptor
+from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
 T = TypeVar("T")
@@ -39,13 +39,13 @@ registry = TypeDescriptorFactoryRegistry()
 def make_unset_type_descriptor():
 
     class UnsetTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is Unset:
                 return value
             errors.append(ErrorFactory.invalid_value(loc, value, [Unset]))
             return Unset
 
-        def accept(self, visitor, loc, value):
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             visitor.visit_unset(loc, value)
 
     return UnsetTypeDescriptor()
@@ -55,10 +55,10 @@ def make_unset_type_descriptor():
 def make_any_type_descriptor():
 
     class AnyTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             return value
 
-        def accept(self, visitor, loc, value):
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             visitor.visit_any(loc, value)
 
     return AnyTypeDescriptor()
@@ -68,7 +68,7 @@ def make_any_type_descriptor():
 def make_bool_type_descriptor(typ: type, type_opts: dict):
 
     class BoolTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bool):
                 return value
             if value in true_literals:
@@ -80,8 +80,8 @@ def make_bool_type_descriptor(typ: type, type_opts: dict):
             )
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_bool(loc, value)
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     true_literals = set(type_opts.get("true_literals") or [])
     false_literals = set(type_opts.get("false_literals") or [])
@@ -97,7 +97,7 @@ def make_bool_type_descriptor(typ: type, type_opts: dict):
 def make_datetime_type_descriptor(type_opts: dict):
 
     class DateTimeTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, datetime):
                 return value
             if not isinstance(value, str):
@@ -111,8 +111,9 @@ def make_datetime_type_descriptor(type_opts: dict):
             errors.append(ErrorFactory.invalid_datetime_format(loc, value, input_formats))
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, value.strftime(compiled_output_format))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            #visitor.visit_any(loc, value.strftime(compiled_output_format))
+            visitor.visit_scalar(loc, value)
 
     def compile_format(fmt: str) -> str:
         return (
@@ -125,10 +126,10 @@ def make_datetime_type_descriptor(type_opts: dict):
             .replace("ZZZZ", "%z")
         )
 
-    input_formats = type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS
+    input_formats = type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS  # TODO: expected_datetime_formats
     output_format = type_opts.get("output_datetime_format") or _DEFAULT_OUTPUT_DATETIME_FORMAT
     compiled_input_formats = [compile_format(x) for x in input_formats]
-    compiled_output_format = compile_format(output_format)
+    #compiled_output_format = compile_format(output_format)
     return DateTimeTypeDescriptor()
 
 
@@ -137,7 +138,7 @@ def make_date_type_descriptor(type_opts: dict):
     # TODO: This is almost copy-paste; refactor date and datetime to some common thing
 
     class DateTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, date):
                 return value
             if not isinstance(value, str):
@@ -151,13 +152,14 @@ def make_date_type_descriptor(type_opts: dict):
             errors.append(ErrorFactory.invalid_date_format(loc, value, input_formats))
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, value.strftime(compiled_output_format))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            #visitor.visit_string(loc, value.strftime(compiled_output_format))
+            visitor.visit_scalar(loc, value)
 
     def compile_format(fmt: str) -> str:
         return fmt.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
-    input_formats = type_opts.get("input_date_formats") or _DEFAULT_INPUT_DATE_FORMATS
+    input_formats = type_opts.get("input_date_formats") or _DEFAULT_INPUT_DATE_FORMATS  # TODO: expected_date_formats
     output_format = type_opts.get("output_date_format") or _DEFAULT_OUTPUT_DATE_FORMAT
     compiled_input_formats = [compile_format(x) for x in input_formats]
     compiled_output_format = compile_format(output_format)
@@ -168,15 +170,16 @@ def make_date_type_descriptor(type_opts: dict):
 def make_enum_type_descriptor(typ: type[Enum]):
 
     class EnumTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return typ(value)
             except ValueError:
                 errors.append(ErrorFactory.invalid_enum_value(loc, value, typ))
                 return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_any(loc, value.value)
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            #visitor.visit_any(loc, value.value)
+            visitor.visit_scalar(loc, value)
 
     return EnumTypeDescriptor()
 
@@ -185,14 +188,14 @@ def make_enum_type_descriptor(typ: type[Enum]):
 def make_literal_type_descriptor(typ):
 
     class LiteralTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value in expected_values:
                 return value
             errors.append(ErrorFactory.invalid_value(loc, value, list(expected_values)))
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_any(loc, value)
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     expected_values = get_args(typ)
     return LiteralTypeDescriptor()
@@ -202,13 +205,13 @@ def make_literal_type_descriptor(typ):
 def make_none_type_descriptor():
 
     class NoneTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if value is None:
                 return value
             errors.append(ErrorFactory.invalid_value(loc, value, [None]))
             return Unset
 
-        def accept(self, visitor, loc, value):
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
             visitor.visit_none(loc, value)
 
     return NoneTypeDescriptor()
@@ -218,15 +221,15 @@ def make_none_type_descriptor():
 def make_int_type_descriptor():
 
     class IntTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return int(value)
             except (ValueError, TypeError):
                 errors.append(ErrorFactory.parse_error(loc, value, int))
                 return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_number(loc, cast(Number, value))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return IntTypeDescriptor()
 
@@ -235,15 +238,15 @@ def make_int_type_descriptor():
 def make_float_type_descriptor():
 
     class FloatTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             try:
                 return float(value)
             except (ValueError, TypeError):
                 errors.append(ErrorFactory.parse_error(loc, value, float))
                 return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_number(loc, cast(Number, value))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return FloatTypeDescriptor()
 
@@ -252,14 +255,14 @@ def make_float_type_descriptor():
 def make_str_type_descriptor():
 
     class StrTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, str):
                 return value
             errors.append(ErrorFactory.invalid_type(loc, value, [str]))
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, value)
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return StrTypeDescriptor()
 
@@ -268,14 +271,14 @@ def make_str_type_descriptor():
 def make_bytes_type_descriptor():
 
     class BytesTypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bytes):
                 return value
             errors.append(ErrorFactory.invalid_type(loc, value, [bytes]))
             return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, value.decode())  # TODO: Add support for other formats
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return BytesTypeDescriptor()
 
@@ -284,7 +287,7 @@ def make_bytes_type_descriptor():
 def make_ipv4_address_type_descriptor():
 
     class IPv4TypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv4Address):
                 return value
             try:
@@ -295,8 +298,8 @@ def make_ipv4_address_type_descriptor():
                 )
                 return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, str(value))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return IPv4TypeDescriptor()
 
@@ -305,7 +308,7 @@ def make_ipv4_address_type_descriptor():
 def make_ipv6_address_type_descriptor():
 
     class IPv6TypeDescriptor(ITypeDescriptor):
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, ipaddress.IPv6Address):
                 return value
             try:
@@ -316,8 +319,8 @@ def make_ipv6_address_type_descriptor():
                 )
                 return Unset
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, str(value))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     return IPv6TypeDescriptor()
 
@@ -327,7 +330,7 @@ def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
 
     class PathlibPathTypeDescriptor(ITypeDescriptor):
 
-        def parse(self, errors, loc, value):
+        def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, pathlib.Path):
                 return value
             if isinstance(value, bytes):
@@ -341,8 +344,8 @@ def make_pathlib_path_type_descriptor(typ: type, type_opts: dict):
                 return Unset
             return pathlib.Path(value)
 
-        def accept(self, visitor, loc, value):
-            visitor.visit_string(loc, str(value))
+        def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
+            visitor.visit_scalar(loc, value)
 
     bytes_encoding = type_opts.get("bytes_encoding", "utf-8")
     return PathlibPathTypeDescriptor()

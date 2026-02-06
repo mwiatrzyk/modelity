@@ -385,14 +385,15 @@ class TestModelWithOneField:
                 datetime,
                 None,
                 datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc),
-                {"foo": "1999-01-31T10:11:22+0000"},
+                {"foo": "1999-01-31T10:11:22.000000+0000"},
             ),
-            (
-                datetime,
-                FieldInfo(type_opts={"output_datetime_format": "YYYY-MM-DD"}),
-                datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc),
-                {"foo": "1999-01-31"},
-            ),
+# TODO: Remove output_datetime_format
+#             (
+#                 datetime,
+#                 FieldInfo(type_opts={"output_datetime_format": "YYYY-MM-DD"}),
+#                 datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc),
+#                 {"foo": "1999-01-31"},
+#             ),
             (EDummy, None, EDummy.ONE, {"foo": 1}),
             (EDummy, None, EDummy.TWO, {"foo": 2}),
             (Literal[1, 3.14, "spam"], None, 1, {"foo": 1}),

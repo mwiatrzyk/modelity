@@ -56,8 +56,8 @@ class TestOptional:
     @pytest.mark.parametrize(
         "given_input, expected_output, visit_name",
         [
-            (1, 1, "visit_number"),
-            ("2", 2, "visit_number"),
+            (1, 1, "visit_scalar"),
+            ("2", 2, "visit_scalar"),
             (None, None, "visit_none"),
         ],
     )
@@ -100,8 +100,8 @@ class TestStrictOptional:
     @pytest.mark.parametrize(
         "given_input, expected_output, visit_name",
         [
-            (1, 1, "visit_number"),
-            ("2", 2, "visit_number"),
+            (1, 1, "visit_scalar"),
+            ("2", 2, "visit_scalar"),
             (Unset, Unset, "visit_unset"),
         ],
     )
@@ -144,8 +144,8 @@ class TestLooseOptional:
     @pytest.mark.parametrize(
         "given_input, expected_output, visit_name",
         [
-            (1, 1, "visit_number"),
-            ("2", 2, "visit_number"),
+            (1, 1, "visit_scalar"),
+            ("2", 2, "visit_scalar"),
             (None, None, "visit_none"),
             (Unset, Unset, "visit_unset"),
         ],

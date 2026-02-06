@@ -1,5 +1,7 @@
 from typing import Final, TypeGuard
 
+from typing_extensions import TypeIs
+
 from modelity import _utils
 
 __all__ = export = _utils.ExportList(["Unset"])  # type: ignore
@@ -30,8 +32,11 @@ class UnsetType:
 
 
 @export
-def is_unset(obj: object) -> TypeGuard[UnsetType]:
+def is_unset(obj: object) -> TypeIs[UnsetType]:
     """Check if *obj* is instance of :class:`UnsetType` type.
+
+    .. versionchanged:: 0.31.0
+        Now uses :obj:`typing_extensions.TypeIs` for type narrowing.
 
     .. versionadded:: 0.17.0
     """

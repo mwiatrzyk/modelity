@@ -35,6 +35,8 @@ def dump(
     exclude_unset: bool = False,
     exclude_none: bool = False,
     exclude_if: Optional[Callable[[Loc, Any], bool]] = None,
+    datetime_format: str = "YYYY-MM-DDThh:mm:ss.ffffffZZZZ",
+    date_format: str = "YYYY-MM-DD",
 ) -> dict:
     """Serialize given model to a dict.
 
@@ -59,9 +61,19 @@ def dump(
         Should return ``True`` to drop the value from resulting dict, or
         ``False`` to leave it. Can be used to achieve exclusion based on
         location and/or value.
+
+    :param datetime_format:
+        The format to use for :class:`datetime.datetime` objects.
+
+        .. versionadded:: 0.31.0
+    
+    :param date_format:
+        The format to use for :class:`datetime.date` objects.
+
+        .. versionadded:: 0.31.0
     """
     output: dict = {}
-    visitor: IModelVisitor = DefaultDumpVisitor(output)
+    visitor: IModelVisitor = DefaultDumpVisitor(output, datetime_format=datetime_format, date_format=date_format)
     if exclude_unset:
         visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, Unset))
     if exclude_none:

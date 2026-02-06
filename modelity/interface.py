@@ -1,5 +1,4 @@
 import abc
-from numbers import Number
 from typing import Any, Mapping, Optional, Protocol, Sequence, Set, Union
 
 from modelity import _utils
@@ -168,18 +167,75 @@ class ITypeDescriptorFactory(Protocol):
 
 
 @export
+class IField(Protocol):
+    """Protocol describing public interface of model fields.
+
+    .. versionadded:: 0.31.0
+    """
+
+    #: The type of this field.
+    typ: type | Any
+
+    #: The type descriptor assigned for this field.
+    descriptor: ITypeDescriptor
+
+    def is_optional(self) -> bool:
+        """Check if field is optional.
+
+        A field is said to be optional if it allows :obj:`None` and/or
+        :obj:`modelity.unset.Unset` as valid values.
+        """
+        ...
+
+    def is_required(self) -> bool:
+        """Check if field is required.
+
+        This is the reverse of :meth:`is_optional` method.
+        """
+        ...
+
+    def is_unsettable(self) -> bool:
+        """Check if this field can be left unset or can be explicitly set to
+        :obj:`modelity.unset.Unset` object."""
+        ...
+
+
+@export
+class IModel(Protocol):
+    """Protocol describing public interface of model objects.
+
+    .. versionadded:: 0.31.0
+    """
+
+    def accept(self, visitor: "IModelVisitor", loc: Loc):
+        """Accept provided model visitor.
+
+        :param visitor:
+            The visitor to accept.
+
+        :param loc:
+            The visited location of the model.
+
+            For root model this will be empty location. For nested model this
+            will be location pointing to the model's location inside outer
+            model.
+        """
+        ...
+
+
+@export
 class IModelVisitor(Protocol):
-    """Base class for model visitors.
+    """Base class for model data visitors.
 
-    The visitor mechanism is used by Modelity for validation and serialization.
-    This interface is designed to handle the full range of JSON-compatible
-    types, with additional support for special values like
-    :obj:`modelity.unset.Unset` and unknown types.
+    This mechanism allows to traverse through Modelity models in a
+    deterministric way and, depending on the implementation, serialize or
+    validate it.
 
-    Type descriptors are responsible for narrowing or coercing input values to
-    determine the most appropriate visit method. For example, a date or time
-    object might be converted to a string and then passed to
-    :meth:`visit_string`.
+    .. versionchanged:: 0.31.0
+
+        Methods ``visit_string``, ``visit_number``, ``visit_bool`` and are now
+        all merged into single :meth:`visit_scalar` method. This allows to pass
+        original values to visitors and let them decide what to do next.
 
     .. versionchanged:: 0.28.0
 
@@ -199,53 +255,56 @@ class IModelVisitor(Protocol):
     .. versionadded:: 0.17.0
     """
 
-    def visit_model_begin(self, loc: Loc, value: Any) -> Optional[bool]:
-        """Start visiting a model object.
+    def visit_model_begin(self, loc: Loc, value: IModel) -> Optional[bool]:
+        """Start visiting model object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited model.
 
         :param value:
-            The object to visit.
+            The visited model object.
         """
         ...
 
-    def visit_model_end(self, loc: Loc, value: Any):
-        """Finish visiting a model object.
+    def visit_model_end(self, loc: Loc, value: IModel):
+        """Finish visiting model object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited model.
 
         :param value:
-            The visited object.
+            The visited model object.
         """
         ...
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: Any) -> Optional[bool]:
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]:
         """Start visiting model field.
 
-        :param field:
-            The object describing model field.
+        This is called for every field in a model no matter if the field is set
+        or not.
 
         :param loc:
-            The location of the field being visited.
+            The location of the visited value.
 
         :param value:
-            The visited field's value.
+            The visited field value.
+
+        :param field:
+            The visited field metadata.
         """
         ...
 
-    def visit_model_field_end(self, loc: Loc, value: Any, field: Any):
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
         """Finish visiting model field.
 
-        :param field:
-            The object describing model field.
-
         :param loc:
-            The location of the field being visited.
+            The location of the visited value.
 
         :param value:
-            The visited field's value.
+            The visited field value.
+
+        :param field:
+            The visited field metadata.
         """
         ...
 
@@ -253,21 +312,21 @@ class IModelVisitor(Protocol):
         """Start visiting a mapping object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited mapping object.
 
         :param value:
-            The object to visit.
+            The visited mapping object.
         """
         ...
-
+    
     def visit_mapping_end(self, loc: Loc, value: Mapping):
         """Finish visiting a mapping object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited mapping object.
 
         :param value:
-            The visited object.
+            The visited mapping object.
         """
         ...
 
@@ -275,10 +334,10 @@ class IModelVisitor(Protocol):
         """Start visiting a sequence object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited sequence object.
 
         :param value:
-            The object to visit.
+            The visited sequence object.
         """
         ...
 
@@ -286,21 +345,21 @@ class IModelVisitor(Protocol):
         """Finish visiting a sequence object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited sequence object.
 
         :param value:
-            The visited object.
+            The visited sequence object.
         """
         ...
-
+    
     def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
         """Start visiting a set object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited set object.
 
         :param value:
-            The object to visit.
+            The visited set object.
         """
         ...
 
@@ -308,103 +367,71 @@ class IModelVisitor(Protocol):
         """Finish visiting a set object.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited set object.
 
         :param value:
-            The visited object..
-        """
-        ...
-
-    def visit_supports_validate_begin(self, loc: Loc, value: Any) -> Optional[bool]:
-        """Start visiting a type supporting per-type validation.
-
-        This will be called by type descriptors that implement
-        :class:`ISupportsValidate` interface.
-
-        :param loc:
-            The location of the value being visited.
-
-        :param value:
-            The object to visit.
-        """
-        ...
-
-    def visit_supports_validate_end(self, loc: Loc, value: Any):
-        """Finish visiting a type supporting per-type validation.
-
-        :param loc:
-            The location of the value being visited.
-
-        :param value:
-            The visited object.
-        """
-        ...
-
-    def visit_string(self, loc: Loc, value: str):
-        """Visit a string value.
-
-        :param loc:
-            The location of the value being visited.
-
-        :param value:
-            The value to visit.
-        """
-        ...
-
-    def visit_bool(self, loc: Loc, value: bool):
-        """Visit a boolean value.
-
-        :param loc:
-            The location of the value being visited.
-
-        :param value:
-            The value to visit.
-        """
-        ...
-
-    def visit_number(self, loc: Loc, value: Number):
-        """Visit a number value.
-
-        :param loc:
-            The location of the value being visited.
-
-        :param value:
-            The value to visit.
+            The visited set object.
         """
         ...
 
     def visit_none(self, loc: Loc, value: None):
         """Visit a ``None`` value.
 
+        Called when :obj:`None` object is found.
+
         :param loc:
-            The location of the value being visited.
+            The location of the visited value.
 
         :param value:
-            The value to visit.
+            The visited value.
         """
         ...
 
     def visit_unset(self, loc: Loc, value: UnsetType):
-        """Visit an :obj:`modelity.unset.Unset` value.
+        """Visit an ``Unset`` value.
+
+        Called when :obj:`modelity.unset.Unset` object is found.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited value.
 
         :param value:
-            The value to visit.
+            The visited value.
+        """
+        ...
+
+    def visit_scalar(self, loc: Loc, value: Any):
+        """Visit scalar object.
+
+        Scalars are primitive objects that are neither containers, nor model
+        objects. All Python primitive types (ints, floats, strings, booleans,
+        enums, datetimes etc.) are scalars from the Modelity point of view.
+
+        :param loc:
+            The location of the visited value.
+
+        :param value:
+            The visited value.
         """
         ...
 
     def visit_any(self, loc: Loc, value: Any):
         """Visit any value.
 
-        This method will be called when the type is unknown or when the type
-        did not match any of the other visit methods.
+        This is called for values from untyped containers, fields marked with
+        :obj:`typing.Any` or typed containers where :obj:`typing.Any` is used
+        as a type hint.
+
+        This method, unlike :meth:`visit_scalar`, can also be called with
+        elements that are containers, not scalars.
+
+        Implementations are responsible for deciding whether to recurse into
+        the value if it is a container.
 
         :param loc:
-            The location of the value being visited.
+            The location of the visited value.
 
         :param value:
-            The value or object to visit.
+            The visited value.
         """
         ...

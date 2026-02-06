@@ -1,5 +1,6 @@
 """General purpose common utility functions."""
 
+import datetime
 import inspect
 import itertools
 from typing import (
@@ -91,6 +92,34 @@ def describe(obj: Any) -> str:
     if isinstance(obj, type):
         return obj.__qualname__
     return repr(obj)
+
+
+def compile_datetime_format(format: str) -> str:
+    """Compile datetime format from Modelity-specific into Python-specific.
+
+    :param format:
+        The format string.
+
+        Supported placeholders:
+
+        * **YYYY** for years
+        * **MM** for months
+        * **DD** for days
+        * **hh** for hours
+        * **mm** for minutes
+        * **ss** for seconds
+        * **ffffff** for microseconds
+        * **ZZZZ** for timezone
+    """
+    return format.\
+        replace("YYYY", "%Y").\
+        replace("MM", "%m").\
+        replace("DD", "%d").\
+        replace("hh", "%H").\
+        replace("mm", "%M").\
+        replace("ss", "%S").\
+        replace("ffffff", "%f").\
+        replace("ZZZZ", "%z")
 
 
 def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:

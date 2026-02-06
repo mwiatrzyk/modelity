@@ -61,7 +61,7 @@ class TestNestedModel:
         mock.visit_model_field_begin.expect_call(
             Loc("foo", "bar"), sut.foo.bar, self.SUT.Nested.__model_fields__["bar"]
         )
-        mock.visit_number.expect_call(Loc("foo", "bar"), 123)
+        mock.visit_scalar.expect_call(Loc("foo", "bar"), 123)
         mock.visit_model_field_end.expect_call(Loc("foo", "bar"), sut.foo.bar, self.SUT.Nested.__model_fields__["bar"])
         mock.visit_model_end.expect_call(Loc("foo"), sut.foo)
         mock.visit_model_field_end.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
