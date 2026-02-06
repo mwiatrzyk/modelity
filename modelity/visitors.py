@@ -39,8 +39,11 @@ class EmptyVisitor:
 
 
 @export
-class DefaultDumpVisitor(EmptyVisitor):
+class DumpVisitor(EmptyVisitor):
     """Default visitor for serializing models into JSON-compatible dicts.
+
+    .. versionchanged:: 0.31.0
+        The class was renamed: **DefaultDumpVisitor** -> **DumpVisitor**
 
     :param out:
         The output dict to be updated.
@@ -56,7 +59,9 @@ class DefaultDumpVisitor(EmptyVisitor):
         .. versionadded:: 0.31.0
     """
 
-    def __init__(self, out: dict, datetime_format: str="YYYY-MM-DDThh:mm:ss.ffffffZZZZ", date_format: str="YYYY-MM-DD"):
+    def __init__(
+        self, out: dict, datetime_format: str = "YYYY-MM-DDThh:mm:ss.ffffffZZZZ", date_format: str = "YYYY-MM-DD"
+    ):
         self._out = out
         self._datetime_format = _utils.compile_datetime_format(datetime_format)
         self._date_format = _utils.compile_datetime_format(date_format)
@@ -148,8 +153,11 @@ class DefaultDumpVisitor(EmptyVisitor):
 
 
 @export
-class DefaultValidateVisitor(EmptyVisitor):
-    """Default visitor for model validation.
+class ValidationVisitor(EmptyVisitor):
+    """Visitor that performs model validation.
+
+    .. versionchanged:: 0.31.0
+        The class was renamed: **DefaultValidationVisitor** -> **ValidationVisitor**
 
     :param root:
         The root model.

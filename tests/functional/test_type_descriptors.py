@@ -338,7 +338,7 @@ class TestDateTypeDescriptor:
         with pytest.raises(ParsingError) as excinfo:
             model_type(foo=input_value)
         assert excinfo.value.errors == tuple(expected_errors)
-    
+
     @pytest.mark.parametrize(
         "input_value, output_value",
         [

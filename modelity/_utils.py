@@ -111,15 +111,16 @@ def compile_datetime_format(format: str) -> str:
         * **ffffff** for microseconds
         * **ZZZZ** for timezone
     """
-    return format.\
-        replace("YYYY", "%Y").\
-        replace("MM", "%m").\
-        replace("DD", "%d").\
-        replace("hh", "%H").\
-        replace("mm", "%M").\
-        replace("ss", "%S").\
-        replace("ffffff", "%f").\
-        replace("ZZZZ", "%z")
+    return (
+        format.replace("YYYY", "%Y")
+        .replace("MM", "%m")
+        .replace("DD", "%d")
+        .replace("hh", "%H")
+        .replace("mm", "%M")
+        .replace("ss", "%S")
+        .replace("ffffff", "%f")
+        .replace("ZZZZ", "%z")
+    )
 
 
 def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:

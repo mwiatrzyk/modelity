@@ -10,8 +10,8 @@ from modelity.unset import Unset
 from modelity.visitors import (
     ConditionalExcludingModelVisitorProxy,
     ConstantExcludingModelVisitorProxy,
-    DefaultDumpVisitor,
-    DefaultValidateVisitor,
+    DumpVisitor,
+    ValidationVisitor,
 )
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -66,14 +66,14 @@ def dump(
         The format to use for :class:`datetime.datetime` objects.
 
         .. versionadded:: 0.31.0
-    
+
     :param date_format:
         The format to use for :class:`datetime.date` objects.
 
         .. versionadded:: 0.31.0
     """
     output: dict = {}
-    visitor: IModelVisitor = DefaultDumpVisitor(output, datetime_format=datetime_format, date_format=date_format)
+    visitor = cast(IModelVisitor, DumpVisitor(output, datetime_format=datetime_format, date_format=date_format))
     if exclude_unset:
         visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, Unset))
     if exclude_none:
@@ -142,7 +142,7 @@ def validate(model: Model, ctx: Any = None):
         The user-defined validation context.
     """
     errors: list[Error] = []
-    visitor = DefaultValidateVisitor(model, errors, ctx)
+    visitor = cast(IModelVisitor, ValidationVisitor(model, errors, ctx))
     model.accept(visitor, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))

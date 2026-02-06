@@ -112,7 +112,7 @@ def make_datetime_type_descriptor(type_opts: dict):
             return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            #visitor.visit_any(loc, value.strftime(compiled_output_format))
+            # visitor.visit_any(loc, value.strftime(compiled_output_format))
             visitor.visit_scalar(loc, value)
 
     def compile_format(fmt: str) -> str:
@@ -126,10 +126,12 @@ def make_datetime_type_descriptor(type_opts: dict):
             .replace("ZZZZ", "%z")
         )
 
-    input_formats = type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS  # TODO: expected_datetime_formats
+    input_formats = (
+        type_opts.get("input_datetime_formats") or _DEFAULT_INPUT_DATETIME_FORMATS
+    )  # TODO: expected_datetime_formats
     output_format = type_opts.get("output_datetime_format") or _DEFAULT_OUTPUT_DATETIME_FORMAT
     compiled_input_formats = [compile_format(x) for x in input_formats]
-    #compiled_output_format = compile_format(output_format)
+    # compiled_output_format = compile_format(output_format)
     return DateTimeTypeDescriptor()
 
 
@@ -153,7 +155,7 @@ def make_date_type_descriptor(type_opts: dict):
             return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            #visitor.visit_string(loc, value.strftime(compiled_output_format))
+            # visitor.visit_string(loc, value.strftime(compiled_output_format))
             visitor.visit_scalar(loc, value)
 
     def compile_format(fmt: str) -> str:
@@ -178,7 +180,7 @@ def make_enum_type_descriptor(typ: type[Enum]):
                 return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
-            #visitor.visit_any(loc, value.value)
+            # visitor.visit_any(loc, value.value)
             visitor.visit_scalar(loc, value)
 
     return EnumTypeDescriptor()

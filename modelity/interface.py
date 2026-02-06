@@ -318,7 +318,7 @@ class IModelVisitor(Protocol):
             The visited mapping object.
         """
         ...
-    
+
     def visit_mapping_end(self, loc: Loc, value: Mapping):
         """Finish visiting a mapping object.
 
@@ -351,7 +351,7 @@ class IModelVisitor(Protocol):
             The visited sequence object.
         """
         ...
-    
+
     def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]:
         """Start visiting a set object.
 

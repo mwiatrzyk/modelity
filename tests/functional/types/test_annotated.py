@@ -66,7 +66,9 @@ class TestAnnotated:
     def test_when_visit_model_field_begin_returns_true_then_field_is_skipped(self, mock):
         sut = self.SUT(foo=0)
         mock.visit_model_begin.expect_call(Loc(), sut)
-        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"]).will_once(Return(True))
+        mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"]).will_once(
+            Return(True)
+        )
         mock.visit_model_end.expect_call(Loc(), sut)
         with ordered(mock):
             sut.accept(mock, Loc())
