@@ -75,6 +75,16 @@ class TestErrorFactory:
                 ),
             ),
             (
+                ErrorFactory.invalid_value(loc, "3.0", ["2.0"], msg="Not a valid value; user message"),
+                Error(
+                    loc,
+                    ErrorCode.INVALID_VALUE,
+                    "Not a valid value; user message",
+                    "3.0",
+                    data={"expected_values": ["2.0"]},
+                ),
+            ),
+            (
                 ErrorFactory.invalid_type(loc, "foo", [int]),
                 Error(
                     loc,

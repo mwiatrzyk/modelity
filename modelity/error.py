@@ -317,7 +317,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type})
 
     @staticmethod
-    def invalid_value(loc: Loc, value: Any, expected_values: list) -> Error:
+    def invalid_value(loc: Loc, value: Any, expected_values: list, /, msg: Optional[str]=None) -> Error:
         """Create invalid value error.
 
         :param loc:
@@ -328,13 +328,19 @@ class ErrorFactory:
 
         :param expected_values:
             List with expected values.
+
+        :param msg:
+            The optional message to override built-in one.
+
+            .. versionadded:: 0.32.0
         """
         expected_values_str = ", ".join(_utils.describe(x) for x in expected_values)
-        msg = "Not a valid value; expected"
-        if len(expected_values) > 1:
-            msg += f" one of: {expected_values_str}"
-        else:
-            msg += f": {expected_values_str}"
+        if msg is None:
+            msg = "Not a valid value; expected"
+            if len(expected_values) > 1:
+                msg += f" one of: {expected_values_str}"
+            else:
+                msg += f": {expected_values_str}"
         return Error(
             loc,
             ErrorCode.INVALID_VALUE,
