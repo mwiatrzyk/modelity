@@ -1,3 +1,27 @@
+## 0.31.0 (2026-02-07)
+
+### BREAKING CHANGES
+
+- original values are now passed to visitors
+- Since now visitors are responsible for converting input
+values (in case of serialization visitors) to closest JSON type. This
+allows valiation visitors to access original values instead of converted
+ones. Also, the `IModelVisitor` interface was slightly modified.
+- drop `output_date(time)_format` parameter and renamed `input_date(time)_formats` to `expected_date(time)_formats`
+- refactoring of dump visitors
+- `DefaultDumpVisitor` was dropped,
+`DefaultValidationVisitor` was renamed to `ValidationVisitor`
+- remove `ConditionalExcludingModelVisitorProxy` as the functionality was moved to `JsonDumpVisitorProxy`
+- visitors were renamed: DefaultDumpVisitor -> DumpVisitor, DefaultValidateVisitor -> ValidationVisitor
+- rename `ConditionalExcludingModelVisitorProxy` to `ModelFieldPruningVisitorProxy`
+
+### Feat
+
+- original values are now passed to visitors
+- drop `output_date(time)_format` parameter and renamed `input_date(time)_formats` to `expected_date(time)_formats`
+- refactoring of dump visitors
+- remove `ConditionalExcludingModelVisitorProxy` as the functionality was moved to `JsonDumpVisitorProxy`
+
 ## 0.30.0 (2026-02-05)
 
 ### Feat
