@@ -439,9 +439,13 @@ class ValidationVisitor(EmptyVisitor):
 
 
 @export
-class ConditionalExcludingModelVisitorProxy:
-    """Visitor proxy that skips values if provided exclude function returns
-    ``True``.
+class ModelFieldPruningVisitorProxy:
+    """Visitor proxy that skips model fields if provided exclude function
+    returns ``True``.
+
+    .. important::
+        This proxy only skips model fields and does not affect container
+        elements in any way.
 
     :param target:
         The wrapped model visitor.
@@ -449,20 +453,18 @@ class ConditionalExcludingModelVisitorProxy:
     :param exclude_if:
         The exclusion function.
 
-        Takes ``(loc, value)`` as arguments and must return ``True`` to exclude
-        object or ``False`` otherwise.
+        Takes ``(loc, value)`` as arguments and must return ``True`` to skip
+        the matched model field or ``False`` to leave it.
     """
 
-    def __init__(self, target: IModelVisitor, exclude_if: Callable[[Loc, Any], bool]):
+    def __init__(self, target: IModelVisitor, /, exclude_if: Callable[[Loc, Any], bool]):
         self._target = target
         self._exclude_if = exclude_if
 
     def __getattr__(self, name):
+        return getattr(self._target, name)
 
-        def proxy(loc, value, *args):
-            if self._exclude_if(loc, value):
-                return
-            return target(loc, value, *args)
-
-        target = getattr(self._target, name)
-        return proxy
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]:
+        if self._exclude_if(loc, value):
+            return True
+        return self._target.visit_model_field_begin(loc, value, field)

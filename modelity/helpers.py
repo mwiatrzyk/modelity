@@ -7,7 +7,7 @@ from modelity.interface import IModelVisitor
 from modelity.loc import Loc
 from modelity.model import Model
 from modelity.visitors import (
-    ConditionalExcludingModelVisitorProxy,
+    ModelFieldPruningVisitorProxy,
     DumpVisitor,
     JsonDumpVisitorProxy,
     ValidationVisitor,
@@ -85,7 +85,7 @@ def dump(
         ),
     )
     if exclude_if is not None:
-       visitor = cast(IModelVisitor, ConditionalExcludingModelVisitorProxy(visitor, exclude_if))
+       visitor = cast(IModelVisitor, ModelFieldPruningVisitorProxy(visitor, exclude_if))
     model.accept(visitor, Loc())
     return output
 
