@@ -1,3 +1,9 @@
+## 0.32.0 (2026-02-07)
+
+### Feat
+
+- addi optional keyword-only `msg` parameter for `ErrorFactory.invalid_value` error factory function
+
 ## 0.31.0 (2026-02-07)
 
 ### BREAKING CHANGES
