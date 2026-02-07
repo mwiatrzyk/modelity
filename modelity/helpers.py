@@ -6,10 +6,8 @@ from modelity.exc import ValidationError
 from modelity.interface import IModelVisitor
 from modelity.loc import Loc
 from modelity.model import Model
-from modelity.unset import Unset
 from modelity.visitors import (
     ConditionalExcludingModelVisitorProxy,
-    ConstantExcludingModelVisitorProxy,
     DumpVisitor,
     JsonDumpVisitorProxy,
     ValidationVisitor,
@@ -77,14 +75,17 @@ def dump(
     output: dict = {}
     visitor = cast(IModelVisitor, DumpVisitor(output))
     visitor = cast(
-        IModelVisitor, JsonDumpVisitorProxy(visitor, datetime_format=datetime_format, date_format=date_format)
+        IModelVisitor,
+        JsonDumpVisitorProxy(
+            visitor,
+            exclude_unset=exclude_unset,
+            exclude_none=exclude_none,
+            datetime_format=datetime_format,
+            date_format=date_format,
+        ),
     )
-    if exclude_unset:
-        visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, Unset))
-    if exclude_none:
-        visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, None))
     if exclude_if is not None:
-        visitor = cast(IModelVisitor, ConditionalExcludingModelVisitorProxy(visitor, exclude_if))
+       visitor = cast(IModelVisitor, ConditionalExcludingModelVisitorProxy(visitor, exclude_if))
     model.accept(visitor, Loc())
     return output
 

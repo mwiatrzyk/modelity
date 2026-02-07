@@ -439,31 +439,6 @@ class ValidationVisitor(EmptyVisitor):
 
 
 @export
-class ConstantExcludingModelVisitorProxy:
-    """Visitor proxy that skips values that are equal to constant provided.
-
-    :param target:
-        The wrapped model visitor.
-
-    :param constant:
-        The constant to exclude.
-    """
-
-    def __init__(self, target: IModelVisitor, constant: Any):
-        self._target = target
-        self._constant = constant
-
-    def __getattr__(self, name):
-
-        def proxy(loc, value, *args):
-            if value is not self._constant:
-                return target(loc, value, *args)
-
-        target = getattr(self._target, name)
-        return proxy
-
-
-@export
 class ConditionalExcludingModelVisitorProxy:
     """Visitor proxy that skips values if provided exclude function returns
     ``True``.
