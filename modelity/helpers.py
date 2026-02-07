@@ -11,6 +11,7 @@ from modelity.visitors import (
     ConditionalExcludingModelVisitorProxy,
     ConstantExcludingModelVisitorProxy,
     DumpVisitor,
+    JsonDumpVisitorProxy,
     ValidationVisitor,
 )
 
@@ -32,6 +33,7 @@ def has_fields_set(model: Model) -> bool:
 @export
 def dump(
     model: Model,
+    /,
     exclude_unset: bool = False,
     exclude_none: bool = False,
     exclude_if: Optional[Callable[[Loc, Any], bool]] = None,
@@ -73,7 +75,10 @@ def dump(
         .. versionadded:: 0.31.0
     """
     output: dict = {}
-    visitor = cast(IModelVisitor, DumpVisitor(output, datetime_format=datetime_format, date_format=date_format))
+    visitor = cast(IModelVisitor, DumpVisitor(output))
+    visitor = cast(
+        IModelVisitor, JsonDumpVisitorProxy(visitor, datetime_format=datetime_format, date_format=date_format)
+    )
     if exclude_unset:
         visitor = cast(IModelVisitor, ConstantExcludingModelVisitorProxy(visitor, Unset))
     if exclude_none:

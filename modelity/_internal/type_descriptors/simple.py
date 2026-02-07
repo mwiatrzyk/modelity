@@ -139,7 +139,7 @@ def make_date_type_descriptor(type_opts: dict):
             visitor.visit_scalar(loc, value)
 
     expected_formats = type_opts.get("expected_date_formats") or _DEFAULT_EXPECTED_DATE_FORMATS
-    compiled_formats = [_utils.compile_datetime_format(x) for x in expected_formats]
+    compiled_formats = [_utils.compile_date_format(x) for x in expected_formats]
     return DateTypeDescriptor()
 
 
@@ -251,6 +251,7 @@ def make_bytes_type_descriptor():
         def parse(self, errors: list[Error], loc: Loc, value: Any):
             if isinstance(value, bytes):
                 return value
+            # TODO: decode from base64 string
             errors.append(ErrorFactory.invalid_type(loc, value, [bytes]))
             return Unset
 

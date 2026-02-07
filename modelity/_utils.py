@@ -15,6 +15,7 @@ from typing import (
     get_args,
     get_origin,
 )
+from typing_extensions import TypeIs
 
 T = TypeVar("T")
 
@@ -50,7 +51,7 @@ def is_mutable(obj: Any) -> bool:
         return True
 
 
-def is_neither_str_nor_bytes_sequence(obj: object) -> bool:
+def is_neither_str_nor_bytes_sequence(obj: object) -> TypeIs[Sequence]:
     """Check if *obj* is a sequence that is neither :class:`str` nor
     :class:`bytes` instance."""
     return isinstance(obj, Sequence) and not isinstance(obj, (str, bytes))
@@ -112,15 +113,28 @@ def compile_datetime_format(format: str) -> str:
         * **ZZZZ** for timezone
     """
     return (
-        format.replace("YYYY", "%Y")
-        .replace("MM", "%m")
-        .replace("DD", "%d")
+        compile_date_format(format)
         .replace("hh", "%H")
         .replace("mm", "%M")
         .replace("ss", "%S")
         .replace("ffffff", "%f")
         .replace("ZZZZ", "%z")
     )
+
+
+def compile_date_format(format: str) -> str:
+    """Compile date format from Modelity-specific into Python-specific.
+
+    :param format:
+        The format string.
+
+        Supported placeholders:
+
+        * **YYYY** for years
+        * **MM** for months
+        * **DD** for days
+    """
+    return format.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
 
 def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
