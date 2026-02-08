@@ -1,8 +1,11 @@
-from typing import TypeVar, Union
+# TODO: Consider renaming this module to `typing.py`
 
+from typing import Protocol, TypeVar, Union
+
+from modelity import _utils
 from modelity.unset import UnsetType
 
-__all__ = ["StrictOptional", "LooseOptional"]
+__all__ = export = _utils.ExportList(["StrictOptional", "LooseOptional"])  # type: ignore
 
 T = TypeVar("T")
 
@@ -26,3 +29,16 @@ StrictOptional = Union[T, UnsetType]
 #:
 #: .. versionadded:: 0.28.0
 LooseOptional = Union[T, None, UnsetType]
+
+
+@export
+class Comparable(Protocol):
+    """Protocol describing generic comparable type.
+
+    .. versionadded:: 0.33.0
+    """
+
+    def __lt__(self, other: object) -> bool: ...
+    def __le__(self, other: object) -> bool: ...
+    def __gt__(self, other: object) -> bool: ...
+    def __ge__(self, other: object) -> bool: ...

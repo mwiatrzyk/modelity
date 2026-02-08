@@ -1,12 +1,15 @@
 import dataclasses
 from enum import Enum
-from typing import Any, Optional, Sequence, Sized, TextIO
+from typing import Any, Optional, Sized, TextIO, TypeVar
 
 from modelity import _utils
 from modelity.loc import Loc
+from modelity.types import Comparable
 from modelity.unset import Unset
 
 __all__ = export = _utils.ExportList()  # type: ignore
+
+T = TypeVar("T", bound=Comparable)
 
 
 @export
@@ -43,7 +46,7 @@ class ErrorCode:
     #: Used when datetime field gets text input that has invalid datetime
     #: format.
     #:
-    #: Used :meth:`ErrorFactory.invalida_datetime_format` to create errors with this code.
+    #: Used :meth:`ErrorFactory.invalid_datetime_format` to create errors with this code.
     INVALID_DATETIME_FORMAT = "modelity.INVALID_DATETIME_FORMAT"
 
     #: Same as for :attr:`INVALID_DATETIME_FORMAT`, but for dates.
@@ -565,12 +568,12 @@ class ErrorFactory:
     @staticmethod
     def out_of_range(
         loc: Loc,
-        value: int | float,
+        value: T,
         /,
-        min_inclusive: Optional[int | float] = None,
-        min_exclusive: Optional[int | float] = None,
-        max_inclusive: Optional[int | float] = None,
-        max_exclusive: Optional[int | float] = None,
+        min_inclusive: Optional[T] = None,
+        min_exclusive: Optional[T] = None,
+        max_inclusive: Optional[T] = None,
+        max_exclusive: Optional[T] = None,
         *,
         msg: Optional[str] = None,
     ) -> Error:
@@ -586,7 +589,7 @@ class ErrorFactory:
             Error location in the model.
 
         :param value:
-            Incorrect input number.
+            Incorrect input value.
 
         :param min_inclusive:
             Minimum value (inclusive).
