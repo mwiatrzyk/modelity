@@ -700,7 +700,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.INVALID_LENGTH, msg, value, data=data)
 
     @staticmethod
-    def invalid_string_format(loc: Loc, value: str, expected_pattern: str, msg: Optional[str] = None) -> Error:
+    def invalid_string_format(loc: Loc, value: str, expected_pattern: str, /, *, msg: Optional[str] = None) -> Error:
         """Create invalid string format error.
 
         :param loc:
