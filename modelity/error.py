@@ -392,8 +392,12 @@ class ErrorFactory:
         loc: Loc,
         value: Any,
         expected_types: list[type],
+        /,
         allowed_types: Optional[list[type]] = None,
         forbidden_types: Optional[list[type]] = None,
+        *,
+        msg: Optional[str] = None,
+        **extra_data
     ) -> Error:
         """Create invalid type error.
 
@@ -421,14 +425,28 @@ class ErrorFactory:
 
             This is used to specify types that are arbitrary forbidden and will
             fail value processing immediately when encountered.
+
+        :param msg:
+            The optional message to override built-in one.
+
+            .. versionadded:: 0.33.0
+
+        :param `**extra_data`:
+            The optional extra error data.
+
+            This will be placed inside :attr:`modelity.error.Error.data` dict
+            of a created error object.
+
+            .. versionadded:: 0.33.0
         """
-        expected_types_str = ", ".join(_utils.describe(x) for x in expected_types)
-        msg = "Not a valid value"
-        if len(expected_types) > 1:
-            msg += f"; expected one of: {expected_types_str}"
-        else:
-            msg += f"; expected: {expected_types_str}"
-        data = {"expected_types": expected_types}
+        if msg is None:
+            expected_types_str = ", ".join(_utils.describe(x) for x in expected_types)
+            msg = "Not a valid value"
+            if len(expected_types) > 1:
+                msg += f"; expected one of: {expected_types_str}"
+            else:
+                msg += f"; expected: {expected_types_str}"
+        data = {"expected_types": expected_types, **extra_data}
         if allowed_types is not None:
             data["allowed_types"] = allowed_types
         if forbidden_types is not None:

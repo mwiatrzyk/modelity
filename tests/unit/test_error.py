@@ -173,6 +173,35 @@ class TestErrorFactory:
                 ),
             ),
             (
+                ErrorFactory.invalid_type(loc, "foo", [list], [Sequence], [str, bytes], msg="Custom message"),
+                Error(
+                    loc,
+                    ErrorCode.INVALID_TYPE,
+                    "Custom message",
+                    "foo",
+                    data={
+                        "expected_types": [list],
+                        "allowed_types": [Sequence],
+                        "forbidden_types": [str, bytes],
+                    },
+                ),
+            ),
+            (
+                ErrorFactory.invalid_type(loc, "foo", [list], [Sequence], [str, bytes], foo=123),
+                Error(
+                    loc,
+                    ErrorCode.INVALID_TYPE,
+                    "Not a valid value; expected: list",
+                    "foo",
+                    data={
+                        "expected_types": [list],
+                        "allowed_types": [Sequence],
+                        "forbidden_types": [str, bytes],
+                        "foo": 123
+                    },
+                ),
+            ),
+            (
                 ErrorFactory.invalid_datetime_format(loc, "spam", ["YYYY-MM-DD"]),
                 Error(
                     loc,
