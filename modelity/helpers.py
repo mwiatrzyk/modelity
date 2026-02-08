@@ -85,7 +85,7 @@ def dump(
         ),
     )
     if exclude_if is not None:
-       visitor = cast(IModelVisitor, ModelFieldPruningVisitorProxy(visitor, exclude_if))
+        visitor = cast(IModelVisitor, ModelFieldPruningVisitorProxy(visitor, exclude_if))
     model.accept(visitor, Loc())
     return output
 

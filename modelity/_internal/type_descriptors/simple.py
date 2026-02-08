@@ -271,7 +271,9 @@ def make_ipv4_address_type_descriptor():
             try:
                 return ipaddress.IPv4Address(value)
             except ipaddress.AddressValueError:
-                errors.append(ErrorFactory.parse_error(loc, value, ipaddress.IPv4Address, msg="Not a valid IPv4 address"))
+                errors.append(
+                    ErrorFactory.parse_error(loc, value, ipaddress.IPv4Address, msg="Not a valid IPv4 address")
+                )
                 return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):
@@ -290,7 +292,9 @@ def make_ipv6_address_type_descriptor():
             try:
                 return ipaddress.IPv6Address(value)
             except ipaddress.AddressValueError:
-                errors.append(ErrorFactory.parse_error(loc, value, ipaddress.IPv6Address, msg="Not a valid IPv6 address"))
+                errors.append(
+                    ErrorFactory.parse_error(loc, value, ipaddress.IPv6Address, msg="Not a valid IPv6 address")
+                )
                 return Unset
 
         def accept(self, visitor: IModelVisitor, loc: Loc, value: Any):

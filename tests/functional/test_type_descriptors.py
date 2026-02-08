@@ -1159,7 +1159,7 @@ class TestSetTypeDescriptor:
             (
                 set,
                 [[123]],
-                [ErrorFactory.conversion_error(loc, [[123]], "some elements are unhashable", set)],
+                [ErrorFactory.conversion_error(loc, [[123]], set, "some elements are unhashable")],
             ),
             (set[int], 123, [ErrorFactory.invalid_type(loc, 123, [set], [Set, Sequence], [str, bytes])]),
             (set[int], "123", [ErrorFactory.invalid_type(loc, "123", [set], [Set, Sequence], [str, bytes])]),

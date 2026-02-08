@@ -43,11 +43,35 @@ class TestErrorFactory:
                 ),
             ),
             (
-                ErrorFactory.conversion_error(loc, "foo", "a reason", set),
+                ErrorFactory.conversion_error(loc, "foo", set),
+                Error(
+                    loc,
+                    ErrorCode.CONVERSION_ERROR,
+                    "Cannot convert str to set",
+                    "foo",
+                    data={
+                        "expected_type": set,
+                    },
+                ),
+            ),
+            (
+                ErrorFactory.conversion_error(loc, "foo", set, "a reason"),
                 Error(
                     loc,
                     ErrorCode.CONVERSION_ERROR,
                     "Cannot convert str to set; a reason",
+                    "foo",
+                    data={
+                        "expected_type": set,
+                    },
+                ),
+            ),
+            (
+                ErrorFactory.conversion_error(loc, "foo", set, msg="Custom message"),
+                Error(
+                    loc,
+                    ErrorCode.CONVERSION_ERROR,
+                    "Custom message",
                     "foo",
                     data={
                         "expected_type": set,

@@ -269,7 +269,7 @@ def make_set_type_descriptor(typ, make_type_descriptor: ITypeDescriptorFactory, 
         try:
             return set(cast(Sequence, result))
         except TypeError:
-            errors.append(ErrorFactory.conversion_error(loc, value, f"some elements are unhashable", set))
+            errors.append(ErrorFactory.conversion_error(loc, value, set, "some elements are unhashable"))
             return Unset
 
     class AnySetDescriptor(ITypeDescriptor):

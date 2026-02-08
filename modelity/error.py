@@ -289,7 +289,16 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def conversion_error(loc: Loc, value: Any, reason: str, expected_type: type) -> Error:
+    def conversion_error(
+        loc: Loc,
+        value: Any,
+        expected_type: type,
+        /,
+        reason: Optional[str] = None,
+        *,
+        msg: Optional[str] = None,
+        **extra_data,
+    ) -> Error:
         """Create conversion error.
 
         This signals that value could not be converted into instance of
@@ -307,17 +316,29 @@ class ErrorFactory:
         :param value:
             Input value that could not be converted.
 
-        :param reason:
-            The reason text.
-
         :param expected_type:
             Expected value type.
+
+        :param reason:
+            The optional reason text.
+
+        :param msg:
+            The optional message to override built-in one.
+
+        :param `**extra_data`:
+            The optional extra error data.
+
+            This will be placed inside :attr:`modelity.error.Error.data` dict
+            of a created error object.
         """
-        msg = f"Cannot convert {_utils.describe(type(value))} to {_utils.describe(expected_type)}; {reason}"
+        if msg is None:
+            msg = f"Cannot convert {_utils.describe(type(value))} to {_utils.describe(expected_type)}"
+            if reason is not None:
+                msg += f"; {reason}"
         return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type})
 
     @staticmethod
-    def invalid_value(loc: Loc, value: Any, expected_values: list, /, msg: Optional[str]=None) -> Error:
+    def invalid_value(loc: Loc, value: Any, expected_values: list, /, msg: Optional[str] = None) -> Error:
         """Create invalid value error.
 
         :param loc:
