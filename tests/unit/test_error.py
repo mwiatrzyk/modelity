@@ -374,6 +374,19 @@ class TestErrorFactory:
                 ),
             ),
             (
+                ErrorFactory.out_of_range(loc, 6, min_exclusive=0, max_exclusive=5, msg="Custom message"),
+                Error(
+                    loc,
+                    ErrorCode.OUT_OF_RANGE,
+                    "Custom message",
+                    6,
+                    data={
+                        "min_exclusive": 0,
+                        "max_exclusive": 5,
+                    },
+                ),
+            ),
+            (
                 ErrorFactory.invalid_length(loc, "spam", min_length=5),
                 Error(loc, ErrorCode.INVALID_LENGTH, "Expected length >= 5", "spam", data={"min_length": 5}),
             ),

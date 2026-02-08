@@ -129,7 +129,7 @@ class Range(IConstraint):
             kwargs["max_exclusive"] = self.max.max_exclusive
         else:
             kwargs["max_inclusive"] = self.max.max_inclusive
-        errors.append(ErrorFactory.out_of_range(loc, value, **kwargs))
+        errors.append(ErrorFactory.out_of_range(loc, value, msg=None, **kwargs))
         return False
 
 

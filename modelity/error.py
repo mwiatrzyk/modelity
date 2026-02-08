@@ -566,14 +566,21 @@ class ErrorFactory:
     def out_of_range(
         loc: Loc,
         value: int | float,
+        /,
         min_inclusive: Optional[int | float] = None,
         min_exclusive: Optional[int | float] = None,
         max_inclusive: Optional[int | float] = None,
         max_exclusive: Optional[int | float] = None,
+        *,
+        msg: Optional[str] = None
     ) -> Error:
         """Create out of range error.
 
         This is a generic error factory for all kind of value range errors.
+
+        .. important::
+            The built-in message composer assumes that there is at least one
+            range parameter given.
 
         :param loc:
             Error location in the model.
@@ -592,6 +599,14 @@ class ErrorFactory:
 
         :param max_exclusive:
             Maximum value (exclusive).
+
+        :param msg:
+            The optional message to override built-in one.
+
+            When custom message is provided then range parameters, although
+            still recommended, become optional.
+
+            .. versionadded:: 0.33.0
         """
         data = {}
         if min_inclusive is not None:
@@ -606,26 +621,27 @@ class ErrorFactory:
             raise ValueError("cannot have both 'min_inclusive' and 'min_exclusive' arguments set")
         if max_inclusive is not None and max_exclusive is not None:
             raise ValueError("cannot have both 'max_inclusive' and 'max_exclusive' arguments set")
-        if min_inclusive is not None and max_inclusive is not None:
-            msg = f"Expected value in range [{min_inclusive}, {max_inclusive}]"
-        elif min_inclusive is not None and max_exclusive is not None:
-            msg = f"Expected value in range [{min_inclusive}, {max_exclusive})"
-        elif min_exclusive is not None and max_inclusive is not None:
-            msg = f"Expected value in range ({min_exclusive}, {max_inclusive}]"
-        elif min_exclusive is not None and max_exclusive is not None:
-            msg = f"Expected value in range ({min_exclusive}, {max_exclusive})"
-        elif min_inclusive is not None:
-            msg = f"Value must be >= {min_inclusive}"
-        elif min_exclusive is not None:
-            msg = f"Value must be > {min_exclusive}"
-        elif max_inclusive is not None:
-            msg = f"Value must be <= {max_inclusive}"
-        elif max_exclusive is not None:
-            msg = f"Value must be < {max_exclusive}"
-        else:
-            raise TypeError(
-                "need one or more range arguments: min_inclusive, min_exclusive, max_inclusive, max_exclusive"
-            )
+        if msg is None:
+            if min_inclusive is not None and max_inclusive is not None:
+                msg = f"Expected value in range [{min_inclusive}, {max_inclusive}]"
+            elif min_inclusive is not None and max_exclusive is not None:
+                msg = f"Expected value in range [{min_inclusive}, {max_exclusive})"
+            elif min_exclusive is not None and max_inclusive is not None:
+                msg = f"Expected value in range ({min_exclusive}, {max_inclusive}]"
+            elif min_exclusive is not None and max_exclusive is not None:
+                msg = f"Expected value in range ({min_exclusive}, {max_exclusive})"
+            elif min_inclusive is not None:
+                msg = f"Value must be >= {min_inclusive}"
+            elif min_exclusive is not None:
+                msg = f"Value must be > {min_exclusive}"
+            elif max_inclusive is not None:
+                msg = f"Value must be <= {max_inclusive}"
+            elif max_exclusive is not None:
+                msg = f"Value must be < {max_exclusive}"
+            else:
+                raise TypeError(
+                    "need one or more range arguments: min_inclusive, min_exclusive, max_inclusive, max_exclusive"
+                )
         return Error(loc, ErrorCode.OUT_OF_RANGE, msg, value, data=data)
 
     @staticmethod
