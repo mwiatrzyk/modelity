@@ -1,3 +1,24 @@
+## 0.33.0 (2026-02-08)
+
+### BREAKING CHANGES
+
+- the method `ErrorFactory.parse_error` now requires `msg` to be passed as keyword arg
+- method `ErrorFactory.conversion_error` now accepts optional `reason` as positional or keyword arg and allows to pass custom `msg` and `extra_data`
+- adjust `ErrorFactory.invalid_string_format` method interface to comply with other factories
+- make all `ErrorFactory` methods to strictly follow positional-only/keyword-only argument rules
+
+### Feat
+
+- the method `ErrorFactory.parse_error` now requires `msg` to be passed as keyword arg
+- method `ErrorFactory.conversion_error` now accepts optional `reason` as positional or keyword arg and allows to pass custom `msg` and `extra_data`
+- add `**extra_data` to `ErrorFactory.invalid_value` method
+- add `msg` and `**extra_data` parameters to `ErrorFactory.invalid_type` method
+- add `msg` parameter to `ErrorFactory.out_of_range` method
+- add `msg` parameter to `ErrorFactory.invalid_length` method
+- adjust `ErrorFactory.invalid_string_format` method interface to comply with other factories
+- make all `ErrorFactory` methods to strictly follow positional-only/keyword-only argument rules
+- `ErrorFactory.out_of_range` now supports any comparable type
+
 ## 0.32.0 (2026-02-07)
 
 ### Feat
