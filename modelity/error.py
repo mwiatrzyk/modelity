@@ -275,10 +275,13 @@ class ErrorFactory:
             Expected value type.
 
         :param msg:
-            Optional message to override default one.
+            The optional message to override built-in one.
 
         :param `**extra_data`:
-            Additional keyword arguments to be passed into error data.
+            The optional extra error data.
+
+            This will be placed inside :attr:`modelity.error.Error.data` dict
+            of a created error object.
         """
         return Error(
             loc,
@@ -325,20 +328,26 @@ class ErrorFactory:
         :param msg:
             The optional message to override built-in one.
 
+            .. versionadded:: 0.33.0
+
         :param `**extra_data`:
             The optional extra error data.
 
             This will be placed inside :attr:`modelity.error.Error.data` dict
             of a created error object.
+
+            .. versionadded:: 0.33.0
         """
         if msg is None:
             msg = f"Cannot convert {_utils.describe(type(value))} to {_utils.describe(expected_type)}"
             if reason is not None:
                 msg += f"; {reason}"
-        return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type})
+        return Error(loc, ErrorCode.CONVERSION_ERROR, msg, value, data={"expected_type": expected_type, **extra_data})
 
     @staticmethod
-    def invalid_value(loc: Loc, value: Any, expected_values: list, /, msg: Optional[str] = None) -> Error:
+    def invalid_value(
+        loc: Loc, value: Any, expected_values: list, /, *, msg: Optional[str] = None, **extra_data
+    ) -> Error:
         """Create invalid value error.
 
         :param loc:
@@ -354,6 +363,14 @@ class ErrorFactory:
             The optional message to override built-in one.
 
             .. versionadded:: 0.32.0
+
+        :param `**extra_data`:
+            The optional extra error data.
+
+            This will be placed inside :attr:`modelity.error.Error.data` dict
+            of a created error object.
+
+            .. versionadded:: 0.33.0
         """
         expected_values_str = ", ".join(_utils.describe(x) for x in expected_values)
         if msg is None:
@@ -367,7 +384,7 @@ class ErrorFactory:
             ErrorCode.INVALID_VALUE,
             msg,
             value,
-            data={"expected_values": expected_values},
+            data={"expected_values": expected_values, **extra_data},
         )
 
     @staticmethod

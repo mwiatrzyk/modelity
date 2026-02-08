@@ -79,6 +79,16 @@ class TestErrorFactory:
                 ),
             ),
             (
+                ErrorFactory.conversion_error(loc, "foo", set, msg="Custom message", foo=1, bar="spam"),
+                Error(
+                    loc,
+                    ErrorCode.CONVERSION_ERROR,
+                    "Custom message",
+                    "foo",
+                    data={"expected_type": set, "foo": 1, "bar": "spam"},
+                ),
+            ),
+            (
                 ErrorFactory.invalid_value(loc, "3.0", ["2.0"]),
                 Error(
                     loc,
@@ -106,6 +116,16 @@ class TestErrorFactory:
                     "Not a valid value; user message",
                     "3.0",
                     data={"expected_values": ["2.0"]},
+                ),
+            ),
+            (
+                ErrorFactory.invalid_value(loc, "3.0", ["2.0"], foo=1, bar="spam"),
+                Error(
+                    loc,
+                    ErrorCode.INVALID_VALUE,
+                    "Not a valid value; expected: '2.0'",
+                    "3.0",
+                    data={"expected_values": ["2.0"], "foo": 1, "bar": "spam"},
                 ),
             ),
             (
