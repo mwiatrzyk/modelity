@@ -397,7 +397,7 @@ class ErrorFactory:
         forbidden_types: Optional[list[type]] = None,
         *,
         msg: Optional[str] = None,
-        **extra_data
+        **extra_data,
     ) -> Error:
         """Create invalid type error.
 
@@ -572,15 +572,15 @@ class ErrorFactory:
         max_inclusive: Optional[int | float] = None,
         max_exclusive: Optional[int | float] = None,
         *,
-        msg: Optional[str] = None
+        msg: Optional[str] = None,
     ) -> Error:
         """Create out of range error.
 
         This is a generic error factory for all kind of value range errors.
 
         .. important::
-            The built-in message composer assumes that there is at least one
-            range parameter given.
+            The built-in message composer requires at least one range parameter
+            to be provided.
 
         :param loc:
             Error location in the model.
@@ -646,12 +646,22 @@ class ErrorFactory:
 
     @staticmethod
     def invalid_length(
-        loc: Loc, value: Sized, min_length: Optional[int] = None, max_length: Optional[int] = None
+        loc: Loc,
+        value: Sized,
+        /,
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        *,
+        msg: Optional[str] = None,
     ) -> Error:
         """Create invalid length error.
 
         This error is reported for containers or other sized types when length
         constraints are not satisfied.
+
+        .. important::
+            The built-in message composer requires at least one length range
+            parameter to be provided.
 
         :param loc:
             Error location in the model.
@@ -664,15 +674,24 @@ class ErrorFactory:
 
         :param max_length:
             Maximum length.
+
+        :param msg:
+            The optional message to override built-in one.
+
+            When custom message is provided then length range parameters,
+            although still recommended, become optional.
+
+            .. versionadded:: 0.33.0
         """
-        if min_length is not None and max_length is not None:
-            msg = f"Expected length in range [{min_length}, {max_length}]"
-        elif min_length is not None:
-            msg = f"Expected length >= {min_length}"
-        elif max_length is not None:
-            msg = f"Expected length <= {max_length}"
-        else:
-            raise TypeError("need 'min_length', 'max_length' or both")
+        if msg is None:
+            if min_length is not None and max_length is not None:
+                msg = f"Expected length in range [{min_length}, {max_length}]"
+            elif min_length is not None:
+                msg = f"Expected length >= {min_length}"
+            elif max_length is not None:
+                msg = f"Expected length <= {max_length}"
+            else:
+                raise TypeError("need 'min_length', 'max_length' or both")
         data = {}
         if min_length is not None:
             data["min_length"] = min_length

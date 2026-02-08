@@ -197,7 +197,7 @@ class TestErrorFactory:
                         "expected_types": [list],
                         "allowed_types": [Sequence],
                         "forbidden_types": [str, bytes],
-                        "foo": 123
+                        "foo": 123,
                     },
                 ),
             ),
@@ -400,6 +400,16 @@ class TestErrorFactory:
                     loc,
                     ErrorCode.INVALID_LENGTH,
                     "Expected length in range [1, 4]",
+                    "dummy",
+                    data={"min_length": 1, "max_length": 4},
+                ),
+            ),
+            (
+                ErrorFactory.invalid_length(loc, "dummy", min_length=1, max_length=4, msg="Custom message"),
+                Error(
+                    loc,
+                    ErrorCode.INVALID_LENGTH,
+                    "Custom message",
                     "dummy",
                     data={"min_length": 1, "max_length": 4},
                 ),
