@@ -305,7 +305,7 @@ class TestModelWithOneField:
                     ErrorFactory.invalid_datetime_format(
                         Loc("foo"),
                         "spam",
-                        expected_formats=[
+                        [
                             "YYYY-MM-DDThh:mm:ssZZZZ",
                             "YYYY-MM-DDThh:mm:ss",
                             "YYYY-MM-DD hh:mm:ssZZZZ",

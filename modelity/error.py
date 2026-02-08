@@ -454,7 +454,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.INVALID_TYPE, msg, value=value, data=data)
 
     @staticmethod
-    def invalid_datetime_format(loc: Loc, value: str, expected_formats: list[str]) -> Error:
+    def invalid_datetime_format(loc: Loc, value: str, expected_formats: list[str], /) -> Error:
         """Create invalid datetime format error.
 
         :param loc:
@@ -481,7 +481,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def invalid_date_format(loc: Loc, value: str, expected_formats: Sequence[str]):
+    def invalid_date_format(loc: Loc, value: str, expected_formats: list[str], /):
         """Create invalid date format error.
 
         :param loc:
@@ -508,7 +508,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def invalid_enum_value(loc: Loc, value: Any, expected_enum_type: type[Enum]) -> Error:
+    def invalid_enum_value(loc: Loc, value: Any, expected_enum_type: type[Enum], /) -> Error:
         """Create invalid enum value error.
 
         :param loc:
@@ -530,7 +530,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def decode_error(loc: Loc, value: bytes, expected_encodings: list[str]) -> Error:
+    def decode_error(loc: Loc, value: bytes, expected_encodings: list[str], /) -> Error:
         """Create decode error.
 
         :param loc:
@@ -547,7 +547,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def invalid_tuple_length(loc: Loc, value: tuple, expected_tuple: tuple[type, ...]) -> Error:
+    def invalid_tuple_length(loc: Loc, value: tuple, expected_tuple: tuple[type, ...], /) -> Error:
         """Create invalid tuple length error.
 
         :param loc:
@@ -703,6 +703,11 @@ class ErrorFactory:
     def invalid_string_format(loc: Loc, value: str, expected_pattern: str, /, *, msg: Optional[str] = None) -> Error:
         """Create invalid string format error.
 
+        .. versionchanged:: 0.33.0
+            Now *loc*, *value* and *expected_pattern* are **positional-only**
+            arguments, while *msg* is **keyword-only** argument. This was
+            changed for compliance with other methods.
+
         :param loc:
             Error location in the model.
 
@@ -726,7 +731,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def required_missing(loc: Loc):
+    def required_missing(loc: Loc, /):
         """Create required missing error.
 
         :param loc:
@@ -735,7 +740,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.REQUIRED_MISSING, "This field is required")
 
     @staticmethod
-    def exception(loc: Loc, value: Any, exc: Exception) -> Error:
+    def exception(loc: Loc, value: Any, exc: Exception, /) -> Error:
         """Create error from a user exception.
 
         :param loc:
@@ -750,7 +755,7 @@ class ErrorFactory:
         return Error(loc, ErrorCode.EXCEPTION, str(exc), value, {"exc_type": exc.__class__})
 
     @staticmethod
-    def unset_not_allowed(loc: Loc, expected_type: Any) -> Error:
+    def unset_not_allowed(loc: Loc, expected_type: Any, /) -> Error:
         """Create ``UNSET_NOT_ALLOWED`` error.
 
         See :attr:`ErrorCode.UNSET_NOT_ALLOWED` for more details.
@@ -771,7 +776,7 @@ class ErrorFactory:
         )
 
     @staticmethod
-    def none_not_allowed(loc: Loc, expected_type: Any) -> Error:
+    def none_not_allowed(loc: Loc, expected_type: Any, /) -> Error:
         """Create ``NONE_NOT_ALLOWED`` error.
 
         See :attr:`ErrorCode.NONE_NOT_ALLOWED` for more details.
