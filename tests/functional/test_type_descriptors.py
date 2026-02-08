@@ -65,7 +65,7 @@ class TestIPv4:
                         Loc("foo"),
                         None,
                         IPv4Address,
-                        "Not a valid IPv4 address",
+                        msg="Not a valid IPv4 address",
                     )
                 ],
             ),
@@ -113,7 +113,7 @@ class TestIPv6:
                         Loc("foo"),
                         None,
                         IPv6Address,
-                        "Not a valid IPv6 address",
+                        msg="Not a valid IPv6 address",
                     )
                 ],
             ),

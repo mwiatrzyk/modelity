@@ -26,7 +26,7 @@ class TestErrorFactory:
                 Error(loc, ErrorCode.PARSE_ERROR, "Not a valid int value", "foo", data={"expected_type": int}),
             ),
             (
-                ErrorFactory.parse_error(loc, "foo", int, "custom message"),
+                ErrorFactory.parse_error(loc, "foo", int, msg="custom message"),
                 Error(loc, ErrorCode.PARSE_ERROR, "custom message", "foo", data={"expected_type": int}),
             ),
             (
