@@ -1,3 +1,9 @@
+## 0.34.0 (2026-02-09)
+
+### Feat
+
+- add `JsonDumpVisitorProxy.register_type_encoder` method to register/override custom type encoders
+
 ## 0.33.0 (2026-02-08)
 
 ### BREAKING CHANGES
