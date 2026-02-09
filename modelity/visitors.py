@@ -9,7 +9,7 @@ import collections
 import datetime
 import enum
 import functools
-from typing import Any, Callable, Iterator, Literal, Mapping, MutableSequence, Optional, Sequence, Set, cast
+from typing import Any, Callable, Iterator, Literal, Mapping, MutableSequence, Optional, Sequence, Set, TypeVar, cast
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
@@ -21,6 +21,8 @@ from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
+T = TypeVar("T")
+
 
 @export
 class EmptyVisitor:
@@ -30,14 +32,39 @@ class EmptyVisitor:
 
     It is meant to be used as a base for other visitors, especially ones that
     do not need to overload all methods.
+
+    .. versionchanged:: 0.34.0
+        Restored the whole set of :class:`modelity.interface.IModelVisitor`
+        interface methods to get rid of linter warnings in subclasses.
     """
 
-    def __getattr__(self, _):
+    def visit_model_begin(self, loc: Loc, value: IModel) -> Optional[bool]: ...
 
-        def func(*args, **kwargs):
-            pass
+    def visit_model_end(self, loc: Loc, value: IModel): ...
 
-        return func
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]: ...
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: IField): ...
+
+    def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]: ...
+
+    def visit_mapping_end(self, loc: Loc, value: Mapping): ...
+
+    def visit_sequence_begin(self, loc: Loc, value: Sequence) -> Optional[bool]: ...
+
+    def visit_sequence_end(self, loc: Loc, value: Sequence): ...
+
+    def visit_set_begin(self, loc: Loc, value: Set) -> Optional[bool]: ...
+
+    def visit_set_end(self, loc: Loc, value: Set): ...
+
+    def visit_none(self, loc: Loc, value: None): ...
+
+    def visit_unset(self, loc: Loc, value: UnsetType): ...
+
+    def visit_scalar(self, loc: Loc, value: Any): ...
+
+    def visit_any(self, loc: Loc, value: Any): ...
 
 
 @export
@@ -192,15 +219,14 @@ class JsonDumpVisitorProxy:
         * **MM** for 2-digit months in range [01..12]
         * **DD** for 2-digit days in range [01..31]
 
-    :param default_converter:
-        The default converter to use if there is no type-specific converter
-        found.
+    :param default_encoder:
+        The default encoder to use if there is no dedicated type encoder found.
 
-        This defaults to :class:`str` type's constructor, therefore all
-        non-JSON types will by default be converted to :class:`str`.
+        If not given, then :class:`str` is used as a default.
+
+        .. versionchanged:: 0.34.0
+            Parameter was renamed from *default_converter*.
     """
-
-    _FormatterFunc = Callable[[Any], Any]
 
     def __init__(
         self,
@@ -211,23 +237,23 @@ class JsonDumpVisitorProxy:
         bytes_format: str | Literal["base64"] = "utf-8",
         datetime_format: str = "YYYY-MM-DDThh:mm:ss.ffffffZZZZ",
         date_format: str = "YYYY-MM-DD",
-        default_converter: Optional[Callable[[Loc, Any], Any]] = None,
+        default_encoder: Optional[Callable[[Loc, Any], Any]] = None,
     ):
         self._target = target
         self._exclude_unset = exclude_unset
         self._exclude_none = exclude_none
         self._bytes_format = bytes_format
         if bytes_format == "base64":
-            bytes_formatter = self._format_bytes_as_base64_str
+            bytes_formatter = self._encode_bytes_as_base64_str
         else:
-            bytes_formatter = self._format_bytes_as_str
+            bytes_formatter = self._encode_bytes_as_str
         self._datetime_format = _utils.compile_datetime_format(datetime_format)
         self._date_format = _utils.compile_date_format(date_format)
-        self._default_converter = default_converter or (lambda loc, value: str(value))
+        self._default_encoder = default_encoder or (lambda loc, value: str(value))
         self._stack: list = []
-        self._formatters: dict[type, JsonDumpVisitorProxy._FormatterFunc] = {
-            datetime.datetime: self._format_datetime,
-            datetime.date: self._format_date,
+        self._type_encoders: dict[type, Callable[[Loc, Any], Any]] = {
+            datetime.datetime: self._encode_datetime,
+            datetime.date: self._encode_date,
             bytes: bytes_formatter,
             str: self._unchanged,
             int: self._unchanged,
@@ -237,6 +263,33 @@ class JsonDumpVisitorProxy:
 
     def __getattr__(self, name):
         return getattr(self._target, name)
+
+    def register_type_encoder(self, typ: type[T], func: Callable[[Loc, T], Any]):
+        """Register or override type encoder.
+
+        .. important::
+            Only model field values, nested model instances or container
+            elements encoding can be customized using this method. Containers
+            like dicts, sets or lists cannot be customized.
+
+        .. versionadded:: 0.34.0
+
+        :param typ:
+            The type to set converter function for.
+
+        :param func:
+            The conversion function.
+
+            Takes ``(loc, value)`` as input and returns encoded value.
+        """
+        self._type_encoders[typ] = func
+
+    def visit_model_begin(self, loc: Loc, value: IModel):
+        encoder = self._type_encoders.get(type(value))
+        if encoder is None:
+            return self._target.visit_model_begin(loc, value)
+        self.visit_any(loc, encoder(loc, value))
+        return True
 
     def visit_set_begin(self, loc: Loc, value: Set):
         list_value = list(value)
@@ -258,13 +311,13 @@ class JsonDumpVisitorProxy:
 
     def visit_scalar(self, loc: Loc, value: Any):
         value_type = type(value)
-        formatter = self._formatters.get(value_type)
-        if formatter is not None:
-            self._target.visit_scalar(loc, formatter(value))
+        encoder = self._type_encoders.get(value_type)
+        if encoder is not None:
+            self._target.visit_scalar(loc, encoder(loc, value))
         elif isinstance(value, enum.Enum):
             self.visit_any(loc, value.value)
         else:
-            self._target.visit_scalar(loc, self._default_converter(loc, value))
+            self._target.visit_scalar(loc, self._default_encoder(loc, value))
 
     def visit_any(self, loc: Loc, value: Any):
         if isinstance(value, Set):
@@ -296,19 +349,19 @@ class JsonDumpVisitorProxy:
                 self.visit_any(loc + Loc(k), v)
             self._target.visit_mapping_end(loc, value)
 
-    def _format_datetime(self, value: datetime.datetime) -> str:
+    def _encode_datetime(self, loc: Loc, value: datetime.datetime) -> str:
         return value.strftime(self._datetime_format)
 
-    def _format_date(self, value: datetime.date) -> str:
+    def _encode_date(self, loc: Loc, value: datetime.date) -> str:
         return value.strftime(self._date_format)
 
-    def _format_bytes_as_str(self, value: bytes) -> str:
+    def _encode_bytes_as_str(self, loc: Loc, value: bytes) -> str:
         return value.decode(self._bytes_format)
 
-    def _format_bytes_as_base64_str(self, value: bytes) -> str:
+    def _encode_bytes_as_base64_str(self, loc: Loc, value: bytes) -> str:
         return base64.b64encode(value).decode()
 
-    def _unchanged(self, value: Any) -> Any:
+    def _unchanged(self, loc: Loc, value: Any) -> Any:
         return value
 
 
@@ -343,7 +396,7 @@ class ValidationVisitor(EmptyVisitor):
         self._location_validators_stack = collections.deque()  # type: ignore
         self._model_stack = collections.deque()  # type: ignore
 
-    def visit_model_begin(self, loc: Loc, value: Model):
+    def visit_model_begin(self, loc: Loc, value: IModel):
         model_type = value.__class__
         location_validators = _int_hooks.collect_location_validator_hooks(model_type)
         self._memo[loc] = {"has_location_validators": bool(location_validators)}
@@ -352,7 +405,7 @@ class ValidationVisitor(EmptyVisitor):
         self._push_model(value)
         return self._run_model_prevalidators(loc, value)
 
-    def visit_model_end(self, loc: Loc, value: Model):
+    def visit_model_end(self, loc: Loc, value: IModel):
         if len(loc) >= 1:
             self._run_location_validators(loc, value)
         self._run_model_postvalidators(loc, value)
@@ -393,7 +446,7 @@ class ValidationVisitor(EmptyVisitor):
     def visit_any(self, loc: Loc, value: Any):
         self._run_location_validators(loc, value)
 
-    def _push_location_validators(self, model: Model, location_validators: dict[Loc, list[_int_hooks.ILocationHook]]):
+    def _push_location_validators(self, model: IModel, location_validators: dict[Loc, list[_int_hooks.ILocationHook]]):
         self._location_validators_stack.append((model, location_validators))
 
     def _pop_location_validators(self):
@@ -403,23 +456,23 @@ class ValidationVisitor(EmptyVisitor):
         for item in self._location_validators_stack:
             yield item
 
-    def _push_model(self, model: Model):
+    def _push_model(self, model: IModel):
         self._model_stack.append(model)
 
     def _pop_model(self):
         self._model_stack.pop()
 
-    def _current_model(self) -> Model:
+    def _current_model(self) -> IModel:
         return self._model_stack[-1]
 
-    def _run_model_prevalidators(self, loc: Loc, value: Model):
+    def _run_model_prevalidators(self, loc: Loc, value: IModel):
         model_type = value.__class__
         for hook in _int_hooks.collect_model_hooks(model_type, "model_prevalidator"):
             if hook(model_type, value, self._root, self._ctx, self._errors, loc) is True:
                 return True
         return None
 
-    def _run_model_postvalidators(self, loc: Loc, value: Model):
+    def _run_model_postvalidators(self, loc: Loc, value: IModel):
         model_type = value.__class__
         for hook in _int_hooks.collect_model_hooks(model_type, "model_postvalidator"):
             hook(model_type, value, self._root, self._ctx, self._errors, loc)

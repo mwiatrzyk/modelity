@@ -9,6 +9,7 @@ from modelity.loc import Loc
 from modelity.model import Model
 from modelity.unset import Unset
 from modelity.visitors import DumpVisitor, JsonDumpVisitorProxy
+from modelity.hooks import field_preprocessor 
 
 
 class EOption(enum.Enum):
@@ -109,7 +110,7 @@ class TestJsonDumpVisitorProxy:
             (bytes, {"bytes_format": "ascii"}, b"spam", "spam"),
             (bytes, {"bytes_format": "base64"}, b"\x00\x01", "AAE="),
             (ipaddress.IPv4Address, {}, "192.168.1.1", "192.168.1.1"),
-            (ipaddress.IPv4Address, {"default_converter": lambda l, v: int(v)}, "0.0.0.255", 255),
+            (ipaddress.IPv4Address, {"default_encoder": lambda l, v: int(v)}, "0.0.0.255", 255),
             (ipaddress.IPv6Address, {}, "ffff::1", "ffff::1"),
             (str, {}, "spam", "spam"),
             (int, {}, 123, 123),
@@ -127,5 +128,19 @@ class TestJsonDumpVisitorProxy:
         out = {}
         visitor = cast(IModelVisitor, DumpVisitor(out))
         visitor = cast(IModelVisitor, JsonDumpVisitorProxy(visitor, **opts))
+        model.accept(visitor, Loc())
+        assert out == {"foo": expected_dump_output}
+
+    @pytest.mark.parametrize("typ, encoder_typ, encoder, input_value, expected_dump_output", [
+        (Nested, Nested, lambda l, v: repr(v), {"bar": 1}, "Nested(bar=1)"),
+        (list[Nested], Nested, lambda l, v: repr(v), [{"bar": 1}, {"bar": 2}], ["Nested(bar=1)", "Nested(bar=2)"]),
+        (int, int, lambda l, v: str(v), 2, "2"),
+        (list[int], int, lambda l, v: str(v), [1, 2], ["1", "2"]),
+    ])
+    def test_dump_with_custom_type_encoder(self, model: IModel, encoder_typ, encoder, expected_dump_output):
+        out = {}
+        visitor = DumpVisitor(out)
+        visitor = JsonDumpVisitorProxy(visitor)
+        visitor.register_type_encoder(encoder_typ, encoder)
         model.accept(visitor, Loc())
         assert out == {"foo": expected_dump_output}
