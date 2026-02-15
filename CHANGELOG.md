@@ -1,3 +1,18 @@
+## 0.35.0 (2026-02-15)
+
+### BREAKING CHANGES
+
+- introduce `Deferred[T]` type marker
+- Now to allow required field to be `Unset` when model is
+created it is required to wrap required field type with `Deferred`
+marker. This is a breaking and major change in Modelity design, however
+it allows to both satisfy static code checking tools while still being
+able to support lazy initialization of required model fields.
+
+### Feat
+
+- introduce `Deferred[T]` type marker
+
 ## 0.34.0 (2026-02-09)
 
 ### Feat
