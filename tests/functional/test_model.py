@@ -17,8 +17,8 @@ from modelity.hooks import (
     model_postvalidator,
     model_prevalidator,
 )
-from modelity.types import StrictOptional
-from modelity.unset import Unset
+from modelity.types import Deferred, StrictOptional
+from modelity.unset import Unset, UnsetType, is_unset
 from modelity.helpers import dump, validate
 
 
@@ -28,7 +28,7 @@ class EDummy(Enum):
 
 
 class Nested(Model):
-    bar: int
+    bar: Deferred[int] = Unset
 
 
 @pytest.fixture
@@ -409,7 +409,7 @@ class TestModelWithOneField:
             (Union[int, Nested], None, 123, {"foo": 123}),
             (Union[int, Nested], None, {"bar": "123"}, {"foo": {"bar": 123}}),
             (Union[int, Nested, float], None, "3.14", {"foo": 3.14}),
-            (Union[int, Nested, float], None, Unset, {"foo": Unset}),
+            (Union[int, Nested, float, UnsetType], None, Unset, {"foo": Unset}),
             (CustomType, None, 1, {"foo": 1}),
         ],
     )
@@ -420,12 +420,12 @@ class TestModelWithOneField:
         "field_type, field_info, given_value, dump_opts, expected_output",
         [
             (Nested, None, {}, {"exclude_unset": True}, {"foo": {}}),
-            (Nested, None, Unset, {"exclude_unset": True}, {}),
+            (StrictOptional[Nested], None, Unset, {"exclude_unset": True}, {}),
             (Nested, None, {"bar": 123}, {"exclude_if": lambda l, v: Loc("foo", "bar").is_parent_of(l)}, {"foo": {}}),
             (Nested, None, {"bar": 123}, {"exclude_if": lambda l, v: Loc("foo").is_parent_of(l)}, {}),
-            (int, None, Unset, {"exclude_unset": True}, {}),
-            (type(None), None, Unset, {"exclude_unset": True}, {}),
-            (type(None), None, Unset, {"exclude_if": lambda l, v: v is Unset}, {}),
+            (Deferred[int], None, Unset, {"exclude_unset": True}, {}),
+            (Deferred[type(None)], None, Unset, {"exclude_unset": True}, {}),
+            (Deferred[type(None)], None, Unset, {"exclude_if": lambda l, v: v is Unset}, {}),
             (type(None), None, None, {"exclude_unset": True}, {"foo": None}),
             (type(None), None, None, {"exclude_none": True}, {}),
             (type(None), None, None, {"exclude_if": lambda l, v: v is None}, {}),
@@ -515,9 +515,9 @@ class TestModelWithModelField:
     class SUT(Model):
 
         class Foo(Model):
-            bar: int
+            bar: Deferred[int] = Unset
 
-        foo: Foo
+        foo: Deferred[Foo] = Unset
 
     @pytest.fixture
     def sut(self):
@@ -661,7 +661,7 @@ class TestModelWithPrePostAndFieldValidators:
     def test_first_invoke_model_prevalidator_then_field_validator_and_finally_model_postvalidator(self, mock):
 
         class SUT(Model):
-            foo: Optional[int]
+            foo: Optional[int] = None
 
             @model_prevalidator()
             def _prevalidate(self):
@@ -682,3 +682,33 @@ class TestModelWithPrePostAndFieldValidators:
         mock.postvalidate.expect_call(sut)
         with ordered(mock):
             validate(sut)
+
+
+class TestModelWithDeferredField:
+
+    @pytest.fixture
+    def SUT(self, typ):
+
+        class SUT(Model):
+            foo: Deferred[typ] = Unset  # type: ignore
+
+        return SUT
+
+    @pytest.fixture
+    def sut(self, SUT, input_value):
+        return SUT(foo=input_value)
+
+    @pytest.mark.parametrize("typ", [
+        int
+    ])
+    def test_unset_field_passes_initialization(self, SUT):
+        sut = SUT()
+        assert is_unset(sut.foo)
+
+    @pytest.mark.parametrize("typ, input_value, expected_output_value", [
+        (int, Unset, Unset),
+        (int, 1, 1),
+        (int, "2", 2),
+    ])
+    def test_successfully_parse_deferred_field(self, sut, expected_output_value):
+        assert sut.foo == expected_output_value

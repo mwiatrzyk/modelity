@@ -77,10 +77,10 @@ And now, let's create the model again:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.api import Model, Deferred, Unset
 
     class Car(Model):
-        position: Vec2D
+        position: Deferred[Vec2D] = Unset
 
 Now there is no exception, as Modelity knows (thanks to the
 ``__modelity_type_descriptor__`` method) how to create type descriptor for our
@@ -188,11 +188,13 @@ additionally parses coordinates as float numbers:
 
 .. testcode::
 
-    from modelity.hooks import type_descriptor_factory
-    from modelity.loc import Loc
-    from modelity.error import ErrorFactory
-    from modelity.interface import ITypeDescriptor
-    from modelity.model import Model
+    from modelity.api import (
+        type_descriptor_factory,
+        Loc,
+        ErrorFactory,
+        ITypeDescriptor,
+        Model
+    )
 
     @type_descriptor_factory(Vec3D)
     def make_vec3d_descriptor(make_type_descriptor):  # Declare the use of root type descriptor factory
@@ -218,8 +220,8 @@ additionally parses coordinates as float numbers:
         return Descriptor()
 
     class Camera(Model):
-        pos: Vec3D
-        direction: Vec3D
+        pos: Deferred[Vec3D]
+        direction: Deferred[Vec3D]
 
 And since now, assigning *pos* or *direction* will also parse each single
 coordinate:
@@ -523,8 +525,7 @@ Let's slightly extend an example from above to see how to use mixins:
 
 .. testcode::
 
-    from modelity.model import Model
-    from modelity.hooks import field_preprocessor
+    from modelity.api import Model, Deferred, field_preprocessor
 
 
     class StringStrippingMixin:  # this is a mixin; we don't inherit from model
@@ -541,19 +542,19 @@ Let's slightly extend an example from above to see how to use mixins:
 
 
     class First(Base):
-        foo: str
+        foo: Deferred[str]
 
 
     class Second(Base):
-        bar: str
+        bar: Deferred[str]
 
 
     class Third(Model):  # Here we don't use our mixin...
-        baz: str
+        baz: Deferred[str]
 
 
     class Fourth(Third, StringStrippingMixin):  # ...and here we do
-        spam: str
+        spam: Deferred[str]
 
 And the final check looks as follows:
 

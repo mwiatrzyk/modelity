@@ -7,6 +7,8 @@ from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.model import Model
 
+from modelity.types import Deferred
+from modelity.unset import Unset
 from tests.functional.types import common
 
 
@@ -15,9 +17,9 @@ class TestNestedModel:
     class SUT(Model):
 
         class Nested(Model):
-            bar: int
+            bar: Deferred[int] = Unset
 
-        foo: Nested
+        foo: Deferred[Nested] = Unset
 
     @pytest.fixture(
         params=[

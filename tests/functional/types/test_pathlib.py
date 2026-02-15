@@ -5,6 +5,8 @@ import pytest
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.model import Model, field_info
+from modelity.types import Deferred
+from modelity.unset import Unset
 
 from . import common
 
@@ -14,10 +16,10 @@ class TestPathlibPath:
     @pytest.mark.parametrize(
         "data",
         [
-            (pathlib.Path, None, "/tmp", pathlib.Path("/tmp"), "/tmp"),
-            (pathlib.Path, None, b"/tmp", pathlib.Path("/tmp"), "/tmp"),
-            (pathlib.Path, field_info(bytes_encoding="ascii"), b"/tmp", pathlib.Path("/tmp"), "/tmp"),
-            (pathlib.Path, None, pathlib.Path("/home"), pathlib.Path("/home"), "/home"),
+            (Deferred[pathlib.Path], None, "/tmp", pathlib.Path("/tmp"), "/tmp"),
+            (Deferred[pathlib.Path], None, b"/tmp", pathlib.Path("/tmp"), "/tmp"),
+            (Deferred[pathlib.Path], field_info(bytes_encoding="ascii"), b"/tmp", pathlib.Path("/tmp"), "/tmp"),
+            (Deferred[pathlib.Path], None, pathlib.Path("/home"), pathlib.Path("/home"), "/home"),
         ],
     )
     class TestParseSuccessfully:
@@ -42,13 +44,13 @@ class TestPathlibPath:
         "invalid_data",
         [
             (
-                pathlib.Path,
+                Deferred[pathlib.Path],
                 None,
                 None,
                 [ErrorFactory.invalid_type(common.loc, None, [str, bytes, pathlib.Path])],
             ),
             (
-                pathlib.Path,
+                Deferred[pathlib.Path],
                 field_info(bytes_encoding="ascii"),
                 b"\xff",
                 [
@@ -74,10 +76,10 @@ class TestPathlibPath:
             common.test_assignment_fails_for_invalid_input(self, invalid_input, expected_errors)
 
     class SUT(Model):
-        foo: pathlib.Path
+        foo: Deferred[pathlib.Path] = Unset
 
     def test_accept_visitor(self, mock):
-        sut = self.SUT(foo="/spam")
+        sut = self.SUT(foo="/spam")  # type: ignore
         mock.visit_model_begin.expect_call(Loc(), sut)
         mock.visit_model_field_begin.expect_call(Loc("foo"), sut.foo, self.SUT.__model_fields__["foo"])
         mock.visit_scalar.expect_call(Loc("foo"), pathlib.Path("/spam"))

@@ -1,7 +1,8 @@
-from typing import List, Literal, Mapping, Set, Union
+from typing import List, Literal, Mapping, Optional, Set, Union
 import pytest
 
 from modelity._utils import describe, is_subsequence
+from modelity.types import Deferred
 
 
 class Dummy:
@@ -45,6 +46,11 @@ def test_is_subsequence(candidate, sequence, expected_result):
         (list[Dummy], "list[Dummy]"),
         (tuple[Dummy.Nested, ...], "tuple[Dummy.Nested, ...]"),
         (tuple[Dummy.Nested, ...], "tuple[Dummy.Nested, ...]"),
+        (Deferred[int], "Deferred[int]"),
+        (Deferred[str], "Deferred[str]"),
+        (Deferred[Optional[int]], "Deferred[Optional[int]]"),  # Deferred has precedence over Optional in this case
+        (Deferred[Dummy], "Deferred[Dummy]"),
+        (Deferred[Union[int, float]], "Deferred[Union[int, float]]"),
         (dict, "dict"),
         (dict[str, dict[str, float]], "dict[str, dict[str, float]]"),
         (Literal[1, 3.14, "spam"], "Literal[1, 3.14, 'spam']"),

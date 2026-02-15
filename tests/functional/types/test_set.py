@@ -5,7 +5,9 @@ from mockify.api import ordered, Return
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.model import Model, field_info
+from modelity.types import Deferred
+from modelity.unset import Unset
 
 from tests.functional.types import common
 
@@ -13,7 +15,7 @@ from tests.functional.types import common
 class TestAnySet:
 
     class SUT(Model):
-        foo: set
+        foo: Deferred[set] = Unset
 
     @pytest.fixture(
         params=[
@@ -78,7 +80,7 @@ class TestAnySet:
 class TestTypedSet:
 
     class SUT(Model):
-        foo: set[int]
+        foo: set[int] = field_info(default_factory=set)
 
     @pytest.fixture(
         params=[

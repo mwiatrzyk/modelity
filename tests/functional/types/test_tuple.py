@@ -6,6 +6,8 @@ from mockify.api import ordered, Return
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import Deferred
+from modelity.unset import Unset
 
 from tests.functional.types import common
 
@@ -13,7 +15,7 @@ from tests.functional.types import common
 class TestAnyTuple:
 
     class SUT(Model):
-        foo: tuple
+        foo: Deferred[tuple] = Unset
 
     @pytest.fixture(
         params=[
@@ -77,7 +79,7 @@ class TestAnyTuple:
 class TestAnyLengthTypedTuple:
 
     class SUT(Model):
-        foo: tuple[int, ...]
+        foo: tuple[int, ...] = tuple()
 
     @pytest.fixture(
         params=[
@@ -142,7 +144,7 @@ class TestAnyLengthTypedTuple:
 class TestFixedLengthTypedTuple:
 
     class SUT(Model):
-        foo: tuple[int, float, str]
+        foo: Deferred[tuple[int, float, str]] = Unset
 
     @pytest.fixture(
         params=[

@@ -369,8 +369,8 @@ class JsonDumpVisitorProxy:
 class ValidationVisitor(EmptyVisitor):
     """Visitor that performs model validation.
 
-    .. versionchanged:: 0.31.0
-        The class was renamed: **DefaultValidationVisitor** -> **ValidationVisitor**
+    .. versionadded:: 0.31.0
+        Replaced **DefaultValidationVisitor** used earlier.
 
     :param root:
         The root model.
@@ -416,9 +416,9 @@ class ValidationVisitor(EmptyVisitor):
 
     def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
         if value is Unset:
-            if field.is_required():
+            if field.deferred:
                 self._errors.append(ErrorFactory.required_missing(loc))
-            elif not field.is_unsettable():
+            elif not field.unsettable:
                 self._errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))
             return True  # Skip other validators
 

@@ -7,6 +7,8 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import Deferred
+from modelity.unset import Unset
 
 from . import common
 
@@ -24,7 +26,7 @@ class TestAnyDict:
     def SUT(self, typ):
 
         class SUT(Model):
-            foo: typ
+            foo: Deferred[typ] = Unset
 
         return SUT
 
@@ -94,7 +96,7 @@ class TestAnyDict:
 class TestTypedDict:
 
     class SUT(Model):
-        foo: dict[str, int]
+        foo: Deferred[dict[str, int]] = Unset
 
     @pytest.fixture(
         params=[

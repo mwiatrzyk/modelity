@@ -9,13 +9,17 @@ from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.model import Model
 
+from modelity.types import Deferred
+from modelity.unset import Unset
 from tests.functional.types import common
 
 
 class TestAnnotated:
 
     class SUT(Model):
-        foo: Annotated[int, Ge(0)]
+        foo: Deferred[Annotated[int, Ge(0)]] = Unset
+
+    print(SUT.__model_fields__["foo"].typ)
 
     @pytest.fixture(
         params=[

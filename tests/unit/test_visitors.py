@@ -7,9 +7,9 @@ import pytest
 from modelity.interface import IModel, IModelVisitor
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import Deferred
 from modelity.unset import Unset
 from modelity.visitors import DumpVisitor, JsonDumpVisitorProxy
-from modelity.hooks import field_preprocessor 
 
 
 class EOption(enum.Enum):
@@ -18,7 +18,7 @@ class EOption(enum.Enum):
 
 
 class Nested(Model):
-    bar: int
+    bar: Deferred[int] = Unset
 
 
 class NestedWithOptional(Model):
@@ -29,7 +29,7 @@ class NestedWithOptional(Model):
 def model_class(typ):
 
     class Dummy(Model):
-        foo: typ
+        foo: Deferred[typ] = Unset  # type: ignore
 
     return Dummy
 
@@ -131,12 +131,15 @@ class TestJsonDumpVisitorProxy:
         model.accept(visitor, Loc())
         assert out == {"foo": expected_dump_output}
 
-    @pytest.mark.parametrize("typ, encoder_typ, encoder, input_value, expected_dump_output", [
-        (Nested, Nested, lambda l, v: repr(v), {"bar": 1}, "Nested(bar=1)"),
-        (list[Nested], Nested, lambda l, v: repr(v), [{"bar": 1}, {"bar": 2}], ["Nested(bar=1)", "Nested(bar=2)"]),
-        (int, int, lambda l, v: str(v), 2, "2"),
-        (list[int], int, lambda l, v: str(v), [1, 2], ["1", "2"]),
-    ])
+    @pytest.mark.parametrize(
+        "typ, encoder_typ, encoder, input_value, expected_dump_output",
+        [
+            (Nested, Nested, lambda l, v: repr(v), {"bar": 1}, "Nested(bar=1)"),
+            (list[Nested], Nested, lambda l, v: repr(v), [{"bar": 1}, {"bar": 2}], ["Nested(bar=1)", "Nested(bar=2)"]),
+            (int, int, lambda l, v: str(v), 2, "2"),
+            (list[int], int, lambda l, v: str(v), [1, 2], ["1", "2"]),
+        ],
+    )
     def test_dump_with_custom_type_encoder(self, model: IModel, encoder_typ, encoder, expected_dump_output):
         out = {}
         visitor = DumpVisitor(out)

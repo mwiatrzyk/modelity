@@ -10,6 +10,7 @@ from modelity.helpers import validate
 from modelity.hooks import model_prevalidator
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import Deferred
 from modelity.unset import Unset
 
 
@@ -53,7 +54,7 @@ def test_user_error_raised_is_converted_to_error(factory, expected_error):
 def test_user_error_with_skip_set_skips_other_validators():
 
     class SUT(Model):
-        foo: int
+        foo: Deferred[int] = Unset
 
         @model_prevalidator()
         def _model_prevalidator():
@@ -200,7 +201,7 @@ def test_prevalidators_defined_in_base_model_are_also_executed_for_child_model(m
 def test_model_prevalidator_can_return_true_to_skip_other_validators_including_built_in_ones(mock):
 
     class SUT(Model):
-        foo: int
+        foo: Deferred[int] = Unset
 
         @model_prevalidator()
         def prevalidate_model():
@@ -219,7 +220,7 @@ def test_model_prevalidator_can_be_provided_by_mixin(mock):
             return mock.prevalidate_model()
 
     class SUT(Model, Mixin):
-        foo: int
+        foo: Deferred[int] = Unset
 
     sut = SUT()
     mock.prevalidate_model.expect_call().will_once(Return(True))

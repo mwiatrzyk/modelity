@@ -4,6 +4,7 @@
 import pytest
 
 from modelity.model import Model
+from modelity.types import Deferred
 
 pytest.register_assert_rewrite("tests.functional.types.base")
 

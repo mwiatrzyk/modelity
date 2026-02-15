@@ -8,6 +8,7 @@ from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
 from modelity.model import FieldInfo, Model
+from modelity.types import Deferred
 from modelity.unset import Unset
 from modelity.helpers import dump, validate
 from modelity._internal.model import make_type_descriptor
@@ -729,14 +730,6 @@ class TestUnionTypeDescriptor:
         return make_type_descriptor(typ)
 
     @pytest.mark.parametrize(
-        "typ, value, expected_result, expected_errors",
-        [],
-    )
-    def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):
-        assert type_descriptor.parse(errors, loc, value) == expected_result
-        assert errors == expected_errors
-
-    @pytest.mark.parametrize(
         "typ, input_value, output_value",
         [
             (Optional[str], "spam", "spam"),
@@ -1271,21 +1264,13 @@ class TestModelTypeDescriptor:
 
     class Dummy(Model):
         class Nested(Model):
-            a: int
+            a: Deferred[int] = Unset
 
-        nested: Nested
+        nested: Deferred[Nested] = Unset
 
     @pytest.fixture
     def type_descriptor(self, typ):
         return make_type_descriptor(typ)
-
-    @pytest.mark.parametrize(
-        "typ, value, expected_result, expected_errors",
-        [],
-    )
-    def test_parsing(self, type_descriptor, errors, value, expected_result, expected_errors):
-        assert type_descriptor.parse(errors, loc, value) == expected_result
-        assert errors == expected_errors
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -1324,7 +1309,7 @@ class TestModelTypeDescriptor:
         [
             (Dummy, {"nested": {}}, [ErrorFactory.required_missing(Loc("foo", "nested", "a"))]),
             (Dummy, {}, [ErrorFactory.required_missing(Loc("foo", "nested"))]),
-            (Dummy, Unset, [ErrorFactory.required_missing(Loc("foo"))]),
+            (Deferred[Dummy], Unset, [ErrorFactory.required_missing(Loc("foo"))]),
         ],
     )
     def test_validate_with_validation_errors(self, model, expected_errors):

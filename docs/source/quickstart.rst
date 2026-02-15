@@ -25,12 +25,12 @@ annotations:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.api import Model, Deferred, Unset
 
     class User(Model):
-        name: str
-        email: str
-        age: int
+        name: Deferred[str] = Unset
+        email: Deferred[str] = Unset
+        age: Deferred[int] = Unset
 
 Creating model instances
 ------------------------
@@ -103,7 +103,7 @@ function:
 
 .. doctest::
 
-    >>> from modelity.helpers import validate
+    >>> from modelity.api import validate
     >>> validate(alice)
 
 If the model is valid, the function will not raise any exceptions. Otherwise,
@@ -127,7 +127,7 @@ Serialize models to :class:`dict` object using :func:`modelity.helpers.dump` hel
 
 .. doctest::
 
-    >>> from modelity.helpers import dump
+    >>> from modelity.api import dump
     >>> alice_dict = dump(alice)
     >>> alice_dict
     {'name': 'Alice', 'email': 'alice@example.com', 'age': 25}
@@ -153,7 +153,7 @@ For deserialization, use :func:`modelity.helpers.load` helper function:
 
 .. doctest::
 
-    >>> from modelity.helpers import load
+    >>> from modelity.api import load
     >>> load(User, alice_dict)
     User(name='Alice', email='alice@example.com', age=25)
 
@@ -162,7 +162,7 @@ to achieve same thing, but with a class-like feeling:
 
 .. doctest::
 
-    >>> from modelity.helpers import ModelLoader
+    >>> from modelity.api import ModelLoader
     >>> UserLoader = ModelLoader(User)
     >>> UserLoader(**alice_dict)
     User(name='Alice', email='alice@example.com', age=25)

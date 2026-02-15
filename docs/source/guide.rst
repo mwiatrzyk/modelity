@@ -15,12 +15,12 @@ use :class:`modelity.model.Model` as a base class:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.api import Model, Deferred, Unset
 
     class User(Model):
-        name: str
-        email: str
-        age: int
+        name: Deferred[str] = Unset
+        email: Deferred[str] = Unset
+        age: Deferred[int] = Unset
 
 Use of ``__slots__`` instead of descriptors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -44,12 +44,12 @@ provided:
 
 .. testcode::
 
-    from modelity.api import Model, Unset
+    from modelity.api import Model, Deferred, Unset
 
     class User(Model):
-        name: str
-        email: str
-        age: int
+        name: Deferred[str] = Unset
+        email: Deferred[str] = Unset
+        age: Deferred[int] = Unset
 
 .. doctest::
 
@@ -258,7 +258,7 @@ Values allowed:
         model = load_model_from_somewhere()  # `model.foo` can either be T, None or Unset
         ...
         validate(model)  # Validate model; will fail if `model.foo` is unset
-        if model.foo is not None:  # Now `model.foo` will either be T, or None 
+        if model.foo is not None:  # Now `model.foo` will either be T, or None
             return model.foo  # Not None, so it will be T
 
    The best way to avoid leaving optional fields unset is to declare such
@@ -268,7 +268,7 @@ Values allowed:
             foo: Optional[int] = None
 
    See also:
-   
+
    * :obj:`modelity.types.LooseOptional`
 
 Example:
@@ -299,6 +299,10 @@ Example:
 
 Using ``modelity.types.StrictOptional[T]``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Strict optionals allow to explicitly declare fields that must either be set to
+a given type ``T``, or not set at all. This is especially useful for
+self-exclusive fields that must not coexist in valid model.
 
 Values allowed:
 
@@ -423,7 +427,7 @@ Example:
     from modelity.helpers import validate
 
     class StrictOptionalUnionExample(Model):
-        foo: Union[int, str, UnsetType]
+        foo: Union[int, str, UnsetType] = Unset
 
 .. doctest::
 
@@ -471,56 +475,53 @@ Example:
     >>> obj.foo = None  # OK
     >>> obj.foo = Unset  # OK
 
-Required fields
+.. _guide-deferred:
+
+Deferred fields
 ^^^^^^^^^^^^^^^
 
-All fields that are not :ref:`optional<guide-optional>` are considered
-**required**. For example:
+.. versionadded:: 0.35.0
+
+Since strict typing provided in version 0.35.0, Modelity now provides
+additional type marker :obj:`modelity.types.Deferred`. It is used to create
+required fields that can be omitted during model instance creation, but must be
+set before model is validated. This is an explicit way of expressing Modelity
+default behavior available for versions < 0.35.0.
+
+Here's an example:
 
 .. testcode::
 
-    import datetime
-
-    from modelity.model import Model
+    from modelity.api import Model, Deferred, Unset
 
     class User(Model):
-        name: str  # required of type string
-        email: str  # required of type string
-        dob: datetime.date  # required of type datetime.date
+        name: Deferred[str] = Unset  # deferred of type string
+        age: Deferred[int] = Unset  # deferred of type int
 
-However, unlike other data modelling tools, Modelity does not force presence of
-required fields during initialization:
-
-.. doctest::
-
-    >>> user = User()  # this is allowed in runtime
-
-This is one of the core Modelity features, allowing models to be progressively
-filled in with data. To check if all required fields are present,
-:func:`modelity.helpers.validate` helper must be used:
+.. note::
+    In the model above, setting fields to default ``Unset`` can be omitted, but
+    it is recommended to allow empty list of parameters without linter
+    complains.
 
 .. doctest::
 
-    >>> from modelity.helpers import validate
-    >>> validate(user)  # will fail, as all required fields are empty
+    >>> bob = User()  # This is allowed
+    >>> validate(bob)  # FAIL; deferred `name` and `age` are missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: Found 3 validation errors for model 'User':
-      dob:
-        This field is required [code=modelity.REQUIRED_MISSING]
-      email:
+    modelity.exc.ValidationError: Found 2 validation errors for model 'User':
+      age:
         This field is required [code=modelity.REQUIRED_MISSING]
       name:
         This field is required [code=modelity.REQUIRED_MISSING]
 
-Now let's initialize required fields and validate again. Validation will no
-longer fail:
+Now let's initialize deferred fields and validate again. Validation will now
+pass:
 
 .. doctest::
 
-    >>> user.name = 'Joe'
-    >>> user.email = 'joe@example.com'
-    >>> user.dob = '1999-01-01'
+    >>> bob.name = 'Bob'
+    >>> user.age = 32
     >>> validate(user)  # OK; all required fields are present
 
 .. note::
@@ -528,6 +529,37 @@ longer fail:
     In Modelity, validation is completely up to the user and the specific use
     case. Modelity neither requires validation nor checks whether it has been
     performed.
+
+Required fields
+^^^^^^^^^^^^^^^
+
+All fields that are neither :ref:`optional<guide-optional>` nor
+:ref:`deferred<guide-deferred>` are considered **required**. Required fields
+must be set when model instance is created. For example:
+
+.. testcode::
+
+    import datetime
+
+    from modelity.api import Model
+
+    class User(Model):
+        name: str  # required of type string
+        email: str  # required of type string
+        dob: datetime.date  # required of type datetime.date
+
+.. doctest::
+
+    >>> user = User()
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 3 parsing errors for type 'User':
+      dob:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+      email:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+      name:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
 
 Attaching metadata to fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -596,7 +628,7 @@ info etc.
     'name'
     >>> field.typ
     <class 'str'>
-    >>> field.is_optional()
+    >>> field.optional
     False
 
 Setting default values
@@ -786,8 +818,7 @@ This can potentially break constraints:
 
 .. doctest::
 
-    >>> obj = MutableListExample()  # OK; nothing is set
-    >>> obj.foo = [1, 2, 3, 4]  # OK; 4 elements in the list
+    >>> obj = MutableListExample(foo=[1, 2, 3, 4])  # OK; 4 elements in the list
     >>> obj.foo.append(5)  # 5th element added, constraint is broken, but no error is reported
 
 And now the validation will fail, as the constraints are no longer satisfied:
@@ -818,12 +849,12 @@ All examples in this section are based on this model type:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.api import Model, Deferred
 
     class User(Model):
-        name: str
-        email: str
-        age: int
+        name: Deferred[str]
+        email: Deferred[str]
+        age: Deferred[int]
 
 Setting and unsetting fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -917,7 +948,7 @@ For example:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.api import Model, Deferred
 
     class A(Model):
         pass
@@ -926,9 +957,9 @@ For example:
         pass
 
     class C(Model):
-        a: int
-        b: int
-        c: int
+        a: Deferred[int]
+        b: Deferred[int]
+        c: Deferred[int]
 
 .. doctest::
 
@@ -1113,14 +1144,12 @@ Example 2: Allow only strings as inputs
 
 .. testcode::
 
-    from modelity.model import Model
-    from modelity.unset import Unset
-    from modelity.hooks import field_preprocessor
+    from modelity.api import Model, Deferred, Unset, field_preprocessor
 
     class User(Model):
-        name: str
-        email: str
-        age: int
+        name: Deferred[str]
+        email: Deferred[str]
+        age: Deferred[int]
 
         @field_preprocessor()  # run this hook for every field
         def _reject_non_string(errors, value):
@@ -1175,8 +1204,7 @@ Example 1: Data alteration
 
     import math
 
-    from modelity.model import Model
-    from modelity.hooks import field_postprocessor
+    from modelity.api import Model, Deferred, field_postprocessor
 
     class Vec2D(Model):
         x: float
@@ -1190,7 +1218,7 @@ Example 1: Data alteration
             return Vec2D(x=self.x / len, y=self.y / len)
 
     class Car(Model):
-        direction: Vec2D
+        direction: Deferred[Vec2D]
 
         @field_postprocessor('direction')
         def _normalize(value):
@@ -1217,9 +1245,7 @@ assignment of an already valid objects only:
 
     import math
 
-    from modelity.model import Model
-    from modelity.helpers import validate
-    from modelity.hooks import field_postprocessor
+    from modelity.api import Model, Deferred, validate, field_postprocessor
 
     class Vec2D(Model):
         x: float
@@ -1233,8 +1259,8 @@ assignment of an already valid objects only:
             return Vec2D(x=self.x / len, y=self.y / len)
 
     class Car(Model):
-        position: Vec2D
-        direction: Vec2D
+        position: Deferred[Vec2D]
+        direction: Deferred[Vec2D]
 
         @field_postprocessor()  # Run for all fields
         def _validate_vec2D(value):
@@ -1253,15 +1279,15 @@ assignment of an already valid objects only:
     >>> car.position = Vec2D(x=0)  # fail; 'y' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Vec2D':
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Vec2D':
       y:
-        This field is required [code=modelity.REQUIRED_MISSING]
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
     >>> car.direction = Vec2D(y=4)  # fail; 'x' is missing
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Vec2D':
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Vec2D':
       x:
-        This field is required [code=modelity.REQUIRED_MISSING]
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
     >>> car.direction = Vec2D(x=3, y=4)  # OK
     >>> car.direction.length()  # Normalization postprocessor still works
     1.0
@@ -1280,8 +1306,8 @@ the time when field is set, not when validation is performed. For example:
     from modelity.hooks import field_postprocessor
 
     class Account(Model):
-        password: str
-        repeated_password: str  # Must be declared after 'password' field
+        password: Deferred[str]
+        repeated_password: Deferred[str]  # Must be declared after 'password' field
 
         @field_postprocessor('repeated_password')
         def _check_if_the_same(self, value):
@@ -1331,13 +1357,11 @@ value:
 
     import datetime
 
-    from modelity.model import Model
-    from modelity.unset import Unset
-    from modelity.hooks import field_postprocessor
+    from modelity.api import Model, Deferred, Unset, field_postprocessor
 
     class File(Model):
-        modified: datetime.date
-        created: datetime.date  # Must be declared after 'modified'; otherwise it may access a non-existing attribute during object construction
+        modified: Deferred[datetime.date]
+        created: Deferred[datetime.date]  # Must be declared after 'modified'; otherwise it may access a non-existing attribute during object construction
 
         @field_postprocessor('created')
         def _initialize_modified(self, value):
@@ -1388,7 +1412,7 @@ dependencies on a per-model basis. Here's an example:
 
     class Example(Model):
         colors_available: list[str] = ['red', 'green', 'blue']
-        color_selected: str
+        color_selected: str = ""
 
         @model_prevalidator()
         def _check_color_selected(self):
@@ -1421,11 +1445,9 @@ without setting **color_selected** field:
     >>> validate(obj)
     Traceback (most recent call last):
       ...
-    modelity.exc.ValidationError: Found 2 validation errors for model 'Example':
+    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
       (empty):
-        unsupported color: Unset [code=modelity.EXCEPTION, exc_type=ValueError]
-      color_selected:
-        This field is required [code=modelity.REQUIRED_MISSING]
+        unsupported color:  [code=modelity.EXCEPTION, exc_type=ValueError]
 
 As you can see, our custom model prevalidator was executed along with the
 built-in required field check. In this case this is kind of redundant error, so
@@ -1435,16 +1457,11 @@ to skip other validators:
 
 .. testcode::
 
-    from modelity.model import Model
-    from modelity.error import Error
-    from modelity.loc import Loc
-    from modelity.helpers import validate
-    from modelity.unset import Unset
-    from modelity.hooks import model_prevalidator
+    from modelity.api import Model, Error, Loc, validate, Unset, model_prevalidator
 
     class Example(Model):
         colors_available: list[str] = ['red', 'green', 'blue']
-        color_selected: str
+        color_selected: str = ""
 
         @model_prevalidator()
         def _check_color_selected(self, errors, loc):  # `errors` and `loc` are needed to create error
@@ -1473,7 +1490,7 @@ And now, there will only be a single error:
       ...
     modelity.exc.ValidationError: Found 1 validation error for model 'Example':
       color_selected:
-        unsupported color: Unset [code=custom.INVALID_VALUE]
+        unsupported color:  [code=custom.INVALID_VALUE]
 
 
 And of course, if valid value is given, then validation will pass:
@@ -1504,13 +1521,11 @@ For example:
 
 .. testcode::
 
-    from modelity.model import Model
-    from modelity.hooks import field_validator
-    from modelity.helpers import validate
+    from modelity.api import Model, field_validator, validate
 
     class User(Model):
-        email: str
-        repeated_email: str
+        email: Deferred[str]
+        repeated_email: Deferred[str]
 
         @field_validator('repeated_email')
         def _check_if_the_same(self, value):
@@ -1614,8 +1629,8 @@ example from above to use model postvalidator instead:
     from modelity.helpers import validate
 
     class User(Model):
-        email: str
-        repeated_email: str
+        email: Deferred[str]
+        repeated_email: Deferred[str]
 
         @model_postvalidator()
         def _check_if_emails_match(self):
@@ -1645,7 +1660,7 @@ For nested model, the error would point to a field in a parent model instead:
 
 .. doctest::
 
-    >>> store = UserStore()
+    >>> store = UserStore(users=[])
     >>> store.users = [User(email='john@example.com', repeated_email='JOHN@example.com')]
     >>> validate(store)
     Traceback (most recent call last):
@@ -1674,10 +1689,10 @@ For example:
 
 .. testcode::
 
-    from modelity.api import Model, field_preprocessor
+    from modelity.api import Model, Deferred, field_preprocessor
 
     class Dummy(Model):
-        foo: int
+        foo: Deferred[int]
 
         @field_preprocessor()
         def _ensure_string(value):
@@ -1756,11 +1771,11 @@ For example:
 
    .. testcode::
 
-    from modelity.api import Model, field_validator, validate, UserError
+    from modelity.api import Model, Deferred, field_validator, validate, UserError
 
     class User(Model):
-        email: str
-        repeated_email: str
+        email: Deferred[str]
+        repeated_email: Deferred[str]
 
         @field_validator("repeated_email")
         def _check_if_repeated_same(self, value):
@@ -1790,10 +1805,10 @@ For example:
 
 .. testcode::
 
-    from modelity.api import Model, Error, field_preprocessor
+    from modelity.api import Model, Deferred, Error, field_preprocessor
 
     class Dummy(Model):
-        foo: int
+        foo: Deferred[int]
 
         @field_preprocessor()
         def _ensure_string(errors: list[Error], loc, value):
@@ -1848,10 +1863,10 @@ Example:
 
 .. testcode::
 
-    from modelity.model import Model, field_info
+    from modelity.api import Model, Deferred, field_info
 
     class BoolExample(Model):
-        foo: bool = field_info(true_literals=['on'], false_literals=['off'])
+        foo: Deferred[bool] = field_info(true_literals=['on'], false_literals=['off'])
 
 .. doctest::
 
@@ -1894,10 +1909,10 @@ Example:
 
     import datetime
 
-    from modelity.model import Model, field_info
+    from modelity.api import Model, Deferred, field_info
 
     class DateTimeExample(Model):
-        foo: datetime.datetime = field_info(
+        foo: Deferred[datetime.datetime] = field_info(
             expected_datetime_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD']
         )
 
@@ -1958,8 +1973,7 @@ Example:
 
 .. doctest::
 
-    >>> obj = DateExample()
-    >>> obj.foo = '1999-01-02'  # OK
+    >>> obj = DateExample(foo='1999-01-02')  # OK
     >>> obj.foo
     datetime.date(1999, 1, 2)
     >>> obj.foo = '02-03-2025'  # OK
@@ -1997,15 +2011,14 @@ Example:
 
     import pathlib
 
-    from modelity.model import Model, field_info
+    from modelity.api import Model, field_info
 
     class PosixPathExample(Model):
         foo: pathlib.Path = field_info(bytes_encoding='ascii')
 
 .. doctest::
 
-    >>> obj = PosixPathExample()
-    >>> obj.foo = b'\xff'  # fail; ascii codec can't decode this
+    >>> obj = PosixPathExample(foo=b'\xff')  # fail; ascii codec can't decode this
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: Found 1 parsing error for type 'PosixPathExample':
@@ -2015,6 +2028,6 @@ Example:
 .. doctest::
 
     >>> from modelity.helpers import dump
-    >>> obj.foo = '/tmp/some/file.txt'  # this will pass
+    >>> obj = PosixPathExample(foo='/tmp/some/file.txt')  # this will pass
     >>> obj.foo
     PosixPath('/tmp/some/file.txt')

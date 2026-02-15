@@ -17,13 +17,15 @@ from typing import (
 import typing_extensions
 
 from modelity._internal import hooks as _int_hooks, model as _int_model
-from modelity.error import Error
+from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError
 from modelity.interface import (
+    IField,
     IModelVisitor,
     ITypeDescriptor,
 )
 from modelity.loc import Loc
+from modelity.types import is_deferred, is_optional, is_unsettable
 from modelity.unset import Unset, UnsetType
 from modelity import _utils
 
@@ -120,51 +122,44 @@ class FieldInfo:
 @export
 @dataclasses.dataclass
 class Field:
-    """Field created from annotation."""
+    """Field created from annotation.
 
-    #: Field's name.
+    This class implicitly implements :class:`modelity.interface.IField`
+    protocol.
+    """
+
+    #: See :attr:`modelity.interface.IField.name`.
     name: str
 
-    #: Field's type annotation.
+    #: See :attr:`modelity.interface.IField.annotation`.
     typ: Any
 
-    #: Field's type descriptor object.
+    #: See :attr:`modelity.interface.IField.descriptor`.
     descriptor: ITypeDescriptor
 
     #: Field's user-defined info object.
     field_info: Optional[FieldInfo] = None
 
-    def is_optional(self) -> bool:
-        """Check if this field is optional.
+    #: See :attr:`modelity.interface.IField.optional`.
+    optional: bool = False
 
-        A field is optional if at least one of the following criteria is met:
+    #: See :attr:`modelity.interface.IField.unsettable`.
+    unsettable: bool = False
 
-        * it is annotated with :class:`typing.Optional` type annotation,
-        * it is annotated with :class:`modelity.types.StrictOptional` type annotation,
-        * it is annotated with :class:`modelity.types.LooseOptional` type annotation,
-        * it is annotated with :class:`typing.Union` that allows ``None`` or ``Unset`` as one of valid values,
-        * it has default value assigned.
+    #: See :attr:`modelity.interface.IField.deferred`.
+    deferred: bool = False
 
-        .. versionadded:: 0.29.0
-            Replaced ``optional`` property used earlier.
+    @property
+    def required(self) -> bool:
+        """Flag indicating whether this field is required during parsing.
+
+        A model with required field will fail parsing if the field is not
+        provided to model constructor and does not have default value set.
+        Any field that is neither optional nor deferred is required.
+
+        .. versionadded:: 0.35.0
         """
-        return self._optional
-
-    def is_required(self) -> bool:
-        """Check if this field is required.
-
-        This is the opposite of :meth:`is_optional`.
-
-        .. versionadded:: 0.29.0
-        """
-        return not self.is_optional()
-
-    def is_unsettable(self) -> bool:
-        """Check if this field accepts ``Unset`` as a valid value.
-
-        .. versionadded:: 0.29.0
-        """
-        return self._unsettable
+        return not self.optional and not self.deferred
 
     def has_default(self) -> bool:
         """Check if this field has default value set.
@@ -192,26 +187,6 @@ class Field:
         else:
             return Unset
 
-    @functools.cached_property
-    def _optional(self):
-        if self.has_default():
-            return True
-        origin = self._typ_origin
-        args = self._typ_args
-        return origin is Union and (type(None) in args or UnsetType in args)
-
-    @functools.cached_property
-    def _unsettable(self):
-        return UnsetType in self._typ_args
-
-    @functools.cached_property
-    def _typ_origin(self):
-        return get_origin(self.typ)
-
-    @functools.cached_property
-    def _typ_args(self):
-        return get_args(self.typ)
-
 
 @export
 class ModelMeta(type):
@@ -230,7 +205,7 @@ class ModelMeta(type):
     #: The name of a field is used as a key, while :class:`Field` class
     #: instance is used as a value. The order reflects order of annotations in
     #: the created model class.
-    __model_fields__: Mapping[str, Field]
+    __model_fields__: Mapping[str, IField]
 
     def __new__(tp, name: str, bases: tuple, attrs: dict):
         attrs["__model_fields__"] = fields = dict[str, Field]()
@@ -249,8 +224,15 @@ class ModelMeta(type):
             field_info = attrs.pop(field_name, Unset)
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
+            optional = is_optional(annotation)
             bound_field = Field(
-                field_name, annotation, _int_model.make_type_descriptor(annotation, field_info.type_opts), field_info
+                field_name,
+                annotation,
+                _int_model.make_type_descriptor(annotation, field_info.type_opts),
+                field_info,
+                optional=optional,
+                unsettable=is_unsettable(annotation) if optional else False,
+                deferred=is_deferred(annotation) if not optional else False,
             )
             fields[field_name] = bound_field
         for key in dict(attrs):
@@ -268,35 +250,45 @@ class ModelMeta(type):
 class Model(metaclass=ModelMeta):
     """Base class for data models.
 
-    Each custom data model will have to inherit from this class and declare set
-    of fields using type annotations. Here's a very simple example of creating
-    such data model and how to later work with it:
+    All models created using Modelity must inherit from this base class and
+    provide zero or more fields using type annotations in similar way as when
+    using Python dataclasses.
+
+    Here's a simple example:
+
+    .. testcode::
+
+        from typing import Optional
+
+        from modelity.api import Model, Deferred, LooseOptional, StrictOptional, Unset, validate
+
+        class Dummy(Model):
+            foo: int  # <- required; must be given in constructor
+            xyz: float = 3.14  # <- required; optional in constructor, as it has default value set
+            bar: Deferred[bool] = Unset  # <- deferred; must be set before validation
+            baz: Optional[str] = None  # <- optional; can be `None` but cannot be `Unset`
+            spam: LooseOptional[str] = Unset  # <- optional; can be set to `None` or `Unset`
+            more_spam: StrictOptional[str] = Unset  # <- optional; can be `Unset` but cannot be `None`
 
     .. doctest::
 
-        >>> from modelity.model import Model
-        >>> from modelity.helpers import validate
-        >>> class Dummy(Model):  # Model declaration
-        ...     foo: int
-        ...     bar: str
-        ...     baz: bool
-        >>> dummy = Dummy(foo='123', bar='spam')  # Model instantiation (with any number of arguments allowed)
+        >>> dummy = Dummy(foo='123')  # Construct model instance; Modelity will try to parse input to expected type
         >>> dummy
-        Dummy(foo=123, bar='spam', baz=Unset)
-        >>> validate(dummy)  # Validation will fail, as required field `baz` is missing
+        Dummy(foo=123, xyz=3.14, bar=Unset, baz=None, spam=Unset, more_spam=Unset)
+        >>> validate(dummy)  # Validation will fail; deferred field `bar` is missing
         Traceback (most recent call last):
             ...
         modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
-          baz:
+          bar:
             This field is required [code=modelity.REQUIRED_MISSING]
-        >>> dummy.baz = True  # Now the last field is also set (models are mutable)
-        >>> validate(dummy)  # Now the model is valid
+        >>> dummy.bar = True  # Now let's set a value to `bar` field (models are mutable)
+        >>> validate(dummy)  # And now the model is valid
         >>> dummy
-        Dummy(foo=123, bar='spam', baz=True)
+        Dummy(foo=123, xyz=3.14, bar=True, baz=None, spam=Unset, more_spam=Unset)
     """
 
     #: A per-instance view of the :attr:`ModelMeta.__model_fields__` attribute.
-    __model_fields__: ClassVar[Mapping[str, Field]]
+    __model_fields__: ClassVar[Mapping[str, IField]]
 
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []
@@ -305,6 +297,8 @@ class Model(metaclass=ModelMeta):
             value = kwargs.pop(name, Unset)
             if value is Unset:
                 value = field.compute_default()
+                if value is Unset and not field.optional and not field.deferred:
+                    errors.append(ErrorFactory.required_missing(Loc(name)))
             if value is not Unset:
                 value = self.__parse(field.descriptor, errors, name, value)
             super().__setattr__(name, value)

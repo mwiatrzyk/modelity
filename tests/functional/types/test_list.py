@@ -5,8 +5,10 @@ from mockify.api import ordered, Return
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.model import Model, field_info
 
+from modelity.types import Deferred
+from modelity.unset import Unset
 from tests.functional.types import common
 
 
@@ -23,7 +25,7 @@ class TestAnyList:
     def SUT(self, typ):
 
         class SUT(Model):
-            foo: typ
+            foo: Deferred[typ] = Unset  # type: ignore
 
         return SUT
 
@@ -95,7 +97,7 @@ class TestAnyList:
 class TestTypedList:
 
     class SUT(Model):
-        foo: list[int]
+        foo: list[int] = field_info(default_factory=list)
 
     @pytest.fixture(
         params=[

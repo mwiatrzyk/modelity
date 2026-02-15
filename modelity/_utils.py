@@ -1,9 +1,9 @@
 """General purpose common utility functions."""
 
-import datetime
 import inspect
 import itertools
 from typing import (
+    Annotated,
     Any,
     Callable,
     Literal,
@@ -86,6 +86,16 @@ def describe(obj: Any) -> str:
     origin = get_origin(obj)
     if origin is not None:
         args = get_args(obj)
+        if origin is Annotated:
+            if args[-1] == "__deferred__":
+                from modelity.unset import UnsetType  # FIXME: Ugly; get rid of circular imports, probably by moving this helper to other module
+                wrapped_type_args = [x for x in get_args(args[0]) if x is not UnsetType]
+                if len(wrapped_type_args) == 1:
+                    return f"Deferred[{describe(wrapped_type_args[0])}]"
+                elif len(wrapped_type_args) == 2 and wrapped_type_args[-1] is type(None):
+                    return f"Deferred[Optional[{describe(wrapped_type_args[0])}]]"
+                else:
+                    return f"Deferred[Union[{', '.join(describe(x) for x in wrapped_type_args)}]]"
         if args:
             return f"{describe(origin)}[{', '.join(describe(x) for x in args)}]"
         else:

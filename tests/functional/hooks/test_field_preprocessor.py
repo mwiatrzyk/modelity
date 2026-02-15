@@ -9,6 +9,8 @@ from modelity.exc import ParsingError, UserError
 from modelity.hooks import field_preprocessor
 from modelity.loc import Loc
 from modelity.model import Model
+from modelity.types import Deferred
+from modelity.unset import Unset
 
 
 @pytest.mark.parametrize(
@@ -50,7 +52,7 @@ def test_user_error_raised_is_converted_to_error(factory, expected_error):
 def test_declare_preprocessor_without_args(mock):
 
     class SUT(Model):
-        foo: int
+        foo: Deferred[int] = Unset
 
         @field_preprocessor("foo")
         def _preprocess():
@@ -76,7 +78,7 @@ def test_declare_preprocessor_with_single_arg(mock, arg_name, expect_call_arg, g
     code = textwrap.dedent(
         f"""
     class SUT(Model):
-        foo: int
+        foo: Deferred[int] = Unset
 
         @field_preprocessor("foo")
         def _preprocess({arg_name}):
@@ -156,7 +158,7 @@ def test_inherited_preprocessors_are_chained_in_declaration_order(mock):
 def test_when_preprocessor_throws_type_error_then_it_is_converted_to_error(mock):
 
     class SUT(Model):
-        foo: int
+        foo: Deferred[int] = Unset
 
         @field_preprocessor("foo")
         def _preprocess_foo(value):

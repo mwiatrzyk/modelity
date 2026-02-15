@@ -17,6 +17,7 @@ from modelity.api import (
     UnsetType,
     ErrorFactory,
 )
+from modelity.types import Deferred
 
 JSONRPC = Literal["2.0"]
 
@@ -30,26 +31,26 @@ ID = Union[str, int]
 
 
 class Notification(Model):
-    jsonrpc: JSONRPC
-    method: str
+    jsonrpc: Deferred[JSONRPC] = Unset
+    method: Deferred[str] = Unset
     params: StrictOptional[StructuredType] = Unset
 
 
 class Request(Notification):
-    id: ID
+    id: Deferred[ID] = Unset
 
 
 class Error(Model):
-    code: int
-    message: str
+    code: Deferred[int] = Unset
+    message: Deferred[str] = Unset
     data: StrictOptional[AnyType] = Unset
 
 
 class Response(Model):
-    jsonrpc: JSONRPC
+    jsonrpc: Deferred[JSONRPC] = Unset
     result: StrictOptional[AnyType] = Unset
     error: StrictOptional[Error] = Unset
-    id: ID
+    id: Deferred[ID] = Unset
 
     @model_postvalidator()
     def _validate_response(self):

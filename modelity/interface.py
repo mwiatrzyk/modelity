@@ -173,30 +173,46 @@ class IField(Protocol):
     .. versionadded:: 0.31.0
     """
 
-    #: The type of this field.
-    typ: type | Any
+    #: The type annotation set for this field.
+    typ: Any
 
     #: The type descriptor assigned for this field.
     descriptor: ITypeDescriptor
 
-    def is_optional(self) -> bool:
-        """Check if field is optional.
+    #: Flag indicating whether this field is optional.
+    #:
+    #: A field is optional if it accepts ``None``, ``Unset``, or both as valid
+    #: values during parsing and validation. Modelity supports the following
+    #: markers for optional fields:
+    #:
+    #: * :obj:`typing.Optional`
+    #: * :obj:`modelity.types.StrictOptional`
+    #: * :obj:`modelity.types.LooseOptional`
+    #:
+    #: .. versionadded:: 0.35.0
+    optional: bool
 
-        A field is said to be optional if it allows :obj:`None` and/or
-        :obj:`modelity.unset.Unset` as valid values.
-        """
-        ...
+    #: Flag indicating whether this field is optional that accepts
+    #: :obj:`modelity.unset.Unset` as a valid value during validation step.
+    #:
+    #: This will never be ``True`` for required fields.
+    #:
+    #: .. versionadded:: 0.35.0
+    #:      Replaced ``is_unsettable()`` used earlier.
+    unsettable: bool
 
-    def is_required(self) -> bool:
-        """Check if field is required.
+    #: Flag indicating whether this field is deferred.
+    #:
+    #: Deferred fields allow ``Unset`` as valid values during parsing, but the
+    #: field must be set later to allow successful validation. To mark a field as
+    #: deferred, use :obj:`modelity.types.Deferred` marker.
+    #:
+    #: This is used for fields that are meant to be initialized later.
+    #:
+    #: .. versionadded:: 0.35.0
+    deferred: bool
 
-        This is the reverse of :meth:`is_optional` method.
-        """
-        ...
-
-    def is_unsettable(self) -> bool:
-        """Check if this field can be left unset or can be explicitly set to
-        :obj:`modelity.unset.Unset` object."""
+    def compute_default(self) -> Any:
         ...
 
 

@@ -1,11 +1,10 @@
-from typing import Optional
 import pytest
 
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
 from modelity.model import Field, FieldInfo, Model
-from modelity.types import LooseOptional, StrictOptional
+from modelity.types import Deferred
 from modelity.unset import Unset
 from modelity.helpers import has_fields_set
 from modelity._internal.model import make_type_descriptor
@@ -32,33 +31,6 @@ class TestField:
     @pytest.fixture
     def uut(self, name, type, field_info):
         return Field(name, type, make_type_descriptor(type), field_info)
-
-    class TestIsOptionalAndIsRequired:
-
-        @pytest.mark.parametrize(
-            "type, expected_status",
-            [
-                (int, False),
-                (Optional[int], True),
-                (StrictOptional[int], True),
-                (LooseOptional[int], True),
-            ],
-        )
-        def test_check_if_field_is_optional(self, uut: Field, expected_status):
-            assert uut.is_optional() == expected_status
-            assert uut.is_required() == (not uut.is_optional())
-
-        @pytest.mark.parametrize(
-            "field_info, expected_status",
-            [
-                (FieldInfo(), False),
-                (FieldInfo(default=123), True),
-                (FieldInfo(default_factory=lambda: 123), True),
-            ],
-        )
-        def test_field_is_optional_if_default_value_is_assigned(self, uut: Field, expected_status):
-            assert uut.is_optional() == expected_status
-            assert uut.is_required() == (not uut.is_optional())
 
     class TestComputeDefault:
 
@@ -142,7 +114,7 @@ class TestModel:
             if field_info is None:
 
                 class UUT(Model):
-                    foo: int
+                    foo: Deferred[int] = Unset
 
                 return UUT
 

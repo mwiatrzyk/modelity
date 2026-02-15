@@ -247,24 +247,6 @@ def test_field_validator_can_be_provided_by_mixin(mock):
     validate(sut)
 
 
-@pytest.mark.skip
-def test_run_field_validator_declared_with_nested_model_field_name_runs_if_that_field_is_set(mock):
-
-    class Dummy(Model):
-        foo: int
-
-    class SUT(Model):
-        dummy: Dummy
-
-        @field_validator("dummy.foo")
-        def _validate_field(loc, value):
-            mock.validate_field(loc, value)
-
-    sut = SUT(dummy=Dummy(foo=123))
-    mock.validate_field.expect_call(sut, Loc("dummy", "foo"), 123)
-    validate(sut)
-
-
 @pytest.mark.parametrize(
     "typ, value",
     [
