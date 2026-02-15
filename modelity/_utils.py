@@ -88,7 +88,10 @@ def describe(obj: Any) -> str:
         args = get_args(obj)
         if origin is Annotated:
             if args[-1] == "__deferred__":
-                from modelity.unset import UnsetType  # FIXME: Ugly; get rid of circular imports, probably by moving this helper to other module
+                from modelity.unset import (
+                    UnsetType,
+                )  # FIXME: Ugly; get rid of circular imports, probably by moving this helper to other module
+
                 wrapped_type_args = [x for x in get_args(args[0]) if x is not UnsetType]
                 if len(wrapped_type_args) == 1:
                     return f"Deferred[{describe(wrapped_type_args[0])}]"

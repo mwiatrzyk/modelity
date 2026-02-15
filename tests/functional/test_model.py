@@ -698,17 +698,18 @@ class TestModelWithDeferredField:
     def sut(self, SUT, input_value):
         return SUT(foo=input_value)
 
-    @pytest.mark.parametrize("typ", [
-        int
-    ])
+    @pytest.mark.parametrize("typ", [int])
     def test_unset_field_passes_initialization(self, SUT):
         sut = SUT()
         assert is_unset(sut.foo)
 
-    @pytest.mark.parametrize("typ, input_value, expected_output_value", [
-        (int, Unset, Unset),
-        (int, 1, 1),
-        (int, "2", 2),
-    ])
+    @pytest.mark.parametrize(
+        "typ, input_value, expected_output_value",
+        [
+            (int, Unset, Unset),
+            (int, 1, 1),
+            (int, "2", 2),
+        ],
+    )
     def test_successfully_parse_deferred_field(self, sut, expected_output_value):
         assert sut.foo == expected_output_value

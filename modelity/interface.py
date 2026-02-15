@@ -212,8 +212,7 @@ class IField(Protocol):
     #: .. versionadded:: 0.35.0
     deferred: bool
 
-    def compute_default(self) -> Any:
-        ...
+    def compute_default(self) -> Any: ...
 
 
 @export
