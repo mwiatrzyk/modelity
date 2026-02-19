@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from modelity import _utils
+from modelity.base import Constraint
 from modelity.error import Error, ErrorFactory
 from modelity.interface import IConstraint
 from modelity.loc import Loc
@@ -13,7 +14,7 @@ __all__ = export = _utils.ExportList()  # type: ignore
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Ge(IConstraint):
+class Ge(IConstraint, Constraint):  # FIXME: Remove IConstraint
     """Greater-or-equal constraint.
 
     Used to specify minimum inclusive value for a numeric field.
@@ -26,6 +27,9 @@ class Ge(IConstraint):
         return f"{self.__class__.__name__}({self.min_inclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if value >= self.min_inclusive:
             return True
         errors.append(ErrorFactory.out_of_range(loc, value, min_inclusive=self.min_inclusive))

@@ -17,6 +17,8 @@ from typing import (
 )
 from typing_extensions import TypeIs
 
+from ._export_list import ExportList  # TODO: Remove once all use _export_list.py
+
 T = TypeVar("T")
 
 _unique_id_counter = itertools.count(1)
@@ -186,13 +188,33 @@ def to_int_or_str(obj: str) -> int | str:
     return obj
 
 
-class ExportList(list):
-    """Helper for making ``__all__`` lists automatically by decorating public
-    names."""
+def with_defaults(d: dict, /, **defaults) -> dict:
+    """Return a new dictionary with default values applied to missing keys.
 
-    def __call__(self, type_or_func: T) -> T:
-        name = getattr(type_or_func, "__name__", None)
-        if name is None:
-            raise TypeError(f"cannot export {type_or_func!r}; the '__name__' property is undefined")
-        self.append(name)
-        return type_or_func
+    Creates a shallow copy of the input dictionary and adds any key-value pairs
+    from defaults that are not already present in the copy.
+
+    :param d:
+        The input dictionary to copy and augment.
+
+    :param `**defaults`:
+        Keyword arguments representing default key-value pairs to add to the
+        dictionary if the keys don't already exist.
+
+    Example:
+
+    .. doctest::
+
+        >>> original = {'a': 1, 'b': 2}
+        >>> with_defaults(original, b=20, c=30)
+        {'a': 1, 'b': 2, 'c': 30}
+    """
+    out = dict(d)
+    for k, v in defaults.items():
+        out.setdefault(k, v)
+    return out
+
+
+def make_union_type(types: Sequence[type]) -> Any:
+    """Make union type from given sequence of types."""
+    return Union[tuple(types)]

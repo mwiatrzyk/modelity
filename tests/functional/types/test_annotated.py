@@ -19,8 +19,6 @@ class TestAnnotated:
     class SUT(Model):
         foo: Deferred[Annotated[int, Ge(0)]] = Unset
 
-    print(SUT.__model_fields__["foo"].typ)
-
     @pytest.fixture(
         params=[
             (0, 0, 0),

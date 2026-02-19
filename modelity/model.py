@@ -25,7 +25,7 @@ from modelity.interface import (
     ITypeDescriptor,
 )
 from modelity.loc import Loc
-from modelity.types import is_deferred, is_optional, is_unsettable
+from modelity.types import is_deferred, is_any_optional, is_unsettable
 from modelity.unset import Unset, UnsetType
 from modelity import _utils
 
@@ -224,7 +224,7 @@ class ModelMeta(type):
             field_info = attrs.pop(field_name, Unset)
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
-            optional = is_optional(annotation)
+            optional = is_any_optional(annotation)
             bound_field = Field(
                 field_name,
                 annotation,

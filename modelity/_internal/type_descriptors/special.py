@@ -76,8 +76,8 @@ def make_annotated_type_descriptor(typ, make_type_descriptor, type_opts):
         types = tuple(x for x in get_args(args[0]) if x is not UnsetType)
         if len(types) == 1:
             return make_type_descriptor(types[0], type_opts)
-        elif len(types) == 2 and types[-1] is type(None):
-            return _OptionalTypeDescriptor(make_type_descriptor(types[0], type_opts))
+        # elif len(types) == 2 and types[-1] is type(None):
+        #    return _OptionalTypeDescriptor(make_type_descriptor(types[0], type_opts))
         type_descriptors = [make_type_descriptor(x, type_opts) for x in types]
         return _UnionTypeDescriptor(types, type_descriptors)
     args = get_args(typ)
