@@ -13,9 +13,10 @@ Let's try to use the following type in our model:
     import dataclasses
 
     @dataclasses.dataclass
-    class Vec2D:
+    class Vec3D:
         x: float
         y: float
+        z: float
 
 Since Modelity does not known how to parse this type,
 :exc:`modelity.exc.UnsupportedTypeError` exception will be raised during model
@@ -23,138 +24,60 @@ declaration:
 
 .. doctest::
 
-    >>> from modelity.model import Model
+    >>> from modelity.base import Model
     >>> class Car(Model):
-    ...     position: Vec2D
+    ...     position: Vec3D
     Traceback (most recent call last):
       ...
-    modelity.exc.UnsupportedTypeError: unsupported type used: <class 'Vec2D'>
+    modelity.exc.UnsupportedTypeError: unsupported type used: <class 'Vec3D'>
 
-To overcome this obstacle, Modelity provides 2 possibilities that will be
-explained in the upcoming sections.
+To use custom types in Modelity, you have to first create **type handler** for
+each type and then **register** it in Modelity.
 
-Using ``__modelity_type_descriptor__`` static method
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To make it possible to use **Vec2D** in our model, we can add Modelity-specific
-static method that will provide a type descriptor for **Vec2D** type:
+First step is to declare type handler for your custom type. Modelity provides
+:class:`modelity.base.TypeHandler` base class that you can use:
 
 .. testcode::
 
-    import dataclasses
+    from modelity.api import TypeHandler
 
-    from modelity.interface import ITypeDescriptor
-    from modelity.error import ErrorFactory
+    class Vec3DTypeHandler(TypeHandler):
 
+        def __init__(self, typ, /, **type_opts):
+            pass
 
-    @dataclasses.dataclass
-    class Vec2D:
-        x: float
-        y: float
-
-        @staticmethod
-        def __modelity_type_descriptor__():
-            return Vec2DTypeDescriptor()
-
-
-    class Vec2DTypeDescriptor(ITypeDescriptor):
-
-        # Parsing logic goes in here
         def parse(self, errors, loc, value):
-            if isinstance(value, Vec2D):
-                return value  # Nothing is changed for Vec2D objects
-            if isinstance(value, tuple) and len(value) == 2:
-                return Vec2D(*value)  # Convert from tuple
-            errors.append(ErrorFactory.invalid_type(loc, value, [Vec2D], [Vec2D, tuple[float, float]]))
+            if isinstance(value, Vec3D):
+                return value
+            if isinstance(value, tuple) and len(value) == 3:
+                return Vec3D(*value)
+            errors.append(ErrorFactory.invalid_type(loc, value, [Vec3D], [tuple]))
 
-        # Visitor accepting logic goes in here
-        # Choose best suited method here, depending on which one is closest to
-        # the type that is being registered
         def accept(self, visitor, loc, value):
-            visitor.visit_any(loc, [value.x, value.y])  # will be dumped/validated as 2-element list
+            visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
 
-And now, let's create the model again:
+Type handler tells Modelity how to parse input value into a new instance of
+your custom type and how to handle it during visitation. Handler can be created
+anywhere in the code.
 
-.. testcode::
-
-    from modelity.api import Model, Deferred, Unset
-
-    class Car(Model):
-        position: Deferred[Vec2D] = Unset
-
-Now there is no exception, as Modelity knows (thanks to the
-``__modelity_type_descriptor__`` method) how to create type descriptor for our
-type.
-
-Now, let's see this in action:
-
-.. doctest::
-
-    >>> car = Car()  # OK; nothing is set
-    >>> car.position = Vec2D(1, 2)  # OK; the exact type used
-    >>> car.position
-    Vec2D(x=1, y=2)
-    >>> car.position = (3, 4)  # OK; we've made is possible to cast from tuple
-    >>> car.position
-    Vec2D(x=3, y=4)
-    >>> car.position = 'spam'  # fail; not Vec2D, 2-element tuple or dict
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'Car':
-      position:
-        Not a valid value; expected: Vec2D [code=modelity.INVALID_TYPE, value_type=str, expected_types=[Vec2D], allowed_types=[Vec2D, tuple[float, float]]]
-
-Using ``type_descriptor_factory`` decorator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-You can also use :func:`modelity.hooks.type_descriptor_factory` decorator to
-register new type. This is especially useful for 3rd-party types that cannot
-have ``__modelity_type_descriptor__`` static method added.
-
-Here's a definition of a **Vec3D** type:
+Okay, now you have handler created, so let's register it in Modelity type
+system. To do so you need to use
+:func:`modelity.base.register_type_handler_factory` function like in example below:
 
 .. testcode::
 
-    import dataclasses
+    from modelity.api import register_type_handler_factory
 
-    @dataclasses.dataclass
-    class Vec3D:
-        x: float
-        y: float
-        z: float
+    register_type_handler_factory(Vec3D, Vec3DTypeHandler)
 
-To tell Modelity how to use this type without modifying it and adding
-additional methods you have to declare type descriptor factory and return a
-descriptor object similar to the one from the previous example:
+.. important::
+    Type registration must be done before first use of a new type in models.
+
+And now, Modelity will be able to use your custom type:
 
 .. testcode::
 
-    from modelity.hooks import type_descriptor_factory
-    from modelity.error import ErrorFactory
-    from modelity.interface import ITypeDescriptor
-
-    @type_descriptor_factory(Vec3D)
-    def make_vec3d_descriptor():
-
-        class Descriptor(ITypeDescriptor):
-
-            def parse(self, errors, loc, value):
-                if isinstance(value, Vec3D):
-                    return value
-                if isinstance(value, tuple) and len(value) == 3:
-                    return Vec3D(*value)
-                errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec3D or 3-element tuple", [Vec2D, tuple]))
-
-            def accept(self, visitor, loc, value):
-                visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
-
-        return Descriptor()
-
-And now, Modelity will be able to use this new type:
-
-.. testcode::
-
-    from modelity.model import Model
+    from modelity.api import Model
 
     class Camera(Model):
         pos: Vec3D
@@ -189,35 +112,40 @@ additionally parses coordinates as float numbers:
 .. testcode::
 
     from modelity.api import (
-        type_descriptor_factory,
+        create_type_handler,
+        register_type_handler_factory,
+        TypeHandler,
         Loc,
         ErrorFactory,
         ITypeDescriptor,
-        Model
+        Model,
+        Unset,
+        Deferred
     )
 
-    @type_descriptor_factory(Vec3D)
-    def make_vec3d_descriptor(make_type_descriptor):  # Declare the use of root type descriptor factory
+    class Vec3DTypeHandler(TypeHandler):
 
-        class Descriptor(ITypeDescriptor):
+        def __init__(self, typ, /, **type_opts):
+            self._float_type_handler = create_type_handler(float)
 
-            def parse(self, errors, loc, value):
-                if isinstance(value, Vec3D):
-                    return Vec3D(*parse_coords(errors, loc, value.x, value.y, value.z))
-                if isinstance(value, tuple) and len(value) == 3:
-                    return Vec3D(*parse_coords(errors, loc, *value))
-                errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec3D or 3-element tuple", [Vec2D, tuple]))
-
-            def accept(self, visitor, loc, value):
-                visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
-
-        # Helper function
-        def parse_coords(errors, loc, *coords):
+        def _parse_coords(self, errors, loc, *coords):
             for name, value in zip(('x', 'y', 'z'), coords):
-                yield float_descriptor.parse(errors, loc + Loc(name), value)
+                yield self._float_type_handler.parse(errors, loc + Loc(name), value)
 
-        float_descriptor = make_type_descriptor(float)  # Get type descriptor for float type
-        return Descriptor()
+        def parse(self, errors, loc, value):
+            if isinstance(value, Vec3D):
+                return Vec3D(*self._parse_coords(errors, loc, value.x, value.y, value.z))
+            if isinstance(value, tuple) and len(value) == 3:
+                return Vec3D(*self._parse_coords(errors, loc, *value))
+            errors.append(ErrorFactory.unsupported_value_type(loc, value, "expecting Vec3D or 3-element tuple", [Vec2D, tuple]))
+            return Unset
+
+        def accept(self, visitor, loc, value):
+            visitor.visit_any(loc, [value.x, value.y, value.z])  # will be dumped/validated as 3-element list
+
+    # Register newly created type handler in Modelity; this should be called
+    # before first use of a new type in a model class.
+    register_type_handler_factory(Vec3D, Vec3DTypeHandler)
 
     class Camera(Model):
         pos: Deferred[Vec3D]
@@ -256,7 +184,7 @@ or not:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
     from modelity.hooks import field_validator
 
@@ -338,7 +266,7 @@ validators:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import field_validator
 
     class UserValidationContext:  # Anything can be used as validation context
@@ -397,7 +325,7 @@ well. Consider this example:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import field_preprocessor
 
     class First(Model):
@@ -436,7 +364,7 @@ Let's modify it a bit and extract logic to a separate helper function:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import field_preprocessor
 
     def _strip_string(value):
@@ -476,7 +404,7 @@ class**. After further refactoring, the code looks as follows:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import field_preprocessor
 
 

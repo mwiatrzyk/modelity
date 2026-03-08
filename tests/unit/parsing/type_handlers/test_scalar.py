@@ -11,7 +11,7 @@ from mockify.api import ordered
 from modelity._parsing.type_handlers.scalar import (
     BoolTypeHandler,
     BytesTypeHandler,
-    DateTimeTypeHandler,
+    BaseDateTimeTypeHandler,
     EnumTypeHandler,
     IPAddressTypeHandler,
     LiteralTypeHandler,
@@ -76,7 +76,7 @@ class TestDateTimeTypeHandler:
 
     @pytest.fixture
     def uut(self, typ, expected_formats):
-        return DateTimeTypeHandler(typ, expected_formats)
+        return BaseDateTimeTypeHandler(typ, expected_formats)
 
     @pytest.mark.parametrize(
         "typ, expected_formats, loc, value, expected_output, expected_errors",

@@ -38,7 +38,7 @@ class Ge(IConstraint, Constraint):  # FIXME: Remove IConstraint
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Gt(IConstraint):
+class Gt(IConstraint, Constraint):
     """Greater-than constraint.
 
     Used to specify minimum exclusive value for a numeric field.
@@ -51,6 +51,9 @@ class Gt(IConstraint):
         return f"{self.__class__.__name__}({self.min_exclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if value > self.min_exclusive:
             return True
         errors.append(ErrorFactory.out_of_range(loc, value, min_exclusive=self.min_exclusive))
@@ -59,7 +62,7 @@ class Gt(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Le(IConstraint):
+class Le(IConstraint, Constraint):
     """Less-or-equal constraint.
 
     Used to set maximum inclusive value for a numeric field.
@@ -72,6 +75,9 @@ class Le(IConstraint):
         return f"{self.__class__.__name__}({self.max_inclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if value <= self.max_inclusive:
             return True
         errors.append(ErrorFactory.out_of_range(loc, value, max_inclusive=self.max_inclusive))
@@ -80,7 +86,7 @@ class Le(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Lt(IConstraint):
+class Lt(IConstraint, Constraint):
     """Less-than constraint.
 
     Used to set maximum exclusive value for a numeric field.
@@ -93,6 +99,9 @@ class Lt(IConstraint):
         return f"{self.__class__.__name__}({self.max_exclusive!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if value < self.max_exclusive:
             return True
         errors.append(ErrorFactory.out_of_range(loc, value, max_exclusive=self.max_exclusive))
@@ -101,7 +110,7 @@ class Lt(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Range(IConstraint):
+class Range(IConstraint, Constraint):
     """Range constraint.
 
     Used to set allowed value range for a numeric field using one of
@@ -121,6 +130,9 @@ class Range(IConstraint):
         return f"{self.__class__.__name__}({self.min!r}, {self.max!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         tmp_errors: list[Error] = []
         if self.min(tmp_errors, loc, value) and self.max(tmp_errors, loc, value):
             return True
@@ -139,7 +151,7 @@ class Range(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class MinLen(IConstraint):
+class MinLen(IConstraint, Constraint):
     """Minimum length constraint.
 
     Can be used with sized types, like containers, :class:`byte` or
@@ -153,6 +165,9 @@ class MinLen(IConstraint):
         return f"{self.__class__.__name__}({self.min_length!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if len(value) >= self.min_length:
             return True
         errors.append(ErrorFactory.invalid_length(loc, value, min_length=self.min_length))
@@ -161,7 +176,7 @@ class MinLen(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class MaxLen(IConstraint):
+class MaxLen(IConstraint, Constraint):
     """Maximum length constraint.
 
     Can be used with sized types, like containers, :class:`byte` or
@@ -175,6 +190,9 @@ class MaxLen(IConstraint):
         return f"{self.__class__.__name__}({self.max_length!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if len(value) <= self.max_length:
             return True
         errors.append(ErrorFactory.invalid_length(loc, value, max_length=self.max_length))
@@ -183,7 +201,7 @@ class MaxLen(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class LenRange(IConstraint):
+class LenRange(IConstraint, Constraint):
     """Length range constraint.
 
     Combines both minimum and maximum length constraints.
@@ -201,6 +219,9 @@ class LenRange(IConstraint):
         return f"{self.__class__.__name__}({self.min_length!r}, {self.max_length!r})"
 
     def __call__(self, errors: list[Error], loc: Loc, value: Any) -> bool:
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if self.min_length <= len(value) <= self.max_length:
             return True
         errors.append(ErrorFactory.invalid_length(loc, value, min_length=self.min_length, max_length=self.max_length))
@@ -209,7 +230,7 @@ class LenRange(IConstraint):
 
 @export
 @dataclasses.dataclass(frozen=True)
-class Regex(IConstraint):
+class Regex(IConstraint, Constraint):
     """Regular expression constraint.
 
     Allows values matching given regular expression and reject all other. Can
@@ -227,6 +248,9 @@ class Regex(IConstraint):
         return re.compile(self.pattern)
 
     def __call__(self, errors: list[Error], loc: Loc, value: str):
+        return self.validate(errors, loc, value)
+
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         if self._compiled_pattern.match(value):
             return True
         errors.append(ErrorFactory.invalid_string_format(loc, value, self.pattern))

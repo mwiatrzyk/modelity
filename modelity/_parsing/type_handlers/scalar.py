@@ -38,7 +38,7 @@ class BoolTypeHandler(TypeHandler):
         visitor.visit_scalar(loc, value)
 
 
-class DateTimeTypeHandler(TypeHandler):
+class BaseDateTimeTypeHandler(TypeHandler):
 
     def __init__(self, typ: type[datetime.datetime | datetime.date], /, expected_formats: Sequence[str]):
         self._typ = typ
@@ -73,6 +73,18 @@ class DateTimeTypeHandler(TypeHandler):
 
     def accept(self, visitor: ModelVisitor, loc: Loc, value: Any):
         visitor.visit_scalar(loc, value)
+
+
+class DateTimeTypeHandler(BaseDateTimeTypeHandler):
+
+    def __init__(self, expected_datetime_formats: Sequence[str]):
+        super().__init__(datetime.datetime, expected_datetime_formats)
+
+
+class DateTypeHandler(BaseDateTimeTypeHandler):
+
+    def __init__(self, expected_date_formats: Sequence[str]):
+        super().__init__(datetime.date, expected_date_formats)
 
 
 class EnumTypeHandler(TypeHandler):

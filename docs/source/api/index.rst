@@ -5,6 +5,7 @@ API Reference
   :maxdepth: 2
 
   modelity/api
+  modelity/base
   modelity/constraints
   modelity/error
   modelity/exc
@@ -12,7 +13,6 @@ API Reference
   modelity/hooks
   modelity/interface
   modelity/loc
-  modelity/model
   modelity/types
   modelity/unset
   modelity/visitors

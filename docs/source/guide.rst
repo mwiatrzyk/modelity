@@ -93,7 +93,7 @@ For example, let's create a list of users:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
 
     class UserStorage(Model):
         users: list[User]
@@ -192,7 +192,7 @@ Here is the simplest possible model that can be declared using Modelity:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
 
     class Simplest(Model):
         pass
@@ -206,7 +206,7 @@ To create model with fields, just add one or more using type annotations:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
 
     class SingleField(Model):
         foo: int  # field named 'foo' of type 'int'
@@ -220,7 +220,7 @@ could be found, then following error is reported:
 
 .. doctest::
 
-    >>> from modelity.model import Model
+    >>> from modelity.base import Model
     >>> class WrongType(Model):
     ...     foo: object
     Traceback (most recent call last):
@@ -277,7 +277,7 @@ Example:
 
     from typing import Optional
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
 
     class OptionalExample(Model):
@@ -313,7 +313,7 @@ Example:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
     from modelity.types import StrictOptional
 
@@ -392,7 +392,7 @@ Example:
 
     from typing import Union
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
 
     class OptionalUnionExample(Model):
@@ -422,7 +422,7 @@ Example:
 
     from typing import Union
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.types import UnsetType
     from modelity.helpers import validate
 
@@ -459,7 +459,7 @@ Example:
 
     from typing import Union
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.types import UnsetType
     from modelity.helpers import validate
 
@@ -575,7 +575,7 @@ static code checking tools. Here's an example use:
 
     from typing import Optional
 
-    from modelity.model import Model, field_info
+    from modelity.base import Model, field_info
     from modelity.types import StrictOptional
 
     class User(Model):
@@ -602,7 +602,7 @@ that are available in the **User** model:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
 
     class User(Model):
         name: str
@@ -620,7 +620,7 @@ info etc.
 
 .. doctest::
 
-    >>> from modelity.model import Field
+    >>> from modelity.base import Field
     >>> field = User.__model_fields__['name']
     >>> isinstance(field, Field)
     True
@@ -644,7 +644,7 @@ Using direct assignment
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
 
     class DirectAssignmentDefault(Model):
@@ -679,7 +679,7 @@ along with the default value. You just need to use
 
     from typing import Optional
 
-    from modelity.model import Model, field_info
+    from modelity.base import Model, field_info
     from modelity.helpers import validate
 
     class User(Model):
@@ -706,7 +706,7 @@ example, we can use it to automatically assigned user ID:
 
     import itertools
 
-    from modelity.model import Model, field_info
+    from modelity.base import Model, field_info
 
     _id = itertools.count(1)
 
@@ -731,7 +731,7 @@ given:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
 
     class InvalidDefaultExample(Model):
         foo: int = 'not an int'
@@ -766,7 +766,7 @@ expression that can only be satisfied by a valid e-mail address:
 
     from typing import Annotated
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.constraints import Regex
 
     class User(Model):
@@ -806,7 +806,7 @@ Constraints are also verified during validation. Consider this example:
 
     from typing import Annotated
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
     from modelity.constraints import MinLen, MaxLen
 
@@ -1115,7 +1115,7 @@ Example 1: White characters stripping
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import field_preprocessor
 
     class User(Model):
@@ -1301,7 +1301,7 @@ the time when field is set, not when validation is performed. For example:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.unset import Unset
     from modelity.hooks import field_postprocessor
 
@@ -1405,7 +1405,7 @@ dependencies on a per-model basis. Here's an example:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.helpers import validate
     from modelity.unset import Unset
     from modelity.hooks import model_prevalidator
@@ -1580,7 +1580,7 @@ Here's an example:
 
     from typing import Optional
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.hooks import location_validator
     from modelity.helpers import validate
 
@@ -1623,7 +1623,7 @@ example from above to use model postvalidator instead:
 
 .. testcode::
 
-    from modelity.model import Model
+    from modelity.base import Model
     from modelity.unset import Unset
     from modelity.hooks import model_postvalidator
     from modelity.helpers import validate
@@ -1964,7 +1964,7 @@ Example:
 
     import datetime
 
-    from modelity.model import Model, field_info
+    from modelity.base import Model, field_info
 
     class DateExample(Model):
         foo: datetime.date = field_info(
@@ -1994,40 +1994,3 @@ Example:
     datetime.date(2025, 1, 2)
     >>> dump(obj)  # `output_date_format` will be used
     {'foo': '2025-01-02'}
-
-pathlib.Path
-^^^^^^^^^^^^
-
-Options available:
-
-``bytes_encoding: str = 'utf-8'``
-    Encoding to use when parsing path given as bytes object.
-
-    Defaults to UTF-8.
-
-Example:
-
-.. testcode::
-
-    import pathlib
-
-    from modelity.api import Model, field_info
-
-    class PosixPathExample(Model):
-        foo: pathlib.Path = field_info(bytes_encoding='ascii')
-
-.. doctest::
-
-    >>> obj = PosixPathExample(foo=b'\xff')  # fail; ascii codec can't decode this
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'PosixPathExample':
-      foo:
-        Invalid text encoding [code=modelity.DECODE_ERROR, value_type=bytes, expected_encodings=['ascii']]
-
-.. doctest::
-
-    >>> from modelity.helpers import dump
-    >>> obj = PosixPathExample(foo='/tmp/some/file.txt')  # this will pass
-    >>> obj.foo
-    PosixPath('/tmp/some/file.txt')

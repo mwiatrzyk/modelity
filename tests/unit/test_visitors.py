@@ -6,7 +6,7 @@ import pytest
 
 from modelity.interface import IModel, IModelVisitor
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 from modelity.visitors import DumpVisitor, JsonDumpVisitorProxy

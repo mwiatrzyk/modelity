@@ -1,12 +1,10 @@
 from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
 from modelity import _utils
-from modelity.base import ModelVisitor
+from modelity.base import Model, ModelVisitor
 from modelity.error import Error
 from modelity.exc import ValidationError
-from modelity.interface import IModelVisitor
 from modelity.loc import Loc
-from modelity.model import Model
 from modelity.visitors import (
     ModelFieldPruningVisitorProxy,
     DumpVisitor,
@@ -106,7 +104,7 @@ def load(model_type: type[MT], data: dict, ctx: Any = None) -> MT:
 
     .. testcode::
 
-        from modelity.model import Model
+        from modelity.base import Model
         from modelity.helpers import load
 
         class Example(Model):
@@ -164,7 +162,7 @@ class ModelLoader(Generic[MT]):
 
     .. testcode::
 
-        from modelity.model import Model
+        from modelity.base import Model
         from modelity.helpers import ModelLoader
 
         class Dummy(Model):

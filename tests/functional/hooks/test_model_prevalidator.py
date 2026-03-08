@@ -9,7 +9,7 @@ from modelity.exc import UserError, ValidationError
 from modelity.helpers import validate
 from modelity.hooks import model_prevalidator
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 

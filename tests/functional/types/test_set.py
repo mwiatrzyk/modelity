@@ -5,7 +5,7 @@ from mockify.api import ordered, Return
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model, field_info
+from modelity.base import Model, field_info
 from modelity.types import Deferred
 from modelity.unset import Unset
 
@@ -94,7 +94,7 @@ class TestTypedSet:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [set], [Set, Sequence], [str, bytes])]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [set[int]], [Set, Sequence], [str, bytes])]),
             ([1, "spam"], [ErrorFactory.parse_error(common.loc + Loc.irrelevant(), "spam", int)]),
         ]
     )

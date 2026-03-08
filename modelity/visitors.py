@@ -13,11 +13,9 @@ from typing import Any, Callable, Iterator, Literal, Mapping, MutableSequence, O
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
-from modelity.base import Field, ModelVisitor
+from modelity.base import Model, Field, ModelVisitor, TypeHandlerWithValidation
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IField, IModel, IValidatableTypeDescriptor
 from modelity.loc import Loc
-from modelity.model import Model
 from modelity.unset import Unset, UnsetType
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -26,7 +24,7 @@ T = TypeVar("T")
 
 
 @export
-class EmptyVisitor:
+class EmptyVisitor(ModelVisitor):
     """A visitor that simply implements
     :class:`modelity.interface.IModelVisitor` interface with methods doing
     nothing.
@@ -39,13 +37,13 @@ class EmptyVisitor:
         interface methods to get rid of linter warnings in subclasses.
     """
 
-    def visit_model_begin(self, loc: Loc, value: IModel) -> Optional[bool]: ...
+    def visit_model_begin(self, loc: Loc, value: Model) -> Optional[bool]: ...
 
-    def visit_model_end(self, loc: Loc, value: IModel): ...
+    def visit_model_end(self, loc: Loc, value: Model): ...
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]: ...
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: Field) -> Optional[bool]: ...
 
-    def visit_model_field_end(self, loc: Loc, value: Any, field: IField): ...
+    def visit_model_field_end(self, loc: Loc, value: Any, field: Field): ...
 
     def visit_mapping_begin(self, loc: Loc, value: Mapping) -> Optional[bool]: ...
 
@@ -90,14 +88,14 @@ class DumpVisitor(EmptyVisitor):
         self._stack: list[DumpVisitor._StackItem] = []
         self._model_depth = 0
 
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Model):
         if self._model_depth == 0:
             self._push_dict(self._out)
         else:
             self._push_dict({})
         self._model_depth += 1
 
-    def visit_model_end(self, loc: Loc, value: IModel):
+    def visit_model_end(self, loc: Loc, value: Model):
         self._model_depth -= 1
         if self._model_depth > 0:
             self._pop_and_add(loc)
@@ -397,7 +395,7 @@ class ValidationVisitor(EmptyVisitor):
         self._location_validators_stack = collections.deque()  # type: ignore
         self._model_stack = collections.deque()  # type: ignore
 
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Model):
         model_type = value.__class__
         location_validators = _int_hooks.collect_location_validator_hooks(model_type)
         self._memo[loc] = {"has_location_validators": bool(location_validators)}
@@ -406,7 +404,7 @@ class ValidationVisitor(EmptyVisitor):
         self._push_model(value)
         return self._run_model_prevalidators(loc, value)
 
-    def visit_model_end(self, loc: Loc, value: IModel):
+    def visit_model_end(self, loc: Loc, value: Model):
         if len(loc) >= 1:
             self._run_location_validators(loc, value)
         self._run_model_postvalidators(loc, value)
@@ -415,7 +413,7 @@ class ValidationVisitor(EmptyVisitor):
         if memo["has_location_validators"]:
             self._pop_location_validators()
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField):
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
         if value is Unset:
             if field.deferred:
                 self._errors.append(ErrorFactory.required_missing(loc))
@@ -423,11 +421,11 @@ class ValidationVisitor(EmptyVisitor):
                 self._errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))
             return True  # Skip other validators
 
-    def visit_model_field_end(self, loc: Loc, value: Any, field: IField):
+    def visit_model_field_end(self, loc: Loc, value: Any, field: Field):
         if value is not Unset:
             self._run_field_validators(loc, value)
-            if isinstance(field.descriptor, IValidatableTypeDescriptor):
-                field.descriptor.validate(self._errors, loc, value)
+            if isinstance(field.type_handler, TypeHandlerWithValidation):
+                field.type_handler.validate(self._errors, loc, value)
 
     def visit_mapping_end(self, loc: Loc, value: Mapping):
         self._run_location_validators(loc, value)
@@ -447,7 +445,7 @@ class ValidationVisitor(EmptyVisitor):
     def visit_any(self, loc: Loc, value: Any):
         self._run_location_validators(loc, value)
 
-    def _push_location_validators(self, model: IModel, location_validators: dict[Loc, list[_int_hooks.ILocationHook]]):
+    def _push_location_validators(self, model: Model, location_validators: dict[Loc, list[_int_hooks.ILocationHook]]):
         self._location_validators_stack.append((model, location_validators))
 
     def _pop_location_validators(self):
@@ -457,23 +455,23 @@ class ValidationVisitor(EmptyVisitor):
         for item in self._location_validators_stack:
             yield item
 
-    def _push_model(self, model: IModel):
+    def _push_model(self, model: Model):
         self._model_stack.append(model)
 
     def _pop_model(self):
         self._model_stack.pop()
 
-    def _current_model(self) -> IModel:
+    def _current_model(self) -> Model:
         return self._model_stack[-1]
 
-    def _run_model_prevalidators(self, loc: Loc, value: IModel):
+    def _run_model_prevalidators(self, loc: Loc, value: Model):
         model_type = value.__class__
         for hook in _int_hooks.collect_model_hooks(model_type, "model_prevalidator"):
             if hook(model_type, value, self._root, self._ctx, self._errors, loc) is True:
                 return True
         return None
 
-    def _run_model_postvalidators(self, loc: Loc, value: IModel):
+    def _run_model_postvalidators(self, loc: Loc, value: Model):
         model_type = value.__class__
         for hook in _int_hooks.collect_model_hooks(model_type, "model_postvalidator"):
             hook(model_type, value, self._root, self._ctx, self._errors, loc)

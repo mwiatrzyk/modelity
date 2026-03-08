@@ -1,7 +1,7 @@
-modelity.model
---------------
+modelity.base
+-------------
 
-.. automodule:: modelity.model
+.. automodule:: modelity.base
   :members:
   :undoc-members:
   :show-inheritance:

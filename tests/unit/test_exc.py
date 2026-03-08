@@ -3,7 +3,7 @@ import pytest
 from modelity.error import ErrorFactory
 from modelity.exc import ModelError, ParsingError, UnsupportedTypeError, ValidationError
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 
 
 class TestUnsupportedTypeError:

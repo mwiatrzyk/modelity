@@ -5,7 +5,7 @@ import pytest
 from mockify.api import ordered
 
 from modelity.helpers import validate
-from modelity.model import Model
+from modelity.base import Model
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.types import LooseOptional, StrictOptional
@@ -135,7 +135,7 @@ class TestLooseOptional:
     @pytest.mark.parametrize(
         "given_input, expected_errors",
         [
-            ("spam", [ErrorFactory.invalid_type(loc, "spam", [int, type(None), UnsetType])]),
+            ("spam", [ErrorFactory.parse_error(loc, "spam", int)]),
         ],
     )
     class TestParsingErrors(ParsingErrorTestBase):

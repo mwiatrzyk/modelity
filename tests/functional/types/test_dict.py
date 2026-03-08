@@ -6,7 +6,7 @@ from mockify.api import Return, ordered
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 
@@ -45,11 +45,11 @@ class TestAnyDict:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [dict], [Mapping])]),
+            (None, lambda typ: [ErrorFactory.invalid_type(common.loc, None, [typ], [Mapping])]),
         ]
     )
-    def invalid_data(self, request):
-        return request.param
+    def invalid_data(self, request, typ):
+        return request.param[0], request.param[1](typ)
 
     def test_construct_successfully(self, input, expected_output):
         common.test_construct_successfully(self, input, expected_output)
@@ -110,7 +110,7 @@ class TestTypedDict:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [dict], [Mapping])]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [dict[str, int]], [Mapping])]),
             ({1: 1}, [ErrorFactory.invalid_type(common.loc + Loc.irrelevant(), 1, [str])]),
             ({"one": "spam"}, [ErrorFactory.parse_error(common.loc + Loc("one"), "spam", int)]),
         ]
@@ -223,5 +223,5 @@ class TestTypedDict:
                 with pytest.raises(TypeError) as excinfo:
                     sut.foo.update(1, 2, foo=[1])
                 assert (
-                    str(excinfo.value) == "update() called with unsupported arguments: args=(1, 2), kwargs={'foo': [1]}"
+                    str(excinfo.value) == "MutableMappingProxy.update() takes from 1 to 2 positional arguments but 3 were given"
                 )

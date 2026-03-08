@@ -1,17 +1,19 @@
+# TODO: This test module is a subject for removal after all type-specific tests
+# are moved to `types` subpackage.
+
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from typing import Annotated, Any, Literal, Mapping, Optional, Sequence, Set, Union
 
+from modelity.base import Model, FieldInfo, create_type_handler
 from modelity.constraints import Ge, Gt, Le, Lt, MaxLen, MinLen, Regex
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError, ValidationError
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 from modelity.helpers import dump, validate
-from modelity._internal.model import make_type_descriptor
 
 import pytest
 
@@ -143,7 +145,7 @@ class TestIPv6:
 
 
 @pytest.mark.parametrize("typ", [Any])
-class TestAnyTypeDescriptor:
+class TestAnyTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value",
@@ -177,7 +179,7 @@ class TestAnyTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [bool])
-class TestBoolTypeDescriptor:
+class TestBoolTypeHandler:
 
     @pytest.fixture
     def true_literals(self):
@@ -240,7 +242,7 @@ class TestBoolTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [datetime])
-class TestDateTimeTypeDescriptor:
+class TestDateTimeTypeHandler:
 
     @pytest.fixture
     def expected_datetime_formats(self):
@@ -248,6 +250,8 @@ class TestDateTimeTypeDescriptor:
 
     @pytest.fixture
     def type_opts(self, expected_datetime_formats):
+        if expected_datetime_formats is None:
+            return {}
         return {"expected_datetime_formats": expected_datetime_formats}
 
     @pytest.mark.parametrize(
@@ -279,7 +283,7 @@ class TestDateTimeTypeDescriptor:
     @pytest.mark.parametrize(
         "expected_datetime_formats, input_value, expected_errors",
         [
-            (None, 123, [ErrorFactory.invalid_type(loc, 123, [datetime, str])]),
+            (None, 123, [ErrorFactory.invalid_type(loc, 123, [datetime], [str])]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.invalid_datetime_format(loc, "spam", ["YYYY-MM-DD"])]),
         ],
     )
@@ -307,7 +311,7 @@ class TestDateTimeTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [date])
-class TestDateTypeDescriptor:
+class TestDateTypeHandler:
 
     @pytest.fixture
     def expected_date_formats(self):
@@ -315,6 +319,8 @@ class TestDateTypeDescriptor:
 
     @pytest.fixture
     def type_opts(self, expected_date_formats):
+        if expected_date_formats is None:
+            return {}
         return {"expected_date_formats": expected_date_formats}
 
     @pytest.mark.parametrize(
@@ -331,7 +337,7 @@ class TestDateTypeDescriptor:
     @pytest.mark.parametrize(
         "expected_date_formats, input_value, expected_errors",
         [
-            (None, 123, [ErrorFactory.invalid_type(loc, 123, [date, str])]),
+            (None, 123, [ErrorFactory.invalid_type(loc, 123, [date], [str])]),
             (["YYYY-MM-DD"], "spam", [ErrorFactory.invalid_date_format(loc, "spam", ["YYYY-MM-DD"])]),
         ],
     )
@@ -370,7 +376,7 @@ class Dummy(Enum):
 
 
 @pytest.mark.parametrize("typ", [Dummy])
-class TestEnumTypeDescriptor:
+class TestEnumTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -414,7 +420,7 @@ class TestEnumTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [Literal[1, 3.14, "spam"]])
-class TestLiteralTypeDescriptor:
+class TestLiteralTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -455,7 +461,7 @@ class TestLiteralTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [type(None)])
-class TestNoneTypeDescriptor:
+class TestNoneTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -492,7 +498,7 @@ class TestNoneTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [int])
-class TestIntegerTypeDescriptor:
+class TestIntegerTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -531,7 +537,7 @@ class TestIntegerTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [float])
-class TestFloatTypeDescriptor:
+class TestFloatTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -571,7 +577,7 @@ class TestFloatTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [str])
-class TestStrTypeDescriptor:
+class TestStrTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -608,7 +614,7 @@ class TestStrTypeDescriptor:
 
 
 @pytest.mark.parametrize("typ", [bytes])
-class TestBytesTypeDescriptor:
+class TestBytesTypeHandler:
 
     @pytest.mark.parametrize(
         "input_value, output_value",
@@ -644,7 +650,7 @@ class TestBytesTypeDescriptor:
         validate(model)
 
 
-class TestAnnotatedTypeDescriptor:
+class TestAnnotatedTypeHandler:
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -723,11 +729,11 @@ class TestAnnotatedTypeDescriptor:
         assert excinfo.value.errors == (ErrorFactory.invalid_length(Loc("foo"), [1, 2, 3, 4], max_length=3),)
 
 
-class TestUnionTypeDescriptor:
+class TestUnionTypeHandler:
 
     @pytest.fixture
-    def type_descriptor(self, typ):
-        return make_type_descriptor(typ)
+    def type_handler(self, typ):
+        return create_type_handler(typ)
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -782,7 +788,7 @@ class TestUnionTypeDescriptor:
         validate(model)
 
 
-class TestTupleTypeDescriptor:
+class TestTupleTypeHandler:
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -812,12 +818,12 @@ class TestTupleTypeDescriptor:
             (
                 tuple[int, float, str],
                 [1, "3.14"],
-                [ErrorFactory.invalid_tuple_length(loc, [1, "3.14"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_length(loc, (1, "3.14"), (int, float, str))],
             ),
             (
                 tuple[int, float, str],
                 [1, "3.14", "spam", "more spam"],
-                [ErrorFactory.invalid_tuple_length(loc, [1, "3.14", "spam", "more spam"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_length(loc, (1, "3.14", "spam", "more spam"), (int, float, str))],
             ),
         ],
     )
@@ -870,7 +876,7 @@ class TestTupleTypeDescriptor:
         validate(model)
 
 
-class TestDictTypeDescriptor:
+class TestDictTypeHandler:
 
     @pytest.fixture
     def typ(self):
@@ -902,7 +908,6 @@ class TestDictTypeDescriptor:
                 {1: "two"},
                 [
                     ErrorFactory.invalid_type(loc + Loc.irrelevant(), 1, [str]),
-                    ErrorFactory.parse_error(loc + Loc(1), "two", int),
                 ],
             ),
             (dict[str, int], {"two": "two"}, [ErrorFactory.parse_error(loc + Loc("two"), "two", int)]),
@@ -995,7 +1000,7 @@ class TestDictTypeDescriptor:
         assert len(out) == 0
 
 
-class TestListTypeDescriptor:
+class TestListTypeHandler:
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -1020,12 +1025,12 @@ class TestListTypeDescriptor:
                 b"more spam",
                 [ErrorFactory.invalid_type(loc, b"more spam", [list], [Sequence], [str, bytes])],
             ),
-            (list[int], 123, [ErrorFactory.invalid_type(loc, 123, [list], [Sequence], [str, bytes])]),
-            (list[int], "spam", [ErrorFactory.invalid_type(loc, "spam", [list], [Sequence], [str, bytes])]),
+            (list[int], 123, [ErrorFactory.invalid_type(loc, 123, [list[int]], [Sequence], [str, bytes])]),
+            (list[int], "spam", [ErrorFactory.invalid_type(loc, "spam", [list[int]], [Sequence], [str, bytes])]),
             (
                 list[int],
                 b"more spam",
-                [ErrorFactory.invalid_type(loc, b"more spam", [list], [Sequence], [str, bytes])],
+                [ErrorFactory.invalid_type(loc, b"more spam", [list[int]], [Sequence], [str, bytes])],
             ),
             (list[int], ["1", "2", "spam"], [ErrorFactory.parse_error(loc + Loc(2), "spam", int)]),
         ],
@@ -1130,7 +1135,7 @@ class TestListTypeDescriptor:
         assert excinfo.value.errors == tuple(expected_errors)
 
 
-class TestSetTypeDescriptor:
+class TestSetTypeHandler:
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",
@@ -1154,9 +1159,9 @@ class TestSetTypeDescriptor:
                 [[123]],
                 [ErrorFactory.conversion_error(loc, [[123]], set, "some elements are unhashable")],
             ),
-            (set[int], 123, [ErrorFactory.invalid_type(loc, 123, [set], [Set, Sequence], [str, bytes])]),
-            (set[int], "123", [ErrorFactory.invalid_type(loc, "123", [set], [Set, Sequence], [str, bytes])]),
-            (set[int], b"123", [ErrorFactory.invalid_type(loc, b"123", [set], [Set, Sequence], [str, bytes])]),
+            (set[int], 123, [ErrorFactory.invalid_type(loc, 123, [set[int]], [Set, Sequence], [str, bytes])]),
+            (set[int], "123", [ErrorFactory.invalid_type(loc, "123", [set[int]], [Set, Sequence], [str, bytes])]),
+            (set[int], b"123", [ErrorFactory.invalid_type(loc, b"123", [set[int]], [Set, Sequence], [str, bytes])]),
         ],
     )
     def test_parse_expecting_parsing_errors(self, model_type, input_value, expected_errors):
@@ -1191,7 +1196,7 @@ class TestSetTypeDescriptor:
             class Dummy(Model):
                 foo: typ
 
-        assert str(excinfo.value) == "'T' must be hashable type to be used with 'set[T]' generic type"
+        assert str(excinfo.value) == f"unsupported type; got {typ!r}, expected set[T] with hashable type T"
 
     @pytest.mark.parametrize(
         "typ, input_value, expected_repr",
@@ -1260,7 +1265,7 @@ class TestSetTypeDescriptor:
         assert list(s) == [1, 2, 3]
 
 
-class TestModelTypeDescriptor:
+class TestModelTypeHandler:
 
     class Dummy(Model):
         class Nested(Model):
@@ -1269,8 +1274,8 @@ class TestModelTypeDescriptor:
         nested: Deferred[Nested] = Unset
 
     @pytest.fixture
-    def type_descriptor(self, typ):
-        return make_type_descriptor(typ)
+    def type_handler(self, typ):
+        return create_type_handler(typ)
 
     @pytest.mark.parametrize(
         "typ, input_value, output_value",

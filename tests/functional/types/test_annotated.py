@@ -7,7 +7,7 @@ from mockify.api import ordered, Return
 from modelity.constraints import Ge
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 
 from modelity.types import Deferred
 from modelity.unset import Unset

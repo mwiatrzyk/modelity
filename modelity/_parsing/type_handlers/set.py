@@ -1,4 +1,4 @@
-from typing import Any, MutableSet, Sequence, Set, get_args, get_origin
+from typing import Any, Hashable, MutableSet, Sequence, Set, get_args, get_origin
 
 from modelity import _utils
 from modelity._parsing.type_proxies import MutableSetProxy
@@ -59,6 +59,8 @@ class TypedMutableSetTypeHandler(BaseMutableSetTypeHandler):
         args = get_args(typ)
         if len(args) != 1:
             raise TypeError(f"unsupported type; got {typ!r}, expected MutableSet[T]")
+        if not isinstance(args[0], type) or not issubclass(args[0], Hashable):
+            raise TypeError(f"unsupported type; got {typ!r}, expected set[T] with hashable type T")
         self._item_type_handler = type_handler_factory(args[0], **type_opts)
 
     def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:

@@ -1,24 +1,23 @@
 import abc
 import copy
 import dataclasses
+import functools
 from typing import Any, Callable, ClassVar, Iterator, Mapping, Optional, Protocol, Sequence, Set, TypeVar, Union, cast
 
 import typing_extensions
 
 from modelity import _export_list, _utils
-from modelity._internal import hooks as _int_hooks, model as _int_model
+from modelity._internal import hooks as _int_hooks
 from modelity.exc import ParsingError
-from modelity.interface import ITypeDescriptor
 from modelity.types import is_any_optional, is_deferred, is_unsettable
 
 from .loc import Loc
 from .error import Error, ErrorFactory
 from .unset import Unset, UnsetType
-#from .model import Model  # TODO: Move to here
 
-__all__ = export = _export_list.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList(["register_type_handler_factory", "create_type_handler"])  # type: ignore
 
-T = TypeVar("T")
+T= TypeVar("T")
 
 _IGNORED_FIELD_NAMES = {
     "__model_fields__",
@@ -449,17 +448,23 @@ class Field:
     protocol.
     """
 
-    #: See :attr:`modelity.interface.IField.name`.
+    #: Field's name.
+    #:
+    #: This is the name of a field used in a model.
     name: str
 
-    #: See :attr:`modelity.interface.IField.annotation`.
+    #: Field's type.
+    #:
+    #: This is type annotation used to declare a field in a model.
     typ: Any
 
-    #: See :attr:`modelity.interface.IField.descriptor`.
-    descriptor: Any #ITypeDescriptor  # TODO: Remove;
+    #: Field's type handler.
+    #:
+    #: This is assigned when model type is created and is used during model
+    #: construction to parse input values into model-defined types.
+    type_handler: TypeHandler
 
-    #: The type handler to use for this field.
-    #type_handler: TypeHandler
+    _: dataclasses.KW_ONLY
 
     #: Field's user-defined info object.
     field_info: Optional[FieldInfo] = None
@@ -552,8 +557,7 @@ class ModelMeta(type):
             bound_field = Field(
                 field_name,
                 annotation,
-                _int_model.make_type_descriptor(annotation, field_info.type_opts),
-                #Any,
+                create_type_handler(annotation, **field_info.type_opts),
                 field_info=field_info,
                 optional=optional,
                 unsettable=is_unsettable(annotation) if optional else False,
@@ -625,7 +629,7 @@ class Model(metaclass=ModelMeta):
                 if value is Unset and not field.optional and not field.deferred:
                     errors.append(ErrorFactory.required_missing(Loc(name)))
             if value is not Unset:
-                value = self.__parse(field.descriptor, errors, name, value)
+                value = self.__parse(field.type_handler, errors, name, value)
             super().__setattr__(name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
@@ -651,14 +655,14 @@ class Model(metaclass=ModelMeta):
                 yield name
 
     def __parse(
-        self, type_descriptor: ITypeDescriptor, errors: list[Error], field_name: str, value: Any
+        self, type_handler: TypeHandler, errors: list[Error], field_name: str, value: Any
     ) -> Union[Any, UnsetType]:
         loc = Loc(field_name)
         cls = self.__class__
         value = _run_field_preprocessors(cls, errors, loc, value)  # type: ignore
         if value is Unset:
             return value
-        value = type_descriptor.parse(errors, loc, value)
+        value = type_handler.parse(errors, loc, value)
         if value is Unset:
             return value
         value = _run_field_postprocessors(cls, self, errors, loc, value)  # type: ignore
@@ -669,7 +673,7 @@ class Model(metaclass=ModelMeta):
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
-        value = self.__parse(field.descriptor, errors, name, value)
+        value = self.__parse(field.type_handler, errors, name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
         super().__setattr__(name, value)
@@ -695,9 +699,47 @@ class Model(metaclass=ModelMeta):
                     if value is Unset:
                         visitor.visit_unset(field_loc, value)
                     else:
-                        field.descriptor.accept(visitor, field_loc, value)
+                        field.type_handler.accept(visitor, field_loc, value)
                     visitor.visit_model_field_end(field_loc, value, field)
             visitor.visit_model_end(loc, self)
+
+
+@export
+def register_type_handler_factory(typ: Any, factory: TypeHandlerFactory):
+    """Register custom type handler factory for given type.
+
+    This method can be used to register custom types so Modelity could
+    understand those, or to overwrite built-in type handlers.
+
+    When this method is used then internal type cache is also cleared so it
+    should be used at module level and before declaration of any Modelity
+    models.
+
+    :param typ:
+        The type to register type handler for.
+
+    :param factory:
+        The type handler factory function to use for provided type.
+    """
+    from modelity._parsing.type_handler_factory import register_type_handler_factory
+    return register_type_handler_factory(typ, factory)
+
+
+@export
+def create_type_handler(typ: Any, /, **type_opts):
+    """Create type handler for provided type.
+
+    This method is using cache internally so it returns same handler if called
+    again with same type.
+
+    :param typ:
+        The type to create or get handler for.
+
+    :param `**type_opts`:
+        The optional type options to use.
+    """
+    from modelity._parsing.type_handler_factory import create_type_handler
+    return create_type_handler(typ, **type_opts)
 
 
 def _run_field_preprocessors(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:

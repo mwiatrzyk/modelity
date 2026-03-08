@@ -10,7 +10,7 @@ from modelity.exc import UserError, ValidationError
 from modelity.helpers import validate
 from modelity.hooks import location_validator
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 from modelity.types import LooseOptional
 from modelity.unset import Unset
 

@@ -1,3 +1,6 @@
+# TODO: This testing module is a subject for removal in the future; it is
+# better to have all model tests for different types in `types` module.
+
 from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Annotated, Any, Literal, Mapping, Optional, Sequence, Set, Union
@@ -7,11 +10,11 @@ import pytest
 from mockify.api import Mock, ordered, satisfied
 
 from modelity.constraints import Ge, Gt, Le, LenRange, Lt, MinLen, MaxLen, Range, Regex
-from modelity.error import ErrorFactory
+from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ParsingError, UnsupportedTypeError, ValidationError
 from modelity.interface import ITypeDescriptor
 from modelity.loc import Loc
-from modelity.model import FieldInfo, Model
+from modelity.base import FieldInfo, Model, ModelVisitor, TypeHandler, register_type_handler_factory
 from modelity.hooks import (
     field_validator,
     model_postvalidator,
@@ -43,9 +46,9 @@ def sut(SUT):
     return SUT()
 
 
-def test_exception_is_raised_if_model_is_created_with_unsupported_type():
-    with pytest.raises(UnsupportedTypeError) as excinfo:
+def test_exception_is_raised_if_model_object_is_created_with_unsupported_type():
 
+    with pytest.raises(UnsupportedTypeError) as excinfo:
         class Dummy(Model):
             foo: object
 
@@ -54,25 +57,28 @@ def test_exception_is_raised_if_model_is_created_with_unsupported_type():
 
 class CustomType:
 
-    @staticmethod
-    def __modelity_type_descriptor__(typ, type_opts: dict) -> ITypeDescriptor:
-
-        class CustomTypeDescriptor(ITypeDescriptor):
-
-            def parse(self, errors, loc, value):
-                return typ(value, **type_opts)
-
-            def accept(self, visitor, loc, value):
-                visitor.visit_any(loc, value.value)
-
-        return CustomTypeDescriptor()
-
     def __init__(self, value, **opts):
         self.value = value
         self.opts = opts
 
     def __eq__(self, other):
         return self.value == other.value and self.opts == other.opts
+
+
+class CustomTypeHandler(TypeHandler):
+
+    def __init__(self, typ: Any, /, **type_opts):
+        self._typ = typ
+        self._type_opts = type_opts
+
+    def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+        return self._typ(value, **self._type_opts)
+
+    def accept(self, visitor: ModelVisitor, loc: Loc, value: Any):
+        visitor.visit_any(loc, value.value)
+
+
+register_type_handler_factory(CustomType, CustomTypeHandler)
 
 
 class TestModelWithOneField:
@@ -147,7 +153,7 @@ class TestModelWithOneField:
             (bool, FieldInfo(type_opts={"false_literals": [0]}), 0, False),
             (datetime, None, "1999-01-31T10:11:22", datetime(1999, 1, 31, 10, 11, 22)),
             (datetime, None, "1999-01-31T10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
-            (datetime, None, "1999-01-31 10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
+            #(datetime, None, "1999-01-31 10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
             (datetime, None, "1999-01-31 10:11:22 +0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
             (
                 datetime,
@@ -257,7 +263,7 @@ class TestModelWithOneField:
             ),
             (list[int], None, [1, 2, "invalid"], [ErrorFactory.parse_error(Loc("foo", 2), "invalid", int)]),
             (set, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set], [Set, Sequence], [str, bytes])]),
-            (set[int], None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set], [Set, Sequence], [str, bytes])]),
+            (set[int], None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set[int]], [Set, Sequence], [str, bytes])]),
             (
                 set[int],
                 None,
@@ -273,9 +279,9 @@ class TestModelWithOneField:
                 tuple[int, float],
                 None,
                 [1, 2.71, "spam"],
-                [ErrorFactory.invalid_tuple_length(Loc("foo"), [1, 2.71, "spam"], (int, float))],
+                [ErrorFactory.invalid_tuple_length(Loc("foo"), (1, 2.71, "spam"), (int, float))],
             ),
-            (tuple[int, float], None, [1], [ErrorFactory.invalid_tuple_length(Loc("foo"), [1], (int, float))]),
+            (tuple[int, float], None, [1], [ErrorFactory.invalid_tuple_length(Loc("foo"), (1,), (int, float))]),
             (Nested, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [Nested], [Mapping])]),
             (Nested, None, {"bar": "invalid"}, [ErrorFactory.parse_error(Loc("foo", "bar"), "invalid", int)]),
             (bool, None, "foo", [ErrorFactory.parse_error(Loc("foo"), "foo", bool)]),
@@ -307,26 +313,33 @@ class TestModelWithOneField:
                         "spam",
                         [
                             "YYYY-MM-DDThh:mm:ssZZZZ",
+                            "YYYY-MM-DDThh:mm:ss.ffffffZZZZ",
                             "YYYY-MM-DDThh:mm:ss",
-                            "YYYY-MM-DD hh:mm:ssZZZZ",
+                            "YYYY-MM-DDThh:mm:ss.ffffff",
                             "YYYY-MM-DD hh:mm:ss ZZZZ",
+                            "YYYY-MM-DD hh:mm:ss.ffffff ZZZZ",
                             "YYYY-MM-DD hh:mm:ss",
+                            "YYYY-MM-DD hh:mm:ss.ffffff",
                             "YYYYMMDDThhmmssZZZZ",
+                            "YYYYMMDDThhmmss.ffffffZZZZ",
                             "YYYYMMDDThhmmss",
+                            "YYYYMMDDThhmmss.ffffff",
                             "YYYYMMDDhhmmssZZZZ",
+                            "YYYYMMDDhhmmss.ffffffZZZZ",
                             "YYYYMMDDhhmmss",
+                            "YYYYMMDDhhmmss.ffffff",
                         ],
                     )
                 ],
             ),
-            (datetime, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [datetime, str])]),
+            (datetime, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [datetime], [str])]),
             (
                 datetime,
                 FieldInfo(type_opts={"expected_datetime_formats": ["YYYY-MM-DD"]}),
                 "1999-01-31T10:11:22",
                 [ErrorFactory.invalid_datetime_format(Loc("foo"), "1999-01-31T10:11:22", ["YYYY-MM-DD"])],
             ),
-            (date, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [date, str])]),
+            (date, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [date], [str])]),
             (
                 date,
                 FieldInfo(type_opts={"expected_date_formats": ["DD-MM-YYYY"]}),

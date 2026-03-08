@@ -4,7 +4,7 @@ import pytest
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model, field_info
+from modelity.base import Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 
@@ -17,8 +17,6 @@ class TestPathlibPath:
         "data",
         [
             (Deferred[pathlib.Path], None, "/tmp", pathlib.Path("/tmp"), "/tmp"),
-            (Deferred[pathlib.Path], None, b"/tmp", pathlib.Path("/tmp"), "/tmp"),
-            (Deferred[pathlib.Path], field_info(bytes_encoding="ascii"), b"/tmp", pathlib.Path("/tmp"), "/tmp"),
             (Deferred[pathlib.Path], None, pathlib.Path("/home"), pathlib.Path("/home"), "/home"),
         ],
     )
@@ -47,19 +45,7 @@ class TestPathlibPath:
                 Deferred[pathlib.Path],
                 None,
                 None,
-                [ErrorFactory.invalid_type(common.loc, None, [str, bytes, pathlib.Path])],
-            ),
-            (
-                Deferred[pathlib.Path],
-                field_info(bytes_encoding="ascii"),
-                b"\xff",
-                [
-                    ErrorFactory.decode_error(
-                        common.loc,
-                        b"\xff",
-                        ["ascii"],
-                    )
-                ],
+                [ErrorFactory.invalid_type(common.loc, None, [pathlib.Path], [str])],
             ),
         ],
     )

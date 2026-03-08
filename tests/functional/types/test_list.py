@@ -5,7 +5,7 @@ from mockify.api import ordered, Return
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model, field_info
+from modelity.base import Model, field_info
 
 from modelity.types import Deferred
 from modelity.unset import Unset
@@ -45,11 +45,11 @@ class TestAnyList:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [list], [Sequence], [str, bytes])]),
+            (None, lambda typ: [ErrorFactory.invalid_type(common.loc, None, [typ], [Sequence], [str, bytes])]),
         ]
     )
-    def invalid_data(self, request):
-        return request.param
+    def invalid_data(self, request, typ):
+        return request.param[0], request.param[1](typ)
 
     def test_construct_successfully(self, input, expected_output):
         common.test_construct_successfully(self, input, expected_output)
@@ -111,7 +111,7 @@ class TestTypedList:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [list], [Sequence], [str, bytes])]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [list[int]], [Sequence], [str, bytes])]),
             ([1, 2, "spam"], [ErrorFactory.parse_error(common.loc + Loc(2), "spam", int)]),
         ]
     )

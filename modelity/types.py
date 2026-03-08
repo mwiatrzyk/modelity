@@ -53,7 +53,7 @@ class Comparable(Protocol):
     def __ge__(self, other: Any, /) -> bool: ...
 
 
-def is_optional(tp: Any) -> bool:
+def is_optional(typ: Any) -> bool:
     """Check if given type is ``Optional[T]``.
 
     .. versionadded:: 0.36.0
@@ -61,14 +61,14 @@ def is_optional(tp: Any) -> bool:
     :param tp:
         The type to check.
     """
-    origin = get_origin(tp)
+    origin = get_origin(typ)
     if origin is not Union:
         return False
-    args = get_args(tp)
+    args = get_args(typ)
     return len(args) == 2 and args[-1] is type(None)
 
 
-def is_strict_optional(tp: Any) -> bool:
+def is_strict_optional(typ: Any) -> bool:
     """Check if given type is ``StrictOptional[T]``.
 
     .. versionadded:: 0.36.0
@@ -76,14 +76,14 @@ def is_strict_optional(tp: Any) -> bool:
     :param tp:
         The type to check.
     """
-    origin = get_origin(tp)
+    origin = get_origin(typ)
     if origin is not Union:
         return False
-    args = get_args(tp)
+    args = get_args(typ)
     return len(args) == 2 and args[-1] is UnsetType and args[0] is not type(None)
 
 
-def is_loose_optional(tp: Any) -> bool:
+def is_loose_optional(typ: Any) -> bool:
     """Check if given type is ``LooseOptional[T]``.
 
     .. versionadded:: 0.36.0
@@ -91,29 +91,29 @@ def is_loose_optional(tp: Any) -> bool:
     :param tp:
         The type to check.
     """
-    origin = get_origin(tp)
+    origin = get_origin(typ)
     if origin is not Union:
         return False
-    args = get_args(tp)
+    args = get_args(typ)
     return len(args) == 3 and args[-2] is type(None) and args[-1] is UnsetType
 
 
-def is_any_optional(tp: Any) -> bool:
+def is_any_optional(typ: Any) -> bool:
     """Check if given type is any of the optional types supported by Modelity.
 
     :param tp:
         The type to check.
     """  # TODO: add ref to docs pointing to required/optional/deferred explanation
-    if tp is type(None) or tp is UnsetType:
+    if typ is type(None) or typ is UnsetType:
         return True
-    origin = get_origin(tp)
+    origin = get_origin(typ)
     if origin is not Union:
         return False
-    args = get_args(tp)
+    args = get_args(typ)
     return type(None) in args or UnsetType in args
 
 
-def is_deferred(tp: Any) -> bool:
+def is_deferred(typ: Any) -> bool:
     """Check if given type is a deferred type.
 
     Deferred types in Modelity are used to declare model fields as required but
@@ -125,25 +125,25 @@ def is_deferred(tp: Any) -> bool:
     :param tp:
         The type to check.
     """
-    origin = get_origin(tp)
+    origin = get_origin(typ)
     if origin is not Annotated:
         return False
-    args = get_args(tp)
+    args = get_args(typ)
     return args[-1] == "__deferred__"
 
 
-def is_unsettable(annotation: Any) -> bool:
+def is_unsettable(typ: Any) -> bool:
     """Check if given type annotation allows :obj:`modelity.unset.Unset` as
     valid value.
 
     .. versionadded:: 0.35.0
 
-    :param annotation:
-        The type annotation to investigate.
+    :param typ:
+        The type to investigate.
     """
-    origin = get_origin(annotation)
+    origin = get_origin(typ)
     if origin is UnsetType:
         return True
     if origin is not Union:
         return False
-    return UnsetType in get_args(annotation)
+    return UnsetType in get_args(typ)

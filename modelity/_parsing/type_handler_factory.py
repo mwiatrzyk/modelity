@@ -3,10 +3,10 @@ import datetime
 import enum
 import ipaddress
 import pathlib
-from typing import Annotated, Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, MutableSequence, Union, get_origin
 
 from modelity import _utils
-from modelity.base import TypeHandler, Model
+from modelity.base import TypeHandler, Model, TypeHandlerFactory
 from modelity.exc import UnsupportedTypeError
 from modelity.unset import UnsetType
 
@@ -18,6 +18,7 @@ from .type_handlers.scalar import (
     BoolTypeHandler,
     BytesTypeHandler,
     DateTimeTypeHandler,
+    DateTypeHandler,
     EnumTypeHandler,
     IPAddressTypeHandler,
     LiteralTypeHandler,
@@ -51,7 +52,7 @@ _DEFAULT_EXPECTED_DATETIME_FORMATS = [
 
 _DEFAULT_EXPECTED_DATE_FORMATS = ["YYYY-MM-DD"]
 
-_TYPE_HANDLER_MAP = {
+_type_handler_map = {
     # type_handlers/any.py
     # --------------------
     Any: lambda typ, type_opts: AnyTypeHandler(),
@@ -62,10 +63,10 @@ _TYPE_HANDLER_MAP = {
     # -----------------------
     bool: lambda typ, type_opts: BoolTypeHandler(**type_opts),
     datetime.datetime: lambda typ, type_opts: DateTimeTypeHandler(
-        typ, **_utils.with_defaults(type_opts, expected_formats=_DEFAULT_EXPECTED_DATETIME_FORMATS)
+        **_utils.with_defaults(type_opts, expected_datetime_formats=_DEFAULT_EXPECTED_DATETIME_FORMATS)
     ),
-    datetime.date: lambda typ, type_opts: DateTimeTypeHandler(
-        typ, **_utils.with_defaults(type_opts, expected_formats=_DEFAULT_EXPECTED_DATE_FORMATS)
+    datetime.date: lambda typ, type_opts: DateTypeHandler(
+        **_utils.with_defaults(type_opts, expected_date_formats=_DEFAULT_EXPECTED_DATE_FORMATS)
     ),
     enum.Enum: lambda typ, type_opts: EnumTypeHandler(typ),
     Literal: lambda typ, type_opts: LiteralTypeHandler(typ),
@@ -111,15 +112,21 @@ _TYPE_HANDLER_MAP = {
 }
 
 
+def register_type_handler_factory(typ: Any, factory: TypeHandlerFactory):
+    def proxy(typ, type_opts):
+        return factory(typ, **type_opts)
+
+    _type_handler_map[typ] = proxy
+
+
 def create_type_handler(typ: Any, /, **type_opts) -> TypeHandler:
-    """Compile given type into type handler."""
     origin = get_origin(typ)
-    handler = _TYPE_HANDLER_MAP.get(typ) if origin is None else _TYPE_HANDLER_MAP.get(origin)
+    handler = _type_handler_map.get(typ) if origin is None else _type_handler_map.get(origin)
     if handler is not None:
         return handler(typ, type_opts)
     if isinstance(typ, type):
         for base in typ.mro():
-            handler = _TYPE_HANDLER_MAP.get(base)
+            handler = _type_handler_map.get(base)
             if handler is not None:
                 return handler(typ, type_opts)
     raise UnsupportedTypeError(typ)

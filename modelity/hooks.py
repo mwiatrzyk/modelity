@@ -10,7 +10,7 @@ from modelity.error import Error, ErrorFactory
 from modelity.exc import UserError
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
-from modelity.model import Model
+from modelity.base import Model
 
 __all__ = export = _utils.ExportList()  # type: ignore
 
@@ -57,7 +57,7 @@ def field_preprocessor(*field_names: str):
 
     .. testcode::
 
-        from modelity.model import Model
+        from modelity.base import Model
         from modelity.hooks import field_preprocessor
 
         class Dummy(Model):
@@ -169,7 +169,7 @@ def field_postprocessor(*field_names: str):
 
     .. testcode::
 
-        from modelity.model import Model
+        from modelity.base import Model
         from modelity.hooks import field_postprocessor
 
         class FieldPostprocessorExample(Model):
@@ -498,33 +498,6 @@ def location_validator(*loc_suffix_patterns: str):
             Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns
         )
         return hook
-
-    return decorator
-
-
-@export
-def type_descriptor_factory(typ: Any):
-    """Register type descriptor factory function for type *typ*.
-
-    This decorator can be used to register non user-defined types (f.e. from
-    3rd party libraries) that cannot be added to Modelity typing system via
-    ``__modelity_type_descriptor__`` static function.
-
-    Check :ref:`registering-3rd-party-types-label` for more details.
-
-    .. note::
-        This decorator must be used before first model is created or otherwise
-        registered type might not be visible.
-
-    .. versionadded:: 0.14.0
-
-    :param typ:
-        The type to register descriptor factory for.
-    """
-    from modelity._internal.type_descriptors.all import registry
-
-    def decorator(func, /):
-        return registry.register_type_descriptor_factory(typ, func)
 
     return decorator
 

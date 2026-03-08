@@ -5,7 +5,7 @@ from mockify.api import ordered, Return
 
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.model import Model
+from modelity.base import Model
 from modelity.types import Deferred
 from modelity.unset import Unset
 
@@ -93,7 +93,7 @@ class TestAnyLengthTypedTuple:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple], [Sequence], [str, bytes])]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple[int, ...]], [Sequence], [str, bytes])]),
             ([1, 2, "spam"], [ErrorFactory.parse_error(common.loc + Loc(2), "spam", int)]),
         ]
     )
@@ -157,12 +157,12 @@ class TestFixedLengthTypedTuple:
 
     @pytest.fixture(
         params=[
-            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple], [Sequence], [str, bytes])]),
-            ([], [ErrorFactory.invalid_tuple_length(common.loc, [], (int, float, str))]),
-            ([1, 3.14], [ErrorFactory.invalid_tuple_length(common.loc, [1, 3.14], (int, float, str))]),
+            (None, [ErrorFactory.invalid_type(common.loc, None, [tuple[int, float, str]], [Sequence], [str, bytes])]),
+            ([], [ErrorFactory.invalid_tuple_length(common.loc, tuple(), (int, float, str))]),
+            ([1, 3.14], [ErrorFactory.invalid_tuple_length(common.loc, (1, 3.14), (int, float, str))]),
             (
                 [1, 3.14, "spam", "more spam"],
-                [ErrorFactory.invalid_tuple_length(common.loc, [1, 3.14, "spam", "more spam"], (int, float, str))],
+                [ErrorFactory.invalid_tuple_length(common.loc, (1, 3.14, "spam", "more spam"), (int, float, str))],
             ),
             ([1, 3.14, 123], [ErrorFactory.invalid_type(common.loc + Loc(2), 123, [str])]),
         ]
