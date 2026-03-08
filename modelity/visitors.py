@@ -13,8 +13,9 @@ from typing import Any, Callable, Iterator, Literal, Mapping, MutableSequence, O
 
 from modelity import _utils
 from modelity._internal import hooks as _int_hooks
+from modelity.base import Field, ModelVisitor
 from modelity.error import Error, ErrorFactory
-from modelity.interface import IField, IModel, IModelVisitor, IValidatableTypeDescriptor
+from modelity.interface import IField, IModel, IValidatableTypeDescriptor
 from modelity.loc import Loc
 from modelity.model import Model
 from modelity.unset import Unset, UnsetType
@@ -230,7 +231,7 @@ class JsonDumpVisitorProxy:
 
     def __init__(
         self,
-        target: IModelVisitor,
+        target: ModelVisitor,
         /,
         exclude_unset: bool = False,
         exclude_none: bool = False,
@@ -284,7 +285,7 @@ class JsonDumpVisitorProxy:
         """
         self._type_encoders[typ] = func
 
-    def visit_model_begin(self, loc: Loc, value: IModel):
+    def visit_model_begin(self, loc: Loc, value: Model):
         encoder = self._type_encoders.get(type(value))
         if encoder is None:
             return self._target.visit_model_begin(loc, value)
@@ -510,14 +511,14 @@ class ModelFieldPruningVisitorProxy:
         the matched model field or ``False`` to leave it.
     """
 
-    def __init__(self, target: IModelVisitor, /, exclude_if: Callable[[Loc, Any], bool]):
+    def __init__(self, target: ModelVisitor, /, exclude_if: Callable[[Loc, Any], bool]):
         self._target = target
         self._exclude_if = exclude_if
 
     def __getattr__(self, name):
         return getattr(self._target, name)
 
-    def visit_model_field_begin(self, loc: Loc, value: Any, field: IField) -> Optional[bool]:
+    def visit_model_field_begin(self, loc: Loc, value: Any, field: Field) -> Optional[bool]:
         if self._exclude_if(loc, value):
             return True
         return self._target.visit_model_field_begin(loc, value, field)

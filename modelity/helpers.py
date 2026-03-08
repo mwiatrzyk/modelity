@@ -1,6 +1,7 @@
 from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
 from modelity import _utils
+from modelity.base import ModelVisitor
 from modelity.error import Error
 from modelity.exc import ValidationError
 from modelity.interface import IModelVisitor
@@ -73,9 +74,9 @@ def dump(
         .. versionadded:: 0.31.0
     """
     output: dict = {}
-    visitor = cast(IModelVisitor, DumpVisitor(output))
+    visitor = cast(ModelVisitor, DumpVisitor(output))
     visitor = cast(
-        IModelVisitor,
+        ModelVisitor,
         JsonDumpVisitorProxy(
             visitor,
             exclude_unset=exclude_unset,
@@ -85,7 +86,7 @@ def dump(
         ),
     )
     if exclude_if is not None:
-        visitor = cast(IModelVisitor, ModelFieldPruningVisitorProxy(visitor, exclude_if))
+        visitor = cast(ModelVisitor, ModelFieldPruningVisitorProxy(visitor, exclude_if))
     model.accept(visitor, Loc())
     return output
 
@@ -148,7 +149,7 @@ def validate(model: Model, ctx: Any = None):
         The user-defined validation context.
     """
     errors: list[Error] = []
-    visitor = cast(IModelVisitor, ValidationVisitor(model, errors, ctx))
+    visitor = cast(ModelVisitor, ValidationVisitor(model, errors, ctx))
     model.accept(visitor, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))
