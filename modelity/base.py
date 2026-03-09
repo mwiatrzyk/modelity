@@ -1,7 +1,6 @@
 import abc
 import copy
 import dataclasses
-import functools
 from typing import Any, Callable, ClassVar, Iterator, Mapping, Optional, Protocol, Sequence, Set, TypeVar, Union, cast
 
 import typing_extensions
@@ -17,7 +16,7 @@ from .unset import Unset, UnsetType
 
 __all__ = export = _export_list.ExportList(["register_type_handler_factory", "create_type_handler"])  # type: ignore
 
-T= TypeVar("T")
+T = TypeVar("T")
 
 _IGNORED_FIELD_NAMES = {
     "__model_fields__",
@@ -100,16 +99,33 @@ class TypeHandlerFactory(Protocol):
 
 
 @export
-class SupportsValidate(abc.ABC):
-    """Base class for types that support validation."""
+class Constraint(abc.ABC):
+    """Base class for constraints.
+
+    Constraints are used to define parsing- and validation-time criteria that
+    must be met for successful parsing/validation. Instances of this base class
+    are used with types wrapped with :obj:`typing.Annotated`.
+
+    .. versionadded:: 0.36.0
+        Replaced ``modelity.interface.IConstraint`` used earlier.
+    """
 
     @abc.abstractmethod
-    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
-        """Validate the value.
+    def __repr__(self) -> str:
+        """Return text representation of the constraint.
 
-        Returns True if the value is valid without modifying the errors list.
-        Returns False if the value is invalid and adds one or more errors to
-        the errors list.
+        This is used when rendering constraints in error messages.
+        """
+
+    @abc.abstractmethod
+    def __call__(self, errors: list[Error], loc: Loc, value: Any) -> bool:
+        """Run all checks against given value.
+
+        Returns True and does not modify error list if value satisfies the
+        constraint.
+
+        Returns False and adds one or more errors to error list if value does
+        not satisfy the constraint.
 
         :param errors:
             Mutable list of errors.
@@ -123,20 +139,7 @@ class SupportsValidate(abc.ABC):
 
 
 @export
-class Constraint(SupportsValidate):
-    """Base class for constraints.
-
-    Constraints are used to define parsing- and validation-time criteria that
-    must be met for successful parsing/validation. Instances of this base class
-    are used with types wrapped with :obj:`typing.Annotated`.
-
-    .. versionadded:: 0.36.0
-        Replaced ``modelity.interface.IConstraint`` used earlier.
-    """
-
-
-@export
-class TypeHandlerWithValidation(TypeHandler, SupportsValidate):
+class TypeHandlerWithValidation(TypeHandler):
     """Base class for type handlers that need to run additional type-specific
     validation when model is validated.
 
@@ -148,6 +151,25 @@ class TypeHandlerWithValidation(TypeHandler, SupportsValidate):
     .. versionadded:: 0.36.0
         Replaced ``modelity.interface.IValidatableTypeDescriptor`` used earlier.
     """
+
+    @abc.abstractmethod
+    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
+        """Validate the value.
+
+        Returns True and does not modify error list if the value is valid.
+
+        Returns False and adds one or more errors to the errors list if the
+        value is not valid.
+
+        :param errors:
+            Mutable list of errors.
+
+        :param loc:
+            The current location in the model.
+
+        :param value:
+            The validated value.
+        """
 
 
 @export
@@ -536,7 +558,7 @@ class ModelMeta(type):
     #: the created model class.
     __model_fields__: Mapping[str, Field]
 
-    def __new__(tp, name: str, bases: tuple, attrs: dict):
+    def __new__(cls, name: str, bases: tuple, attrs: dict):
         attrs["__model_fields__"] = fields = dict[str, Field]()
         attrs["_modelity_hooks"] = hooks = list[_int_hooks.IBaseHook]()
         for base in bases:
@@ -546,6 +568,12 @@ class ModelMeta(type):
                 hooks.extend(modelity_hooks)
             else:
                 hooks.extend(_collect_hooks_from_mixin_class(base))
+        for key in dict(attrs):
+            attr_value = attrs[key]
+            if _int_hooks.is_base_hook(attr_value):
+                hooks.append(attr_value)
+                del attrs[key]
+        hooks.sort(key=lambda x: x.__modelity_hook_id__)
         annotations = attrs.pop("__annotations__", {})
         for field_name, annotation in annotations.items():
             if field_name in _IGNORED_FIELD_NAMES:
@@ -564,14 +592,8 @@ class ModelMeta(type):
                 deferred=is_deferred(annotation) if not optional else False,
             )
             fields[field_name] = bound_field
-        for key in dict(attrs):
-            attr_value = attrs[key]
-            if _int_hooks.is_base_hook(attr_value):
-                hooks.append(attr_value)
-                del attrs[key]
-        hooks.sort(key=lambda x: x.__modelity_hook_id__)
         attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", []))
-        return super().__new__(tp, name, bases, attrs)
+        return super().__new__(cls, name, bases, attrs)
 
 
 @export
@@ -722,6 +744,7 @@ def register_type_handler_factory(typ: Any, factory: TypeHandlerFactory):
         The type handler factory function to use for provided type.
     """
     from modelity._parsing.type_handler_factory import register_type_handler_factory
+
     return register_type_handler_factory(typ, factory)
 
 
@@ -739,6 +762,7 @@ def create_type_handler(typ: Any, /, **type_opts):
         The optional type options to use.
     """
     from modelity._parsing.type_handler_factory import create_type_handler
+
     return create_type_handler(typ, **type_opts)
 
 

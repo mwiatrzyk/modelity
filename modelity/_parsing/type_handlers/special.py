@@ -39,7 +39,7 @@ class AnnotatedTypeHandler(TypeHandlerWithValidation):
 
     def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         for constraint in self._constraints:
-            if not constraint.validate(errors, loc, value):
+            if not constraint(errors, loc, value):
                 return False
         return True
 

@@ -117,7 +117,6 @@ additionally parses coordinates as float numbers:
         TypeHandler,
         Loc,
         ErrorFactory,
-        ITypeDescriptor,
         Model,
         Unset,
         Deferred

@@ -12,7 +12,6 @@ from mockify.api import Mock, ordered, satisfied
 from modelity.constraints import Ge, Gt, Le, LenRange, Lt, MinLen, MaxLen, Range, Regex
 from modelity.error import Error, ErrorFactory
 from modelity.exc import ParsingError, ParsingError, UnsupportedTypeError, ValidationError
-from modelity.interface import ITypeDescriptor
 from modelity.loc import Loc
 from modelity.base import FieldInfo, Model, ModelVisitor, TypeHandler, register_type_handler_factory
 from modelity.hooks import (
@@ -49,6 +48,7 @@ def sut(SUT):
 def test_exception_is_raised_if_model_object_is_created_with_unsupported_type():
 
     with pytest.raises(UnsupportedTypeError) as excinfo:
+
         class Dummy(Model):
             foo: object
 
@@ -153,7 +153,7 @@ class TestModelWithOneField:
             (bool, FieldInfo(type_opts={"false_literals": [0]}), 0, False),
             (datetime, None, "1999-01-31T10:11:22", datetime(1999, 1, 31, 10, 11, 22)),
             (datetime, None, "1999-01-31T10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
-            #(datetime, None, "1999-01-31 10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
+            # (datetime, None, "1999-01-31 10:11:22+0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
             (datetime, None, "1999-01-31 10:11:22 +0000", datetime(1999, 1, 31, 10, 11, 22, tzinfo=timezone.utc)),
             (
                 datetime,
@@ -263,7 +263,12 @@ class TestModelWithOneField:
             ),
             (list[int], None, [1, 2, "invalid"], [ErrorFactory.parse_error(Loc("foo", 2), "invalid", int)]),
             (set, None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set], [Set, Sequence], [str, bytes])]),
-            (set[int], None, 123, [ErrorFactory.invalid_type(Loc("foo"), 123, [set[int]], [Set, Sequence], [str, bytes])]),
+            (
+                set[int],
+                None,
+                123,
+                [ErrorFactory.invalid_type(Loc("foo"), 123, [set[int]], [Set, Sequence], [str, bytes])],
+            ),
             (
                 set[int],
                 None,

@@ -4,9 +4,8 @@ import ipaddress
 from typing import Any, Optional, cast
 import pytest
 
-from modelity.interface import IModel, IModelVisitor
 from modelity.loc import Loc
-from modelity.base import Model
+from modelity.base import Model, ModelVisitor
 from modelity.typing import Deferred
 from modelity.unset import Unset
 from modelity.visitors import DumpVisitor, JsonDumpVisitorProxy
@@ -67,9 +66,9 @@ class TestDumpVisitor:
             (Nested, {"bar": "123"}, {"bar": 123}),
         ],
     )
-    def test_accept_visitor(self, model: IModel, expected_dump_output):
+    def test_accept_visitor(self, model: Model, expected_dump_output):
         out = {}
-        visitor = cast(IModelVisitor, DumpVisitor(out))
+        visitor = cast(ModelVisitor, DumpVisitor(out))
         model.accept(visitor, Loc())
         assert out == {"foo": expected_dump_output}
 
@@ -124,10 +123,10 @@ class TestJsonDumpVisitorProxy:
             (EOption, {}, EOption.ONE, 1),
         ],
     )
-    def test_accept_visitor(self, model: IModel, opts, expected_dump_output):
+    def test_accept_visitor(self, model: Model, opts, expected_dump_output):
         out = {}
-        visitor = cast(IModelVisitor, DumpVisitor(out))
-        visitor = cast(IModelVisitor, JsonDumpVisitorProxy(visitor, **opts))
+        visitor = cast(ModelVisitor, DumpVisitor(out))
+        visitor = cast(ModelVisitor, JsonDumpVisitorProxy(visitor, **opts))
         model.accept(visitor, Loc())
         assert out == {"foo": expected_dump_output}
 
@@ -140,7 +139,7 @@ class TestJsonDumpVisitorProxy:
             (list[int], int, lambda l, v: str(v), [1, 2], ["1", "2"]),
         ],
     )
-    def test_dump_with_custom_type_encoder(self, model: IModel, encoder_typ, encoder, expected_dump_output):
+    def test_dump_with_custom_type_encoder(self, model: Model, encoder_typ, encoder, expected_dump_output):
         out = {}
         visitor = DumpVisitor(out)
         visitor = JsonDumpVisitorProxy(visitor)

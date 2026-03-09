@@ -223,5 +223,6 @@ class TestTypedDict:
                 with pytest.raises(TypeError) as excinfo:
                     sut.foo.update(1, 2, foo=[1])
                 assert (
-                    str(excinfo.value) == "MutableMappingProxy.update() takes from 1 to 2 positional arguments but 3 were given"
+                    str(excinfo.value)
+                    == "MutableMappingProxy.update() takes from 1 to 2 positional arguments but 3 were given"
                 )

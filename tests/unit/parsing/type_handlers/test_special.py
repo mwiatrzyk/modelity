@@ -28,7 +28,10 @@ class MockConstraint(Constraint):
     def __init__(self, name: str):
         self.mock = Mock(name)
 
-    def validate(self, errors: list[Error], loc: Loc, value: Any) -> bool:
+    def __repr__(self) -> str:
+        return f"MockConstraint({self.mock!r})"
+
+    def __call__(self, errors: list[Error], loc: Loc, value: Any) -> bool:
         return self.mock.validate(errors, loc, value)  # type: ignore
 
 

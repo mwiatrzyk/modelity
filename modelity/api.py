@@ -1,6 +1,6 @@
 """An all-in-one import helper."""
 
-from . import base, constraints, error, exc, helpers, hooks, interface, loc, typing, unset, visitors
+from . import base, constraints, error, exc, helpers, hooks, loc, typing, unset, visitors
 
 __all__ = (
     base.__all__
@@ -9,7 +9,6 @@ __all__ = (
     + exc.__all__
     + helpers.__all__
     + hooks.__all__
-    + interface.__all__
     + loc.__all__
     + typing.__all__
     + unset.__all__
@@ -22,7 +21,6 @@ from .error import *
 from .exc import *
 from .helpers import *
 from .hooks import *
-from .interface import *
 from .loc import *
 from .typing import *
 from .unset import *
