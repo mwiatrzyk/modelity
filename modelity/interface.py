@@ -186,8 +186,8 @@ class IField(Protocol):
     #: markers for optional fields:
     #:
     #: * :obj:`typing.Optional`
-    #: * :obj:`modelity.types.StrictOptional`
-    #: * :obj:`modelity.types.LooseOptional`
+    #: * :obj:`modelity.typing.StrictOptional`
+    #: * :obj:`modelity.typing.LooseOptional`
     #:
     #: .. versionadded:: 0.35.0
     optional: bool
@@ -205,7 +205,7 @@ class IField(Protocol):
     #:
     #: Deferred fields allow ``Unset`` as valid values during parsing, but the
     #: field must be set later to allow successful validation. To mark a field as
-    #: deferred, use :obj:`modelity.types.Deferred` marker.
+    #: deferred, use :obj:`modelity.typing.Deferred` marker.
     #:
     #: This is used for fields that are meant to be initialized later.
     #:

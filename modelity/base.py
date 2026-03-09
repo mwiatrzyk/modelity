@@ -9,7 +9,7 @@ import typing_extensions
 from modelity import _export_list, _utils
 from modelity._internal import hooks as _int_hooks
 from modelity.exc import ParsingError
-from modelity.types import is_any_optional, is_deferred, is_unsettable
+from modelity.typing import is_any_optional, is_deferred, is_unsettable
 
 from .loc import Loc
 from .error import Error, ErrorFactory

@@ -1,7 +1,7 @@
-modelity.types
---------------
+modelity.typing
+---------------
 
-.. automodule:: modelity.types
+.. automodule:: modelity.typing
   :members:
   :undoc-members:
   :show-inheritance:

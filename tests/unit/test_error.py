@@ -3,7 +3,7 @@ from io import StringIO
 from typing import Optional, Sequence
 import pytest
 
-from modelity.types import StrictOptional
+from modelity.typing import StrictOptional
 from modelity.error import Error, ErrorCode, ErrorFactory, ErrorWriter
 from modelity.loc import Loc
 

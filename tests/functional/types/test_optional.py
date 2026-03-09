@@ -8,7 +8,7 @@ from modelity.helpers import validate
 from modelity.base import Model
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
-from modelity.types import LooseOptional, StrictOptional
+from modelity.typing import LooseOptional, StrictOptional
 from modelity.unset import Unset, UnsetType
 
 from .base import ParsingErrorTestBase, ValidationErrorTestBase, ValidInputTestBase

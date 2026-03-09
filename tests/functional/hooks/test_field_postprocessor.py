@@ -9,7 +9,7 @@ from modelity.exc import ParsingError, UserError
 from modelity.hooks import field_postprocessor
 from modelity.loc import Loc
 from modelity.base import Model
-from modelity.types import Deferred
+from modelity.typing import Deferred
 from modelity.unset import Unset
 
 

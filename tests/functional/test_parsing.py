@@ -24,7 +24,7 @@ from modelity.constraints import Ge
 from modelity.error import ErrorFactory
 from modelity.exc import UnsupportedTypeError
 from modelity.loc import Loc
-from modelity.types import Deferred, LooseOptional, StrictOptional
+from modelity.typing import Deferred, LooseOptional, StrictOptional
 from modelity.unset import Unset, UnsetType
 
 LOC = Loc("foo")

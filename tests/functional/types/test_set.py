@@ -6,7 +6,7 @@ from mockify.api import ordered, Return
 from modelity.error import ErrorFactory
 from modelity.loc import Loc
 from modelity.base import Model, field_info
-from modelity.types import Deferred
+from modelity.typing import Deferred
 from modelity.unset import Unset
 
 from tests.functional.types import common

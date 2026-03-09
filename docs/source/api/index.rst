@@ -13,6 +13,6 @@ API Reference
   modelity/hooks
   modelity/interface
   modelity/loc
-  modelity/types
+  modelity/typing
   modelity/unset
   modelity/visitors

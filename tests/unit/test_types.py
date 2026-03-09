@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 import pytest
 
-from modelity.types import LooseOptional, StrictOptional, is_loose_optional, is_optional, is_strict_optional
+from modelity.typing import LooseOptional, StrictOptional, is_loose_optional, is_optional, is_strict_optional
 from modelity.unset import UnsetType
 
 

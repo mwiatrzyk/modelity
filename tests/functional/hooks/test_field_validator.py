@@ -12,7 +12,7 @@ from modelity.helpers import validate
 from modelity.hooks import field_validator
 from modelity.loc import Loc
 from modelity.base import Model
-from modelity.types import LooseOptional
+from modelity.typing import LooseOptional
 from modelity.unset import Unset
 
 

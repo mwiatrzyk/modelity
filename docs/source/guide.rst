@@ -269,7 +269,7 @@ Values allowed:
 
    See also:
 
-   * :obj:`modelity.types.LooseOptional`
+   * :obj:`modelity.typing.LooseOptional`
 
 Example:
 
@@ -297,7 +297,7 @@ Example:
 
 .. _guide-optional-strictOptional:
 
-Using ``modelity.types.StrictOptional[T]``
+Using ``modelity.typing.StrictOptional[T]``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Strict optionals allow to explicitly declare fields that must either be set to
@@ -315,7 +315,7 @@ Example:
 
     from modelity.base import Model
     from modelity.helpers import validate
-    from modelity.types import StrictOptional
+    from modelity.typing import StrictOptional
 
     class StrictOptionalExample(Model):
         foo: StrictOptional[int]
@@ -340,7 +340,7 @@ Example:
     Strict optionals do not allow ``None``; the field can only be set to valid
     instance of type **T** or not set at all.
 
-Using ``modelity.types.LooseOptional[T]``
+Using ``modelity.typing.LooseOptional[T]``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. versionadded:: 0.28.0
@@ -423,7 +423,7 @@ Example:
     from typing import Union
 
     from modelity.base import Model
-    from modelity.types import UnsetType
+    from modelity.typing import UnsetType
     from modelity.helpers import validate
 
     class StrictOptionalUnionExample(Model):
@@ -460,7 +460,7 @@ Example:
     from typing import Union
 
     from modelity.base import Model
-    from modelity.types import UnsetType
+    from modelity.typing import UnsetType
     from modelity.helpers import validate
 
     class StrictOptionalUnionExample(Model):
@@ -483,7 +483,7 @@ Deferred fields
 .. versionadded:: 0.35.0
 
 Since strict typing provided in version 0.35.0, Modelity now provides
-additional type marker :obj:`modelity.types.Deferred`. It is used to create
+additional type marker :obj:`modelity.typing.Deferred`. It is used to create
 required fields that can be omitted during model instance creation, but must be
 set before model is validated. This is an explicit way of expressing Modelity
 default behavior available for versions < 0.35.0.
@@ -576,7 +576,7 @@ static code checking tools. Here's an example use:
     from typing import Optional
 
     from modelity.base import Model, field_info
-    from modelity.types import StrictOptional
+    from modelity.typing import StrictOptional
 
     class User(Model):
         name: str = field_info(title='Name of the user', examples=['Joe', 'Bob', 'Alice'])  # field info used here

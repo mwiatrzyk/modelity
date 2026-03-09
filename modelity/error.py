@@ -4,7 +4,7 @@ from typing import Any, Optional, Sized, TextIO, TypeVar
 
 from modelity import _utils
 from modelity.loc import Loc
-from modelity.types import Comparable
+from modelity.typing import Comparable
 from modelity.unset import Unset
 
 __all__ = export = _utils.ExportList()  # type: ignore
@@ -111,7 +111,7 @@ class ErrorCode:
     #: unset during validation.
     #:
     #: To allow usage of ``Unset`` please use
-    #: :obj:`modelity.types.StrictOptional` or :obj:`modelity.types.LooseOptional`
+    #: :obj:`modelity.typing.StrictOptional` or :obj:`modelity.typing.LooseOptional`
     #: type wrappers. Check their docs for more details.
     #:
     #: This error can be avoided by setting default values for optional fields.
@@ -121,7 +121,7 @@ class ErrorCode:
     #: .. versionadded:: 0.29.0
     UNSET_NOT_ALLOWED = "modelity.UNSET_NOT_ALLOWED"
 
-    #: Reported during parsing of :obj:`modelity.types.StrictOptional` wrapped
+    #: Reported during parsing of :obj:`modelity.typing.StrictOptional` wrapped
     #: fields if ``None`` is used as input value.
     #:
     #: Strict optional fields require the field to either be set to instance of
@@ -130,7 +130,7 @@ class ErrorCode:
     #: satisfies all type constraints after validation.
     #:
     #: .. important::
-    #:      This error is reserved for :obj:`modelity.types.StrictOptional` wrapper
+    #:      This error is reserved for :obj:`modelity.typing.StrictOptional` wrapper
     #:      and should not be used elsewhere.
     #:
     #: Use :meth:`ErrorFactory.none_not_allowed` to create errors with this code.

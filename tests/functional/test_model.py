@@ -20,7 +20,7 @@ from modelity.hooks import (
     model_postvalidator,
     model_prevalidator,
 )
-from modelity.types import Deferred, StrictOptional
+from modelity.typing import Deferred, StrictOptional
 from modelity.unset import Unset, UnsetType, is_unset
 from modelity.helpers import dump, validate
 

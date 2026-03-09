@@ -17,7 +17,7 @@ from modelity.base import TypeHandlerWithValidation, Constraint, ModelVisitor, T
 from modelity.constraints import Ge
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
-from modelity.types import Deferred, LooseOptional, StrictOptional
+from modelity.typing import Deferred, LooseOptional, StrictOptional
 from modelity.unset import Unset, UnsetType
 
 from .common import loc

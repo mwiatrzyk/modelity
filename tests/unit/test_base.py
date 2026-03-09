@@ -4,7 +4,7 @@ from modelity.base import Field, FieldInfo, Model, create_type_handler
 from modelity.error import ErrorFactory
 from modelity.exc import ParsingError
 from modelity.loc import Loc
-from modelity.types import Deferred
+from modelity.typing import Deferred
 from modelity.unset import Unset
 from modelity.helpers import has_fields_set
 

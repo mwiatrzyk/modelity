@@ -4,7 +4,7 @@ from modelity import _utils
 from modelity.base import TypeHandlerWithValidation, Constraint, ModelVisitor, TypeHandler, TypeHandlerFactory
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
-from modelity.types import is_deferred, is_loose_optional, is_optional, is_strict_optional
+from modelity.typing import is_deferred, is_loose_optional, is_optional, is_strict_optional
 from modelity.unset import Unset, UnsetType, is_unset
 
 

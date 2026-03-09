@@ -2,7 +2,7 @@ from typing import List, Literal, Mapping, Optional, Set, Union
 import pytest
 
 from modelity._utils import describe, is_subsequence
-from modelity.types import Deferred
+from modelity.typing import Deferred
 
 
 class Dummy:

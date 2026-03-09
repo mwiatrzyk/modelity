@@ -17,7 +17,7 @@ from modelity.api import (
     UnsetType,
     ErrorFactory,
 )
-from modelity.types import Deferred
+from modelity.typing import Deferred
 
 JSONRPC = Literal["2.0"]
 

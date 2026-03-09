@@ -1,5 +1,3 @@
-# TODO: Consider renaming this module to `typing.py`
-
 from typing import Annotated, Any, Protocol, TypeVar, Union, get_args, get_origin
 
 from modelity import _utils
@@ -53,6 +51,7 @@ class Comparable(Protocol):
     def __ge__(self, other: Any, /) -> bool: ...
 
 
+@export
 def is_optional(typ: Any) -> bool:
     """Check if given type is ``Optional[T]``.
 
@@ -68,6 +67,7 @@ def is_optional(typ: Any) -> bool:
     return len(args) == 2 and args[-1] is type(None)
 
 
+@export
 def is_strict_optional(typ: Any) -> bool:
     """Check if given type is ``StrictOptional[T]``.
 
@@ -83,6 +83,7 @@ def is_strict_optional(typ: Any) -> bool:
     return len(args) == 2 and args[-1] is UnsetType and args[0] is not type(None)
 
 
+@export
 def is_loose_optional(typ: Any) -> bool:
     """Check if given type is ``LooseOptional[T]``.
 
@@ -98,6 +99,7 @@ def is_loose_optional(typ: Any) -> bool:
     return len(args) == 3 and args[-2] is type(None) and args[-1] is UnsetType
 
 
+@export
 def is_any_optional(typ: Any) -> bool:
     """Check if given type is any of the optional types supported by Modelity.
 
@@ -113,6 +115,7 @@ def is_any_optional(typ: Any) -> bool:
     return type(None) in args or UnsetType in args
 
 
+@export
 def is_deferred(typ: Any) -> bool:
     """Check if given type is a deferred type.
 
@@ -132,6 +135,7 @@ def is_deferred(typ: Any) -> bool:
     return args[-1] == "__deferred__"
 
 
+@export
 def is_unsettable(typ: Any) -> bool:
     """Check if given type annotation allows :obj:`modelity.unset.Unset` as
     valid value.
