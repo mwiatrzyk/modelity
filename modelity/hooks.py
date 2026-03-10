@@ -4,8 +4,7 @@ inject user-defined hooks into model's data processing chain."""
 import functools
 from typing import Any, Callable, cast, Union, TypeVar
 
-from modelity import _utils
-from modelity._internal import hooks as _int_hooks
+from modelity import _utils, _hooks
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UserError
 from modelity.loc import Loc
@@ -102,9 +101,9 @@ def field_preprocessor(*field_names: str):
 
         supported_param_names = ("cls", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_int_hooks.IFieldHook, proxy)
+        hook = cast(_hooks.FieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = field_preprocessor.__name__
+        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_PREPROCESSOR
         hook.__modelity_hook_field_names__ = set(field_names)
         return hook
 
@@ -208,9 +207,9 @@ def field_postprocessor(*field_names: str):
 
         supported_param_names = ("cls", "self", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_int_hooks.IFieldHook, proxy)
+        hook = cast(_hooks.FieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = field_postprocessor.__name__
+        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_POSTPROCESSOR
         hook.__modelity_hook_field_names__ = set(field_names)
         return hook
 
@@ -274,7 +273,7 @@ def model_prevalidator():
     """
 
     def decorator(func):
-        return _make_model_validator(func, model_prevalidator.__name__)
+        return _make_model_validator(func, _hooks.HookType.MODEL_PREVALIDATOR)
 
     return decorator
 
@@ -291,7 +290,7 @@ def model_postvalidator():
     """
 
     def decorator(func):
-        return _make_model_validator(func, model_postvalidator.__name__)
+        return _make_model_validator(func, _hooks.HookType.MODEL_POSTVALIDATOR)
 
     return decorator
 
@@ -366,9 +365,9 @@ def field_validator(*field_names: str):
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_int_hooks.IFieldHook, proxy)
+        hook = cast(_hooks.FieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = field_validator.__name__
+        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_VALIDATOR
         hook.__modelity_hook_field_names__ = set(field_names)
         return hook
 
@@ -379,7 +378,7 @@ def field_validator(*field_names: str):
 def location_validator(*loc_suffix_patterns: str):
     """Decorate model's method as a location validator.
 
-    This validator is meant to be used when model validation requies access to
+    This validator is meant to be used when model validation requires access to
     nested models, collections of models etc. It runs for every value that is
     set in the model and its location suffix matches given pattern, which also
     supports wildcards via ``*`` (star) character.
@@ -491,9 +490,9 @@ def location_validator(*loc_suffix_patterns: str):
 
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_int_hooks.ILocationHook, proxy)
+        hook = cast(_hooks.LocationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_name__ = location_validator.__name__
+        hook.__modelity_hook_type__ = _hooks.HookType.LOCATION_VALIDATOR
         hook.__modelity_hook_value_locations__ = set(
             Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns
         )
@@ -502,7 +501,7 @@ def location_validator(*loc_suffix_patterns: str):
     return decorator
 
 
-def _make_model_validator(func: Callable, hook_name: str) -> _int_hooks.IModelHook:
+def _make_model_validator(func: Callable, hook_type: _hooks.HookType) -> _hooks.ModelHook:
 
     @functools.wraps(func)
     def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Any:
@@ -524,9 +523,9 @@ def _make_model_validator(func: Callable, hook_name: str) -> _int_hooks.IModelHo
 
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
     given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-    hook = cast(_int_hooks.IModelHook, proxy)
+    hook = cast(_hooks.ModelHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
-    hook.__modelity_hook_name__ = hook_name
+    hook.__modelity_hook_type__ = hook_type
     return hook
 
 

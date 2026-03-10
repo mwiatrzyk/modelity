@@ -6,13 +6,13 @@ from typing import Any, Callable, ClassVar, Iterator, Mapping, Optional, Protoco
 import typing_extensions
 
 from modelity import _export_list, _utils
-from modelity._internal import hooks as _int_hooks
 from modelity.exc import ParsingError
 from modelity.typing import is_any_optional, is_deferred, is_unsettable
 
+from . import _hooks
 from .loc import Loc
 from .error import Error, ErrorFactory
-from .unset import Unset, UnsetType
+from .unset import Unset, UnsetType, is_unset
 
 __all__ = export = _export_list.ExportList(["register_type_handler_factory", "create_type_handler"])  # type: ignore
 
@@ -559,21 +559,25 @@ class ModelMeta(type):
     __model_fields__: Mapping[str, Field]
 
     def __new__(cls, name: str, bases: tuple, attrs: dict):
-        attrs["__model_fields__"] = fields = dict[str, Field]()
-        attrs["_modelity_hooks"] = hooks = list[_int_hooks.IBaseHook]()
+        all_hooks = cls._collect_hooks(bases, attrs)
+        fields = cls._collect_fields(bases, attrs, all_hooks)
+        attrs.update(
+            {
+                "__model_fields__": fields,
+                "_modelity_hooks": all_hooks,
+                "__slots__": tuple(fields) + tuple(attrs.get("__slots__", [])),
+            }
+        )
+        model_type = super().__new__(cls, name, bases, attrs)
+        _hooks.assign_model_hooks(model_type, all_hooks)
+        _hooks.assign_location_hooks(model_type, all_hooks)
+        return model_type
+
+    @staticmethod
+    def _collect_fields(bases: tuple, attrs: dict, all_hooks: list[_hooks.BaseHook]) -> dict[str, Field]:
+        out: dict[str, Field] = {}
         for base in bases:
-            fields.update(getattr(base, "__model_fields__", {}))
-            modelity_hooks = getattr(base, "_modelity_hooks", None)
-            if modelity_hooks is not None:
-                hooks.extend(modelity_hooks)
-            else:
-                hooks.extend(_collect_hooks_from_mixin_class(base))
-        for key in dict(attrs):
-            attr_value = attrs[key]
-            if _int_hooks.is_base_hook(attr_value):
-                hooks.append(attr_value)
-                del attrs[key]
-        hooks.sort(key=lambda x: x.__modelity_hook_id__)
+            out.update(getattr(base, "__model_fields__", {}))
         annotations = attrs.pop("__annotations__", {})
         for field_name, annotation in annotations.items():
             if field_name in _IGNORED_FIELD_NAMES:
@@ -591,9 +595,27 @@ class ModelMeta(type):
                 unsettable=is_unsettable(annotation) if optional else False,
                 deferred=is_deferred(annotation) if not optional else False,
             )
-            fields[field_name] = bound_field
-        attrs["__slots__"] = tuple(fields) + tuple(attrs.get("__slots__", []))
-        return super().__new__(cls, name, bases, attrs)
+            _hooks.assign_field_hooks(bound_field, all_hooks, field_name)
+            out[field_name] = bound_field
+        return out
+
+    @staticmethod
+    def _collect_hooks(bases: tuple, attrs: dict) -> list[_hooks.BaseHook]:
+        out: list[_hooks.BaseHook] = []
+        for base in bases:
+            base_hooks = getattr(base, "_modelity_hooks", None)
+            if base_hooks is not None:
+                out.extend(base_hooks)
+                continue
+            for name in dir(base):
+                value = getattr(base, name)
+                if _hooks.is_hook(value):
+                    out.append(value)
+        for value in attrs.values():
+            if _hooks.is_hook(value):
+                out.append(value)
+        out.sort(key=lambda x: x.__modelity_hook_id__)
+        return out
 
 
 @export
@@ -651,7 +673,7 @@ class Model(metaclass=ModelMeta):
                 if value is Unset and not field.optional and not field.deferred:
                     errors.append(ErrorFactory.required_missing(Loc(name)))
             if value is not Unset:
-                value = self.__parse(field.type_handler, errors, name, value)
+                value = self.__parse(field, errors, name, value)
             super().__setattr__(name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
@@ -676,26 +698,23 @@ class Model(metaclass=ModelMeta):
             if getattr(self, name) is not Unset:
                 yield name
 
-    def __parse(
-        self, type_handler: TypeHandler, errors: list[Error], field_name: str, value: Any
-    ) -> Union[Any, UnsetType]:
+    def __parse(self, field: Field, errors: list[Error], field_name: str, value: Any) -> Union[Any, UnsetType]:
         loc = Loc(field_name)
-        cls = self.__class__
-        value = _run_field_preprocessors(cls, errors, loc, value)  # type: ignore
-        if value is Unset:
+        model_type = self.__class__
+        value = _hooks.run_field_preprocessors(field, model_type, errors, loc, value)
+        if is_unset(value):
             return value
-        value = type_handler.parse(errors, loc, value)
-        if value is Unset:
+        value = field.type_handler.parse(errors, loc, value)
+        if is_unset(value):
             return value
-        value = _run_field_postprocessors(cls, self, errors, loc, value)  # type: ignore
-        return value
+        return _hooks.run_field_postprocessors(field, model_type, self, errors, loc, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         field = self.__class__.__model_fields__.get(name)
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
-        value = self.__parse(field.type_handler, errors, name, value)
+        value = self.__parse(field, errors, name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
         super().__setattr__(name, value)
@@ -764,28 +783,3 @@ def create_type_handler(typ: Any, /, **type_opts):
     from modelity._parsing.type_handler_factory import create_type_handler
 
     return create_type_handler(typ, **type_opts)
-
-
-def _run_field_preprocessors(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-    for hook in _int_hooks.collect_field_hooks(cls, "field_preprocessor", loc[-1]):  # type: ignore
-        value = hook(cls, errors, loc, value)
-        if value is Unset:
-            return Unset
-    return value
-
-
-def _run_field_postprocessors(
-    cls: type[Model], self: Model, errors: list[Error], loc: Loc, value: Any
-) -> Union[Any, UnsetType]:
-    for hook in _int_hooks.collect_field_hooks(cls, "field_postprocessor", loc[-1]):  # type: ignore
-        value = hook(cls, self, errors, loc, value)
-        if value is Unset:
-            return Unset
-    return value
-
-
-def _collect_hooks_from_mixin_class(cls: type) -> Iterator[_int_hooks.IBaseHook]:
-    for name in dir(cls):
-        value = getattr(cls, name)
-        if _int_hooks.is_base_hook(value):
-            yield value
