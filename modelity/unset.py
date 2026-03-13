@@ -1,10 +1,10 @@
-from typing import Final, TypeGuard
+from typing import Final
 
 from typing_extensions import TypeIs
 
-from modelity import _utils
+from modelity import _export_list
 
-__all__ = export = _utils.ExportList(["Unset"])  # type: ignore
+__all__ = export = _export_list.ExportList(["Unset"])  # type: ignore
 
 
 @export

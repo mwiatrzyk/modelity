@@ -3,12 +3,12 @@ import functools
 import re
 from typing import Any
 
-from modelity import _utils
+from modelity import _export_list
 from modelity.base import Constraint
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 
 @export

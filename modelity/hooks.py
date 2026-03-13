@@ -4,14 +4,14 @@ inject user-defined hooks into model's data processing chain."""
 import functools
 from typing import Any, Callable, cast, Union, TypeVar
 
-from modelity import _utils, _hooks
+from modelity import _export_list, _utils, _hooks
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UserError
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 from modelity.base import Model
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 T = TypeVar("T")
 

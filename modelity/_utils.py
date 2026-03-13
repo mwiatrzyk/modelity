@@ -17,8 +17,6 @@ from typing import (
 )
 from typing_extensions import TypeIs
 
-from ._export_list import ExportList  # TODO: Remove once all use _export_list.py
-
 T = TypeVar("T")
 
 _unique_id_counter = itertools.count(1)

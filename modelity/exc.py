@@ -1,12 +1,12 @@
 from io import StringIO
 from typing import Any, Optional
 
-from modelity import _utils
+from modelity import _utils, _export_list
 from modelity.error import Error, ErrorCode, ErrorWriter
 from modelity.loc import Loc
 from modelity.unset import Unset
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 
 @export

@@ -2,12 +2,12 @@ import dataclasses
 from enum import Enum
 from typing import Any, Optional, Sized, TextIO, TypeVar
 
-from modelity import _utils
+from modelity import _utils, _export_list
 from modelity.loc import Loc
 from modelity.typing import Comparable
 from modelity.unset import Unset
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 T = TypeVar("T", bound=Comparable)
 

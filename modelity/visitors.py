@@ -11,13 +11,13 @@ import enum
 import functools
 from typing import Any, Callable, Iterator, Literal, Mapping, MutableSequence, Optional, Sequence, Set, TypeVar, cast
 
-from modelity import _utils, _hooks
+from modelity import _utils, _hooks, _export_list
 from modelity.base import Model, Field, ModelVisitor, TypeHandlerWithValidation
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
 from modelity.unset import Unset, UnsetType
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 T = TypeVar("T")
 

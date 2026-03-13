@@ -1,6 +1,6 @@
 from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
-from modelity import _utils
+from modelity import _export_list
 from modelity.base import Model, ModelVisitor
 from modelity.error import Error
 from modelity.exc import ValidationError
@@ -12,7 +12,7 @@ from modelity.visitors import (
     ValidationVisitor,
 )
 
-__all__ = export = _utils.ExportList()  # type: ignore
+__all__ = export = _export_list.ExportList()  # type: ignore
 
 MT = TypeVar("MT", bound=Model)
 

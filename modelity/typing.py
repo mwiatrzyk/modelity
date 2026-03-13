@@ -1,9 +1,9 @@
 from typing import Annotated, Any, Protocol, TypeVar, Union, get_args, get_origin
 
-from modelity import _utils
+from modelity import _export_list
 from modelity.unset import UnsetType
 
-__all__ = export = _utils.ExportList(["StrictOptional", "LooseOptional", "Deferred"])  # type: ignore
+__all__ = export = _export_list.ExportList(["StrictOptional", "LooseOptional", "Deferred"])  # type: ignore
 
 T = TypeVar("T")
 
