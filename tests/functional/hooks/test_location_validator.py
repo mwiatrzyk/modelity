@@ -2,7 +2,7 @@ import textwrap
 from typing import Annotated, Any, Optional
 import pytest
 
-from mockify.api import Raise, ordered
+from mockify.api import Raise, ordered, _
 
 from modelity.constraints import Ge
 from modelity.error import Error, ErrorCode, ErrorFactory
@@ -246,6 +246,28 @@ def test_validator_declared_without_field_names_is_applied_to_every_model_value(
         validate(sut)
 
 
+def test_referencing_nested_model_field_directly_causes_validator_to_not_being_called(mock):
+
+    class SUT(Model):
+
+        class Nested(Model):
+            a: int
+
+        foo: int
+        bar: int
+        baz: list[int]
+        nested: Nested
+
+        @location_validator("a")
+        def _location_validator(loc, value):
+           return mock.foo(loc, value)
+
+    sut = SUT(foo=1, bar=2, baz=[3, 4], nested=SUT.Nested(a=5))
+    mock.foo.expect_call(_, _).times(0)
+    with ordered(mock):
+        validate(sut)
+
+
 def test_validator_is_not_called_if_value_is_not_set(mock):
 
     class SUT(Model):
@@ -358,14 +380,14 @@ def test_when_value_validator_declared_in_root_model_and_nested_model_then_both_
 
             bar: list[Bar]
 
-            @location_validator("bar.*.spam")
+            @location_validator("bar.?.spam")
             def _validate_spam(loc, value):
                 mock.validate_spam(loc, value)
 
         items: list[Foo]
         bar: list[Foo.Bar] = []
 
-        @location_validator("items.*")
+        @location_validator("items.?")
         def _validate_items(loc, value):
             mock.validate_items(loc, value)
 

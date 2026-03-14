@@ -7,7 +7,7 @@ from typing import Any, Callable, cast, Union, TypeVar
 from modelity import _export_list, _utils, _hooks
 from modelity.error import Error, ErrorFactory
 from modelity.exc import UserError
-from modelity.loc import Loc
+from modelity.loc import Loc, Pattern
 from modelity.unset import Unset, UnsetType
 from modelity.base import Model
 
@@ -286,7 +286,7 @@ def model_postvalidator():
     prevalidators, built-in validators and field-level validators.
 
     The arguments for the decorated method are exactly the same as for
-    :func:`model_prevalidation` hook.
+    :func:`model_prevalidator` hook.
     """
 
     def decorator(func):
@@ -375,7 +375,7 @@ def field_validator(*field_names: str):
 
 
 @export
-def location_validator(*loc_suffix_patterns: str):
+def location_validator(*patterns: str):
     """Decorate model's method as a location validator.
 
     This validator is meant to be used when model validation requires access to
@@ -453,17 +453,18 @@ def location_validator(*loc_suffix_patterns: str):
 
     .. versionadded:: 0.27.0
 
-    :param `*loc_suffix_patterns`:
-        Location suffix patterns for this validator.
+    :param `*patterns`:
+        Location patterns to run this validator for.
 
-        Decorated function will run for every model value with location suffix
-        matching any of the patterns listed here.
+        These are relative to the model where this decorator was used, so first
+        element in each pattern refers to model's fields, second (if any) to
+        nested models or collection items etc.
 
-        Use string patterns, like ``foo.bar.baz``, or string patterns with
-        glob, e.g. ``foo.*.baz``.
+        Following wildcards are supported:
 
-        Numeric components, if present, will be converted to int and compared
-        as int.
+        * ``?`` - matches exactly one location element (e.g. ``foo.?.bar`` will match ``foo.0.bar``, but not ``foo.0.0.bar``)
+        * ``*`` - matches one or more location elements (e.g. ``foo.*.baz`` will match ``foo.bar.0.baz``, but not ``foo.baz``)
+        * ``**`` - matches zero or more location elements (e.g. ``foo.**.baz`` will match both ``foo.bar.0.baz`` and ``foo.baz``)
     """
 
     def decorator(func):
@@ -493,9 +494,11 @@ def location_validator(*loc_suffix_patterns: str):
         hook = cast(_hooks.LocationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_type__ = _hooks.HookType.LOCATION_VALIDATOR
-        hook.__modelity_hook_value_locations__ = set(
-            Loc(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in loc_suffix_patterns
+        hook.__modelity_hook_patterns__ = set(
+            Pattern(*[_utils.to_int_or_str(p) for p in x.split(".")]) for x in patterns
         )
+        if not hook.__modelity_hook_patterns__:
+            hook.__modelity_hook_patterns__ = {Pattern("**")}
         return hook
 
     return decorator

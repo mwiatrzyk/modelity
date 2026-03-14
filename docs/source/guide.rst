@@ -1591,7 +1591,7 @@ Here's an example:
     class Storage(Model):
         users: list[User]
 
-        @location_validator("users.*")
+        @location_validator("users.?")
         def _require_name(value):
             if not value.name:
                 raise ValueError("stored users must have name assigned")

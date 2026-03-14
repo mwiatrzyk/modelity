@@ -1,6 +1,6 @@
 import pytest
 
-from modelity.loc import Loc
+from modelity.loc import Loc, Pattern
 
 
 class TestLoc:
@@ -103,3 +103,96 @@ class TestLoc:
     )
     def test_suffix_match(self, uut: Loc, pattern: Loc, status):
         assert uut.suffix_match(pattern) is status
+
+
+class TestPattern:
+
+    @pytest.mark.parametrize("uut, expected_len", [
+        (Pattern(), 0),
+        (Pattern("a", "b", 0), 3),
+    ])
+    def test_len(self, uut: Pattern, expected_len: int):
+        assert len(uut) == expected_len
+
+    def test_slicing_is_not_supported_for_pattern_objects(self):
+        uut = Pattern("a", "b", 0)
+        with pytest.raises(TypeError) as excinfo:
+            a = uut[0:1]
+        assert str(excinfo.value) == "slicing is not supported for Pattern type"
+
+    @pytest.mark.parametrize("uut, index, expected_value", [
+        (Pattern("a", "b", 0), 0, "a"),
+        (Pattern("a", "b", 0), 1, "b"),
+        (Pattern("a", "b", 0), -1, 0),
+        (Pattern("a", "b", 0), -3, "a"),
+    ])
+    def test_get_item(self, uut: Pattern, index: int, expected_value):
+        assert uut[index] == expected_value
+
+    def test_comparing_with_non_pattern_returns_false(self):
+        assert Pattern(123) != 123
+
+    @pytest.mark.parametrize("left, right, are_equal", [
+        (Pattern(), Pattern(), True),
+        (Pattern("a"), Pattern(), False),
+        (Pattern("a"), Pattern("a"), True),
+    ])
+    def test_compare_two_patterns(self, left: Pattern, right: Pattern, are_equal: bool):
+        assert (left == right) is are_equal
+
+    @pytest.mark.parametrize("uut, expected_repr", [
+        (Pattern(), "Pattern()"),
+        (Pattern("a"), "Pattern('a')"),
+        (Pattern("a", "b"), "Pattern('a', 'b')"),
+        (Pattern("a", "b", "?", 0), "Pattern('a', 'b', '?', 0)"),
+    ])
+    def test_repr(self, uut: Pattern, expected_repr: str):
+        assert repr(uut) == expected_repr
+
+    def test_wildcard_one(self):
+        assert Pattern.wildcard_one() == Pattern("?")
+
+    def test_wildcard_one_or_more(self):
+        assert Pattern.wildcard_one_or_more() == Pattern("*")
+
+    @pytest.mark.parametrize("uut, loc, status", [
+        (Pattern(), Loc(), True),
+        (Pattern(), Loc("a"), False),
+        (Pattern("a"), Loc("a"), True),
+        (Pattern("a"), Loc("b"), False),
+        (Pattern("?"), Loc("b"), True),
+        (Pattern("?", "?"), Loc("b"), False),
+        (Pattern("?", "?"), Loc("a", "b"), True),
+        (Pattern("*"), Loc("b"), True),
+        (Pattern("*"), Loc(), False),
+        (Pattern("a"), Loc("a", "b"), False),
+        (Pattern("?"), Loc("a", "b"), False),
+        (Pattern("*"), Loc("a", "b"), True),
+        (Pattern("a", "b"), Loc("a", "b"), True),
+        (Pattern("a", "b"), Loc("a", "c"), False),
+        (Pattern("a", "?"), Loc("a", "c"), True),
+        (Pattern("a", "*"), Loc("a", "c"), True),
+        (Pattern("a", "b", "c"), Loc("a", "b", "c"), True),
+        (Pattern("a", "b", "c"), Loc("a", "b", "d"), False),
+        (Pattern("a", "?", "c"), Loc("a", "b", "c"), True),
+        (Pattern("a", "*", "c"), Loc("a", "b", "c"), True),
+        (Pattern("a", "*", "c"), Loc("a", "b", "d"), False),
+        (Pattern("a", "*", "c"), Loc("a", "b", "d", "c"), True),
+        (Pattern("a", "*", "c", 0), Loc("a", "b", "d", "c"), False),
+        (Pattern("a", "*", "c", 0), Loc("a", "b", "d", "c", 0), True),
+        (Pattern("a", "*", "*", "c", 0), Loc("a", "b", "d", "c", 0), True),
+        (Pattern("a", "*", "c", "*", 2, 3), Loc("a", "b", "d", "c", 0, 1, 2, 3), True),
+        (Pattern("a", "*", "*", "c", "*", 2, 3), Loc("a", "b", "d", "c", 0, 1, 2, 3), True),
+        (Pattern("a", "*", "c", "*", 2, 3), Loc("a", "b", "d", "c", 0, 1, 2, 4), False),
+        (Pattern("a", "*"), Loc("a", "b", "d", "c", 0, 1, 2, 4), True),
+        (Pattern("*"), Loc("a", "b", "d", "c", 0, 1, 2, 4), True),
+        (Pattern("**"), Loc("a", "b", "d", "c", 0, 1, 2, 4), True),
+        (Pattern("**"), Loc(), True),
+        (Pattern("**"), Loc("a"), True),
+        (Pattern("**", "b"), Loc("a"), False),
+        (Pattern("**", "b"), Loc("b"), True),
+        (Pattern("**", "b"), Loc("b", "c"), False),
+        (Pattern("**", "c"), Loc("b", "c"), True),
+    ])
+    def test_match(self, uut: Pattern, loc: Loc, status):
+        assert uut.match(loc) is status

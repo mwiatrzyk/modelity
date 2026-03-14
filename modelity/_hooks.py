@@ -4,7 +4,7 @@ from typing import Any, Literal, Mapping, Optional, Protocol, Sequence, cast
 from typing_extensions import TypeIs
 
 from modelity.error import Error
-from modelity.loc import Loc
+from modelity.loc import Loc, Pattern
 from modelity.unset import UnsetType, is_unset
 
 
@@ -69,7 +69,7 @@ class LocationHook(BaseHook, Protocol):
     #: Empty set is matched to any location, non-empty set defines location
     #: patterns that will cause hook execution once matched to the current
     #: location.
-    __modelity_hook_value_locations__: set[Loc]
+    __modelity_hook_patterns__: set[Pattern]
 
 
 def is_hook(obj: Any) -> TypeIs[BaseHook]:
@@ -81,7 +81,7 @@ def is_field_hook(obj: BaseHook) -> TypeIs[FieldHook]:
 
 
 def is_location_hook(obj: BaseHook) -> TypeIs[LocationHook]:
-    return hasattr(obj, "__modelity_hook_value_locations__")
+    return hasattr(obj, "__modelity_hook_patterns__")
 
 
 def is_field_hook_for(obj: FieldHook, field_name: str) -> bool:
@@ -112,10 +112,6 @@ def assign_model_hooks(model_type: type[Any], all_hooks: list[BaseHook]):
 
 def assign_location_hooks(model_type: type[Any], all_hooks: list[BaseHook]):
     model_type._location_validators = list_location_hooks(all_hooks, HookType.LOCATION_VALIDATOR)
-
-
-def get_location_validators(model_type: type[Any]) -> list[LocationHook]:
-    return model_type._location_validators
 
 
 def run_field_preprocessors(field: Any, model_type: type, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
@@ -153,3 +149,10 @@ def run_model_prevalidators(model_type: type[Any], model: Any, root: Any, ctx: A
 def run_model_postvalidators(model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc):
     for hook in cast(list[ModelHook], model_type._model_postvalidators):
         hook(model_type, model, root, ctx, errors, loc)
+
+
+def run_location_validators(model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], base_loc: Loc, loc: Loc, value: Any):
+    for hook in cast(list[LocationHook], model_type._location_validators):
+        for pattern in hook.__modelity_hook_patterns__:
+            if Pattern(*base_loc, *pattern).match(loc):
+                hook(model_type, model, root, ctx, errors, loc, value)
