@@ -677,6 +677,7 @@ class Model(metaclass=ModelMeta):
             super().__setattr__(name, value)
         if errors:
             raise ParsingError(self.__class__, tuple(errors))
+        _hooks.run_model_fixups(self.__class__, self, Loc())
 
     def __repr__(self):
         kv = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__model_fields__)

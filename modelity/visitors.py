@@ -457,6 +457,17 @@ class ValidationVisitor(EmptyVisitor):
 
 
 @export
+class FixupVisitor(EmptyVisitor):
+    """Visitor performing model fixups by executing fixup hooks.
+
+    .. versionadded:: 0.36.0
+    """
+
+    def visit_model_end(self, loc: Loc, value: Model):
+        _hooks.run_model_fixups(value.__class__, value, loc)
+
+
+@export
 class ModelFieldPruningVisitorProxy:
     """Visitor proxy that skips model fields if provided exclude function
     returns ``True``.

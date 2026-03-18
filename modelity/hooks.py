@@ -217,6 +217,52 @@ def field_postprocessor(*field_names: str):
 
 
 @export
+def model_fixup():
+    """Decorate model's method as a model-level fixup function.
+
+    Fixup functions play similar role to ``__post_init__`` method in Python
+    dataclasses and they are executed just after the model object was
+    successfully created.
+
+    The decorated method can be defined with no arguments, or with any
+    subsequence of the following arguments:
+
+    **cls**
+        The current model type.
+
+    **self**
+        The current model object.
+
+    **loc**
+        The location in the model.
+
+        Will be empty if this is the root model.
+    """
+
+    def decorator(func):
+
+        @functools.wraps(func)
+        def proxy(cls: type[Model], self: Model, loc: Loc):
+            kw: dict[str, Any] = {}
+            if "cls" in given_param_names:
+                kw["cls"] = cls
+            if "self" in given_param_names:
+                kw["self"] = self
+            if "loc" in given_param_names:
+                kw["loc"] = loc
+            func(**kw)
+
+        supported_param_names = ("cls", "self", "loc")
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        hook = cast(_hooks.ModelHook, proxy)
+        hook.__modelity_hook_id__ = _utils.next_unique_id()
+        hook.__modelity_hook_type__ = _hooks.HookType.MODEL_FIXUP
+        return hook
+
+    return decorator
+
+
+@export
 def model_prevalidator():
     """Decorate model's method as a model-level prevalidation hook.
 

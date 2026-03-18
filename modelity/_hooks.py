@@ -13,6 +13,7 @@ class HookType(enum.Enum):
 
     FIELD_PREPROCESSOR = "field_preprocessor"
     FIELD_POSTPROCESSOR = "field_postprocessor"
+    MODEL_FIXUP = "model_fixup"
     FIELD_VALIDATOR = "field_validator"
     MODEL_PREVALIDATOR = "model_prevalidator"
     MODEL_POSTVALIDATOR = "model_postvalidator"
@@ -27,6 +28,7 @@ _field_hook_attr_map = {
 
 
 _model_hook_attr_map = {
+    "_model_fixups": HookType.MODEL_FIXUP,
     "_model_prevalidators": HookType.MODEL_PREVALIDATOR,
     "_model_postvalidators": HookType.MODEL_POSTVALIDATOR,
 }
@@ -130,6 +132,11 @@ def run_field_postprocessors(
         if is_unset(value):
             return value
     return value
+
+
+def run_model_fixups(cls: type[Any], self: Any, loc: Loc):
+    for hook in cast(list[ModelHook], cls._model_fixups):
+        hook(cls, self, loc)
 
 
 def run_field_validators(

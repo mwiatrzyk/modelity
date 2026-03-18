@@ -6,6 +6,7 @@ from modelity.error import Error
 from modelity.exc import ValidationError
 from modelity.loc import Loc
 from modelity.visitors import (
+    FixupVisitor,
     ModelFieldPruningVisitorProxy,
     DumpVisitor,
     JsonDumpVisitorProxy,
@@ -151,6 +152,16 @@ def validate(model: Model, ctx: Any = None):
     model.accept(visitor, Loc())
     if errors:
         raise ValidationError(model, tuple(errors))
+
+
+@export
+def fixup(model: Model):
+    """Perform fixup on given model.
+
+    .. versionadded:: 0.36.0
+    """
+    visitor = FixupVisitor()
+    model.accept(visitor, Loc())
 
 
 @export
