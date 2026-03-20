@@ -192,8 +192,8 @@ class TestModelWithOneField:
     @pytest.mark.parametrize(
         "field_type, field_info, given_value, expected_errors",
         [
-            (Annotated[float, Ge(0.0)], None, "-0.1", [ErrorFactory.out_of_range(Loc("foo"), -0.1, min_inclusive=0.0)]),
-            (Annotated[float, Gt(0.0)], None, 0.0, [ErrorFactory.out_of_range(Loc("foo"), 0.0, min_exclusive=0.0)]),
+            (Annotated[float, Ge(0.1)], None, "-0.1", [ErrorFactory.out_of_range(Loc("foo"), -0.1, min_inclusive=0.1)]),
+            (Annotated[float, Gt(0.1)], None, 0.1, [ErrorFactory.out_of_range(Loc("foo"), 0.1, min_exclusive=0.1)]),
             (Annotated[float, Le(1.0)], None, 1.1, [ErrorFactory.out_of_range(Loc("foo"), 1.1, max_inclusive=1.0)]),
             (Annotated[float, Lt(1.0)], None, 1.0, [ErrorFactory.out_of_range(Loc("foo"), 1.0, max_exclusive=1.0)]),
             (

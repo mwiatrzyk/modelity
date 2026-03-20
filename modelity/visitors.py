@@ -468,6 +468,7 @@ class FixupVisitor(EmptyVisitor):
 
     def visit_model_begin(self, loc: Loc, value: Model) -> bool | None:
         self._model_stack.append((value.__class__, value))
+        return None
 
     def visit_model_end(self, loc: Loc, value: Model):
         _hooks.run_model_fixups(value.__class__, value, loc)
