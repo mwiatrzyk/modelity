@@ -4,12 +4,12 @@ from typing import Optional
 
 import pytest
 
-from mockify.api import Raise, Return, ordered, _
+from mockify.api import Raise, Return, Invoke, ordered, _
 
 from modelity.error import Error, ErrorCode, ErrorFactory
 from modelity.exc import ParsingError, UserError
 from modelity.helpers import fixup
-from modelity.hooks import model_fixup
+from modelity.hooks import field_postprocessor, field_preprocessor, model_fixup
 from modelity.loc import Loc
 from modelity.base import Model
 from modelity.typing import Deferred
@@ -47,7 +47,6 @@ def test_declare_hook_without_args(mock):
     "arg_name, expect_call_arg",
     [
         ("cls", "SUT"),
-        ("self", "_"),
         ("loc", "Loc()"),
     ],
 )
@@ -67,6 +66,19 @@ def test_declare_hook_with_single_arg(mock, arg_name, expect_call_arg):
     g = globals()
     g.update({"mock": mock})
     exec(code, g)
+
+
+def test_declare_hook_with_self_arg(mock):
+
+    class SUT(Model):
+        foo: int
+
+        @model_fixup()
+        def _fixup(self):
+            mock(self.foo)
+
+    mock.expect_call(123)
+    SUT(foo=123)
 
 
 def test_two_hooks_are_chained_in_declaration_order(mock):
@@ -140,6 +152,31 @@ def test_hook_can_access_model_object_and_set_related_fields():
     assert sut.modified == sut.created
 
 
+def test_hook_is_called_after_pre_and_postprocessors(mock):
+
+    class SUT(Model):
+        foo: int
+
+        @model_fixup()
+        def _fixup_foo(self, loc):
+            mock.fixup(loc, self.foo)
+
+        @field_preprocessor("foo")
+        def _preprocess_foo(cls, loc, value):
+            return mock.pre(loc, value)
+
+        @field_postprocessor("foo")
+        def _postprocess_foo(cls, loc, value):
+            return mock.post(loc, value)
+
+    mock.pre.expect_call(Loc("foo"), 1).will_once(Return(2))
+    mock.post.expect_call(Loc("foo"), 2).will_once(Return(3))
+    mock.fixup.expect_call(Loc(), 3)
+    with ordered(mock):
+        sut = SUT(foo=1)
+        assert sut.foo == 3
+
+
 def test_hook_is_executed_by_fixup_helper(mock):
 
     class SUT(Model):
@@ -158,17 +195,18 @@ def test_fixup_hook_in_nested_model_is_executed_by_fixup_helper(mock):
     class Nested(Model):
 
         @model_fixup()
-        def _model_fixup():
-            mock.nested()
+        def _model_fixup(loc):
+            mock.nested(loc)
 
     class SUT(Model):
         nested: Nested
 
         @model_fixup()
-        def _model_fixup():
-            mock.root()
+        def _model_fixup(loc):
+            mock.root(loc)
 
-    mock.root.expect_call().times(2)
-    mock.nested.expect_call().times(2)
+    mock.root.expect_call(Loc()).times(2)
+    mock.nested.expect_call(Loc())
     sut = SUT(nested=Nested())
+    mock.nested.expect_call(Loc("nested"))
     fixup(sut)

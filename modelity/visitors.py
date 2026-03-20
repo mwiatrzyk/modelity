@@ -15,7 +15,7 @@ from modelity import _utils, _hooks, _export_list
 from modelity.base import Model, Field, ModelVisitor, TypeHandlerWithValidation
 from modelity.error import Error, ErrorFactory
 from modelity.loc import Loc
-from modelity.unset import Unset, UnsetType
+from modelity.unset import Unset, UnsetType, is_unset
 
 __all__ = export = _export_list.ExportList()  # type: ignore
 
@@ -463,8 +463,20 @@ class FixupVisitor(EmptyVisitor):
     .. versionadded:: 0.36.0
     """
 
+    def __init__(self) -> None:
+        self._model_stack: list[tuple[type[Model], Model]] = []
+
+    def visit_model_begin(self, loc: Loc, value: Model) -> bool | None:
+        self._model_stack.append((value.__class__, value))
+
     def visit_model_end(self, loc: Loc, value: Model):
         _hooks.run_model_fixups(value.__class__, value, loc)
+        self._model_stack.pop()
+
+    def visit_model_field_end(self, loc: Loc, value: Any, field: Field):
+        if not is_unset(value):
+            model_type, model = self._model_stack[-1]
+            _hooks.run_field_fixups(field, model_type, model, loc, value)
 
 
 @export

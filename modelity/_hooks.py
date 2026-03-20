@@ -14,6 +14,7 @@ class HookType(enum.Enum):
     FIELD_PREPROCESSOR = "field_preprocessor"
     FIELD_POSTPROCESSOR = "field_postprocessor"
     MODEL_FIXUP = "model_fixup"
+    FIELD_FIXUP = "field_fixup"
     FIELD_VALIDATOR = "field_validator"
     MODEL_PREVALIDATOR = "model_prevalidator"
     MODEL_POSTVALIDATOR = "model_postvalidator"
@@ -23,6 +24,7 @@ class HookType(enum.Enum):
 _field_hook_attr_map = {
     "_field_preprocessors": HookType.FIELD_PREPROCESSOR,
     "_field_postprocessors": HookType.FIELD_POSTPROCESSOR,
+    "_field_fixups": HookType.FIELD_FIXUP,
     "_field_validators": HookType.FIELD_VALIDATOR,
 }
 
@@ -107,31 +109,36 @@ def assign_field_hooks(field: Any, all_hooks: list[BaseHook], field_name: str):
         setattr(field, attr_name, list_field_hooks(all_hooks, hook_type, field_name))
 
 
-def assign_model_hooks(model_type: type[Any], all_hooks: list[BaseHook]):
+def assign_model_hooks(cls: type[Any], all_hooks: list[BaseHook]):
     for attr_name, hook_type in _model_hook_attr_map.items():
-        setattr(model_type, attr_name, list_model_hooks(all_hooks, hook_type))
+        setattr(cls, attr_name, list_model_hooks(all_hooks, hook_type))
 
 
-def assign_location_hooks(model_type: type[Any], all_hooks: list[BaseHook]):
-    model_type._location_validators = list_location_hooks(all_hooks, HookType.LOCATION_VALIDATOR)
+def assign_location_hooks(cls: type[Any], all_hooks: list[BaseHook]):
+    cls._location_validators = list_location_hooks(all_hooks, HookType.LOCATION_VALIDATOR)
 
 
-def run_field_preprocessors(field: Any, model_type: type, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+def run_field_preprocessors(field: Any, cls: type, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
     for hook in cast(list[FieldHook], field._field_preprocessors):
-        value = hook(model_type, errors, loc, value)
+        value = hook(cls, errors, loc, value)
         if is_unset(value):
             return value
     return value
 
 
 def run_field_postprocessors(
-    field: Any, model_type: type[Any], model: Any, errors: list[Error], loc: Loc, value: Any
+    field: Any, cls: type[Any], self: Any, errors: list[Error], loc: Loc, value: Any
 ) -> Any | UnsetType:
     for hook in cast(list[FieldHook], field._field_postprocessors):
-        value = hook(model_type, model, errors, loc, value)
+        value = hook(cls, self, errors, loc, value)
         if is_unset(value):
             return value
     return value
+
+
+def run_field_fixups(field: Any, cls: type[Any], self: Any, loc: Loc, value: Any):
+    for hook in cast(list[FieldHook], field._field_fixups):
+        hook(cls, self, loc, value)
 
 
 def run_model_fixups(cls: type[Any], self: Any, loc: Loc):
@@ -140,26 +147,26 @@ def run_model_fixups(cls: type[Any], self: Any, loc: Loc):
 
 
 def run_field_validators(
-    field: Any, model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc, value: Any
+    field: Any, cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc, value: Any
 ):
     for hook in cast(list[FieldHook], field._field_validators):
-        hook(model_type, model, root, ctx, errors, loc, value)
+        hook(cls, self, root, ctx, errors, loc, value)
 
 
-def run_model_prevalidators(model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc) -> Optional[bool]:
-    for hook in cast(list[ModelHook], model_type._model_prevalidators):
-        if hook(model_type, model, root, ctx, errors, loc) is True:
+def run_model_prevalidators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc) -> Optional[bool]:
+    for hook in cast(list[ModelHook], cls._model_prevalidators):
+        if hook(cls, self, root, ctx, errors, loc) is True:
             return True
     return None
 
 
-def run_model_postvalidators(model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc):
-    for hook in cast(list[ModelHook], model_type._model_postvalidators):
-        hook(model_type, model, root, ctx, errors, loc)
+def run_model_postvalidators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc):
+    for hook in cast(list[ModelHook], cls._model_postvalidators):
+        hook(cls, self, root, ctx, errors, loc)
 
 
-def run_location_validators(model_type: type[Any], model: Any, root: Any, ctx: Any, errors: list[Error], base_loc: Loc, loc: Loc, value: Any):
-    for hook in cast(list[LocationHook], model_type._location_validators):
+def run_location_validators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], base_loc: Loc, loc: Loc, value: Any):
+    for hook in cast(list[LocationHook], cls._location_validators):
         for pattern in hook.__modelity_hook_patterns__:
             if Pattern(*base_loc, *pattern).match(loc):
-                hook(model_type, model, root, ctx, errors, loc, value)
+                hook(cls, self, root, ctx, errors, loc, value)

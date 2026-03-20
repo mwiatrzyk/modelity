@@ -217,12 +217,14 @@ def field_postprocessor(*field_names: str):
 
 
 @export
-def model_fixup():
-    """Decorate model's method as a model-level fixup function.
+def field_fixup(*field_names: str):
+    """Decorate model's method as field-level fixup function.
 
-    Fixup functions play similar role to ``__post_init__`` method in Python
-    dataclasses and they are executed just after the model object was
-    successfully created.
+    Unlike :func:`model_fixup`, hooks decorated with this decorator are
+    executed only if matched fields are set, which are either given fields, or
+    all fields if no name was specified (just like for other field-scoped
+    hooks). Additionally, these hooks are also executed when field is later
+    modified, not just during construction.
 
     The decorated method can be defined with no arguments, or with any
     subsequence of the following arguments:
@@ -236,7 +238,66 @@ def model_fixup():
     **loc**
         The location in the model.
 
-        Will be empty if this is the root model.
+        Will be empty if this is the root model or when fixup hook is called by
+        model constructor.
+
+    **value**
+        The final value of a field set.
+
+    .. versionadded:: 0.36.0
+    """
+
+    def decorator(func):
+
+        @functools.wraps(func)
+        def proxy(cls: type[Model], self: Model, loc: Loc, value: Any):
+            kw: dict[str, Any] = {}
+            if "cls" in given_param_names:
+                kw["cls"] = cls
+            if "self" in given_param_names:
+                kw["self"] = self
+            if "loc" in given_param_names:
+                kw["loc"] = loc
+            if "value" in given_param_names:
+                kw["value"] = value
+            func(**kw)
+
+        supported_param_names = ("cls", "self", "loc", "value")
+        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        hook = cast(_hooks.FieldHook, proxy)
+        hook.__modelity_hook_id__ = _utils.next_unique_id()
+        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_FIXUP
+        hook.__modelity_hook_field_names__ = set(field_names)
+        return hook
+
+    return decorator
+
+
+@export
+def model_fixup():
+    """Decorate model's method as a model-level fixup function.
+
+    Fixup hook can be used to fill in derived properties in model object during
+    construction or on demand when :func:`modelity.helpers.fixup` function is
+    called on a target model. This is similar to ``__post_init__`` method used
+    by Python dataclasses.
+
+    The decorated method can be defined with no arguments, or with any
+    subsequence of the following arguments:
+
+    **cls**
+        The current model type.
+
+    **self**
+        The current model object.
+
+    **loc**
+        The location in the model.
+
+        Will be empty if this is the root model or when fixup hook is called by
+        model constructor.
+
+    .. versionadded:: 0.36.0
     """
 
     def decorator(func):

@@ -665,7 +665,8 @@ class Model(metaclass=ModelMeta):
 
     def __init__(self, **kwargs) -> None:
         errors: list[Error] = []
-        fields = self.__class__.__model_fields__
+        cls = self.__class__
+        fields = cls.__model_fields__
         for name, field in fields.items():
             value = kwargs.pop(name, Unset)
             if value is Unset:
@@ -676,7 +677,9 @@ class Model(metaclass=ModelMeta):
                 value = self.__parse(field, errors, name, value)
             super().__setattr__(name, value)
         if errors:
-            raise ParsingError(self.__class__, tuple(errors))
+            raise ParsingError(cls, tuple(errors))
+        for name in self:
+            _hooks.run_field_fixups(fields[name], cls, self, Loc(name), getattr(self, name))
         _hooks.run_model_fixups(self.__class__, self, Loc())
 
     def __repr__(self):
@@ -686,7 +689,7 @@ class Model(metaclass=ModelMeta):
     def __eq__(self, value):
         if type(self) is not type(value):
             return NotImplemented
-        for k in self.__class__.__model_fields__:
+        for k in self.__model_fields__:
             if getattr(self, k) != getattr(value, k):
                 return False
         return True
@@ -711,13 +714,16 @@ class Model(metaclass=ModelMeta):
         return _hooks.run_field_postprocessors(field, model_type, self, errors, loc, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        field = self.__class__.__model_fields__.get(name)
+        cls = self.__class__
+        field = cls.__model_fields__.get(name)
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
         value = self.__parse(field, errors, name, value)
         if errors:
-            raise ParsingError(self.__class__, tuple(errors))
+            raise ParsingError(cls, tuple(errors))
+        if value is not Unset:
+            _hooks.run_field_fixups(field, cls, self, Loc(name), value)
         super().__setattr__(name, value)
 
     def __delattr__(self, name):
