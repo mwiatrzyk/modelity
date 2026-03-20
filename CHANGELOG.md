@@ -1,3 +1,25 @@
+## 0.36.0 (2026-03-20)
+
+### BREAKING CHANGES
+
+- Now `*` wildcard means zero-or-more, not exactly-one;
+use `?` to achieve the latter match.
+- type system refactoring and introduction of type handlers
+- move `model.py` content to `base.py`
+- replace type descriptors with new type handlers
+- rename `modelity.types` to `modelity.typing`
+- remove `modelity.interface` module after moving all stuff to `modelity.base` and switching to `ABC` whenever needed
+
+### Fix
+
+- fix `Comparable` protocol to get rid of linter errors
+
+### Feat
+
+- improve `location_validator` decorator by adding support for `?` (one), `*` (one-or-more) and `**` (zero-or-more) wildcards
+- add `model_fixup` hook, `FixupVisitor` and `fixup` helper function
+- add `field_fixup` hook for executing field-bound fixups in models
+
 ## 0.35.0 (2026-02-15)
 
 ### BREAKING CHANGES
@@ -109,7 +131,7 @@ more generic ones.
 
 ### Feat
 
-- add `modelity.typing.LooseOptional` type; an extended optional allowing `Unset` as a valid value
+- add `modelity.types.LooseOptional` type; an extended optional allowing `Unset` as a valid value
 - constraints are now built using dataclasses for __eq__ and __hash__ automation
 - add `Range` constraint
 - add `LenRange` constraint
@@ -243,7 +265,7 @@ custom validation visitor.
 
 ### BREAKING CHANGES
 
-- replace `FieldInfo`'s `optional` with `modelity.typing.StrictOptional[T]` type
+- replace `FieldInfo`'s `optional` with `modelity.types.StrictOptional[T]` type
 - Methods for iterating through hooks were dropped from
 the public interface of the `ModelMeta` class and made private. These
 kind of method are very unlikely to be used unless someone wishes to
@@ -253,7 +275,7 @@ implement `Model` base class from scratch.
 ### Feat
 
 - add `field_info` helper for creating `FieldInfo` objects in a linter-satisfying way
-- replace `FieldInfo`'s `optional` with `modelity.typing.StrictOptional[T]` type
+- replace `FieldInfo`'s `optional` with `modelity.types.StrictOptional[T]` type
 - field is optional if it has default value set
 - split hook interfaces between model-scoped and field-scoped hooks
 - hide `make_type_descriptor` from public interface
@@ -458,3 +480,4 @@ generating errors also for other fields if needed.
 ## 0.0.1 (2024-10-20)
 
 Initial release.
+
