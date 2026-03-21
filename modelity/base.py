@@ -674,7 +674,7 @@ class Model(metaclass=ModelMeta):
                 if value is Unset and not field.optional and not field.deferred:
                     errors.append(ErrorFactory.required_missing(Loc(name)))
             if value is not Unset:
-                value = self.__parse(field, errors, name, value)
+                value = self.__parse(field, errors, Loc(name), value)
             super().__setattr__(name, value)
         if errors:
             raise ParsingError(cls, tuple(errors))
@@ -702,16 +702,15 @@ class Model(metaclass=ModelMeta):
             if getattr(self, name) is not Unset:
                 yield name
 
-    def __parse(self, field: Field, errors: list[Error], field_name: str, value: Any) -> Union[Any, UnsetType]:
-        loc = Loc(field_name)
-        model_type = self.__class__
-        value = _hooks.run_field_preprocessors(field, model_type, errors, loc, value)
+    @classmethod
+    def __parse(cls, field: Field, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        value = _hooks.run_field_preprocessors(field, cls, errors, loc, value)
         if is_unset(value):
             return value
         value = field.type_handler.parse(errors, loc, value)
         if is_unset(value):
             return value
-        return _hooks.run_field_postprocessors(field, model_type, self, errors, loc, value)
+        return _hooks.run_field_postprocessors(field, cls, errors, loc, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         cls = self.__class__
@@ -719,7 +718,7 @@ class Model(metaclass=ModelMeta):
         if field is None:
             return super().__setattr__(name, value)
         errors: list[Error] = []
-        value = self.__parse(field, errors, name, value)
+        value = self.__parse(field, errors, Loc(name), value)
         if errors:
             raise ParsingError(cls, tuple(errors))
         if value is not Unset:

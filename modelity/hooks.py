@@ -1,6 +1,7 @@
 """Module containing definitions of decorator functions that can be used to
 inject user-defined hooks into model's data processing chain."""
 
+from ast import Call
 import functools
 from typing import Any, Callable, cast, Union, TypeVar
 
@@ -85,27 +86,7 @@ def field_preprocessor(*field_names: str):
     """
 
     def decorator(func: Callable):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-            kw: dict[str, Any] = {}
-            if "cls" in given_param_names:
-                kw["cls"] = cls
-            if "errors" in given_param_names:
-                kw["errors"] = errors
-            if "loc" in given_param_names:
-                kw["loc"] = loc
-            if "value" in given_param_names:
-                kw["value"] = value
-            return _run_processing_hook(func, kw, errors, loc, value)
-
-        supported_param_names = ("cls", "errors", "loc", "value")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_hooks.FieldHook, proxy)
-        hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_PREPROCESSOR
-        hook.__modelity_hook_field_names__ = set(field_names)
-        return hook
+        return _make_field_processor(func, _hooks.HookType.FIELD_PREPROCESSOR, field_names)
 
     return decorator
 
@@ -131,20 +112,6 @@ def field_postprocessor(*field_names: str):
 
     **cls**
         The model type.
-
-    **self**
-        The instance of the model that is currently being created or modified.
-
-        This allows the hook to access other model's fields in a read-write way
-        and can be used to either set related fields, or perform some
-        additional on-field-change validation.
-
-        .. important::
-
-            The user needs to pay attention when accessing other fields, as
-            those may have not been initialized yet. Modelity processes data
-            field by field in field declaration order, so this must be taken
-            into account when this functionality is used.
 
     **errors**
         Mutable list of errors.
@@ -186,32 +153,13 @@ def field_postprocessor(*field_names: str):
         Since hooks are inherited, this also includes subclasses of the
         model the hook was declared in and it is not checked in any way if
         field names are correct.
+
+    .. versionchanged:: 0.37.0
+        Removed **self** argument; use :func:`field_fixup` hook instead.
     """
 
-    def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-            kw: dict[str, Any] = {}
-            if "cls" in given_param_names:
-                kw["cls"] = cls
-            if "self" in given_param_names:
-                kw["self"] = self
-            if "errors" in given_param_names:
-                kw["errors"] = errors
-            if "loc" in given_param_names:
-                kw["loc"] = loc
-            if "value" in given_param_names:
-                kw["value"] = value
-            return _run_processing_hook(func, kw, errors, loc, value)
-
-        supported_param_names = ("cls", "self", "errors", "loc", "value")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
-        hook = cast(_hooks.FieldHook, proxy)
-        hook.__modelity_hook_id__ = _utils.next_unique_id()
-        hook.__modelity_hook_type__ = _hooks.HookType.FIELD_POSTPROCESSOR
-        hook.__modelity_hook_field_names__ = set(field_names)
-        return hook
+    def decorator(func: Callable):
+        return _make_field_processor(func, _hooks.HookType.FIELD_POSTPROCESSOR, field_names)
 
     return decorator
 
@@ -609,6 +557,29 @@ def location_validator(*patterns: str):
         return hook
 
     return decorator
+
+
+def _make_field_processor(func: Callable, hook_type: _hooks.HookType, field_names: tuple) -> _hooks.FieldHook:
+    @functools.wraps(func)
+    def proxy(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
+        kw: dict[str, Any] = {}
+        if "cls" in given_param_names:
+            kw["cls"] = cls
+        if "errors" in given_param_names:
+            kw["errors"] = errors
+        if "loc" in given_param_names:
+            kw["loc"] = loc
+        if "value" in given_param_names:
+            kw["value"] = value
+        return _run_processing_hook(func, kw, errors, loc, value)
+
+    supported_param_names = ("cls", "errors", "loc", "value")
+    given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+    hook = cast(_hooks.FieldHook, proxy)
+    hook.__modelity_hook_id__ = _utils.next_unique_id()
+    hook.__modelity_hook_type__ = hook_type
+    hook.__modelity_hook_field_names__ = set(field_names)
+    return hook
 
 
 def _make_model_validator(func: Callable, hook_type: _hooks.HookType) -> _hooks.ModelHook:

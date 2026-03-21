@@ -127,10 +127,10 @@ def run_field_preprocessors(field: Any, cls: type, errors: list[Error], loc: Loc
 
 
 def run_field_postprocessors(
-    field: Any, cls: type[Any], self: Any, errors: list[Error], loc: Loc, value: Any
+    field: Any, cls: type[Any], errors: list[Error], loc: Loc, value: Any
 ) -> Any | UnsetType:
     for hook in cast(list[FieldHook], field._field_postprocessors):
-        value = hook(cls, self, errors, loc, value)
+        value = hook(cls, errors, loc, value)
         if is_unset(value):
             return value
     return value

@@ -68,7 +68,6 @@ def test_declare_preprocessor_without_args(mock):
     "arg_name, expect_call_arg, given_foo, mock_return",
     [
         ("cls", "SUT", 1, 123),
-        ("self", "sut", 1, 123),
         ("errors", "[]", 1, 123),
         ("loc", "Loc('foo')", 1, 123),
         ("value", 1, 1, 123),
