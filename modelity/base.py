@@ -758,10 +758,6 @@ def register_type_handler_factory(typ: Any, factory: TypeHandlerFactory):
     This method can be used to register custom types so Modelity could
     understand those, or to overwrite built-in type handlers.
 
-    When this method is used then internal type cache is also cleared so it
-    should be used at module level and before declaration of any Modelity
-    models.
-
     :param typ:
         The type to register type handler for.
 
