@@ -260,7 +260,7 @@ def test_referencing_nested_model_field_directly_causes_validator_to_not_being_c
 
         @location_validator("a")
         def _location_validator(loc, value):
-           return mock.foo(loc, value)
+            return mock.foo(loc, value)
 
     sut = SUT(foo=1, bar=2, baz=[3, 4], nested=SUT.Nested(a=5))
     mock.foo.expect_call(_, _).times(0)

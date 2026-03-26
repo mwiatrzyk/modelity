@@ -453,7 +453,9 @@ class ValidationVisitor(EmptyVisitor):
 
     def _run_location_validators(self, loc: Loc, value: Any):
         for base_loc, model in self._location_validators_stack:
-            _hooks.run_location_validators(model.__class__, model, self._root, self._ctx, self._errors, base_loc, loc, value)
+            _hooks.run_location_validators(
+                model.__class__, model, self._root, self._ctx, self._errors, base_loc, loc, value
+            )
 
 
 @export
@@ -465,7 +467,7 @@ class FixupVisitor(EmptyVisitor):
     .. versionadded:: 0.36.0
     """
 
-    def __init__(self, root: Model, ctx: Any=None) -> None:
+    def __init__(self, root: Model, ctx: Any = None) -> None:
         self._root = root
         self._ctx = ctx
         self._model_stack: list[tuple[type[Model], Model]] = []

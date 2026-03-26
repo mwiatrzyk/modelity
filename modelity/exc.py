@@ -40,6 +40,8 @@ class UserError(ModelityError):
     .. versionadded:: 0.30.0
     """
 
+    __message_template__ = "{self.msg} [code={self.code!r}, loc={self.loc!r}, value={self.value!r}, data={self.data!r}, skip={self.skip!r}]"
+
     #: Error message.
     msg: str
 

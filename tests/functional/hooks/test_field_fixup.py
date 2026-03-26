@@ -15,10 +15,13 @@ from modelity.typing import Deferred
 from modelity.unset import Unset
 
 
-@pytest.mark.parametrize("exc", [
-    ValueError("an error"),
-    TypeError("an error"),
-])
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("an error"),
+        TypeError("an error"),
+    ],
+)
 def test_raised_exception_is_propagated(exc):
 
     class SUT(Model):

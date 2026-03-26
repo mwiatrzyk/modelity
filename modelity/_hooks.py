@@ -1,11 +1,12 @@
 import enum
-from typing import Any, Literal, Mapping, Optional, Protocol, Sequence, cast
+from typing import Any, Callable, Optional, Protocol, cast
 
 from typing_extensions import TypeIs
 
-from modelity.error import Error
+from modelity.error import Error, ErrorFactory
+from modelity.exc import UserError
 from modelity.loc import Loc, Pattern
-from modelity.unset import UnsetType, is_unset
+from modelity.unset import Unset, UnsetType, is_unset
 
 
 class HookType(enum.Enum):
@@ -93,7 +94,11 @@ def is_field_hook_for(obj: FieldHook, field_name: str) -> bool:
 
 
 def list_field_hooks(all_hooks: list[BaseHook], hook_type: HookType, field_name: str) -> list[FieldHook]:
-    return [x for x in all_hooks if x.__modelity_hook_type__ == hook_type and is_field_hook(x) and is_field_hook_for(x, field_name)]
+    return [
+        x
+        for x in all_hooks
+        if x.__modelity_hook_type__ == hook_type and is_field_hook(x) and is_field_hook_for(x, field_name)
+    ]
 
 
 def list_model_hooks(all_hooks: list[BaseHook], hook_type: HookType) -> list[ModelHook]:
@@ -119,21 +124,11 @@ def assign_location_hooks(cls: type[Any], all_hooks: list[BaseHook]):
 
 
 def run_field_preprocessors(field: Any, cls: type, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
-    for hook in cast(list[FieldHook], field._field_preprocessors):
-        value = hook(cls, errors, loc, value)
-        if is_unset(value):
-            return value
-    return value
+    return _run_field_processors(cast(list[FieldHook], field._field_preprocessors), cls, errors, loc, value)
 
 
-def run_field_postprocessors(
-    field: Any, cls: type[Any], errors: list[Error], loc: Loc, value: Any
-) -> Any | UnsetType:
-    for hook in cast(list[FieldHook], field._field_postprocessors):
-        value = hook(cls, errors, loc, value)
-        if is_unset(value):
-            return value
-    return value
+def run_field_postprocessors(field: Any, cls: type[Any], errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+    return _run_field_processors(cast(list[FieldHook], field._field_postprocessors), cls, errors, loc, value)
 
 
 def run_field_fixups(field: Any, cls: type[Any], self: Any, loc: Loc, value: Any):
@@ -150,23 +145,68 @@ def run_field_validators(
     field: Any, cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc, value: Any
 ):
     for hook in cast(list[FieldHook], field._field_validators):
-        hook(cls, self, root, ctx, errors, loc, value)
+        _run_validation_hook(lambda: hook(cls, self, root, ctx, errors, loc, value), errors, loc, value)
 
 
-def run_model_prevalidators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc) -> Optional[bool]:
+def run_model_prevalidators(
+    cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc
+) -> Optional[bool]:
     for hook in cast(list[ModelHook], cls._model_prevalidators):
-        if hook(cls, self, root, ctx, errors, loc) is True:
+        if _run_validation_hook(lambda: hook(cls, self, root, ctx, errors, loc), errors, loc) is True:
             return True
     return None
 
 
 def run_model_postvalidators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], loc: Loc):
     for hook in cast(list[ModelHook], cls._model_postvalidators):
-        hook(cls, self, root, ctx, errors, loc)
+        _run_validation_hook(lambda: hook(cls, self, root, ctx, errors, loc), errors, loc)
 
 
-def run_location_validators(cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], base_loc: Loc, loc: Loc, value: Any):
+def run_location_validators(
+    cls: type[Any], self: Any, root: Any, ctx: Any, errors: list[Error], base_loc: Loc, loc: Loc, value: Any
+):
     for hook in cast(list[LocationHook], cls._location_validators):
         for pattern in hook.__modelity_hook_patterns__:
             if Pattern(*base_loc, *pattern).match(loc):
-                hook(cls, self, root, ctx, errors, loc, value)
+                _run_validation_hook(lambda: hook(cls, self, root, ctx, errors, loc, value), errors, loc, value)
+
+
+def _run_field_processors(
+    hooks: list[FieldHook], cls: type[Any], errors: list[Error], loc: Loc, value: Any
+) -> Any | UnsetType:
+    for hook in hooks:
+        value = _run_processing_hook(lambda: hook(cls, errors, loc, value), errors, loc, value)
+        if is_unset(value):
+            return value
+    return value
+
+
+def _run_processing_hook(hook: Callable, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+    try:
+        return hook()
+    except UserError as e:
+        errors.append(_error_from_user_error(e, loc, value))
+        return Unset
+    except TypeError as e:
+        errors.append(ErrorFactory.exception(loc, value, e))
+        return Unset
+
+
+def _run_validation_hook(func: Callable, errors: list[Error], loc: Loc, value: Any = Unset) -> Any:
+    try:
+        return func()
+    except UserError as e:
+        errors.append(_error_from_user_error(e, loc, value))
+        if e.skip:
+            return True
+    except ValueError as e:
+        errors.append(ErrorFactory.exception(loc, value, e))
+
+
+def _error_from_user_error(exc: UserError, loc: Loc, value: Any = Unset) -> Error:
+    data = exc.data or {}
+    if exc.loc is not None:
+        loc = exc.loc
+    if exc.value is not Unset:
+        value = exc.value
+    return Error(loc, exc.code, exc.msg, value, data)

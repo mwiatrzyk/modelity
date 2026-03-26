@@ -13,7 +13,7 @@ from modelity.api import (
     field_fixup,
     model_fixup,
     field_validator,
-    field_postprocessor
+    field_postprocessor,
 )
 
 
@@ -64,10 +64,12 @@ class Order(Model):
 
 @pytest.fixture
 def sut():
-    return Order(items=[
-        OrderItem(name="apple", quantity=2, price=3.0),
-        OrderItem(name="banana", quantity=1, price=2.0),
-    ])
+    return Order(
+        items=[
+            OrderItem(name="apple", quantity=2, price=3.0),
+            OrderItem(name="banana", quantity=1, price=2.0),
+        ]
+    )
 
 
 def test_total_is_computed_and_assigned_automatically_on_initialization(sut: Order):

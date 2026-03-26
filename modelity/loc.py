@@ -152,6 +152,7 @@ class Pattern(Sequence):
 
     .. versionadded:: 0.36.0
     """
+
     __slots__ = ("_data",)
 
     def __init__(self, *pattern: Any):

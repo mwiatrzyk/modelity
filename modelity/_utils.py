@@ -10,6 +10,7 @@ from typing import (
     Mapping,
     MutableSequence,
     Sequence,
+    Set,
     TypeVar,
     Union,
     get_args,
@@ -150,7 +151,7 @@ def compile_date_format(format: str) -> str:
     return format.replace("YYYY", "%Y").replace("MM", "%m").replace("DD", "%d")
 
 
-def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> set[str]:
+def extract_given_param_names_subsequence(func: Callable, supported_param_names: Sequence[str]) -> Set[str]:
     """For given function, extract param names it was declared in and return as
     set if it is a subsequence of *supported_param_names*, or otherwise raise
     :exc:`TypeError` exception.
@@ -163,6 +164,10 @@ def extract_given_param_names_subsequence(func: Callable, supported_param_names:
 
         The *func* must be declared with params being a subsequence of this
         sequence.
+
+    :param extra_param_names:
+        The extra supported parameters to also include if not specified in
+        *func*.
     """
     sig = inspect.signature(func)
     given_param_names = tuple(sig.parameters)

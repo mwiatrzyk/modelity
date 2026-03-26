@@ -14,10 +14,13 @@ from modelity.typing import Deferred
 from modelity.unset import Unset
 
 
-@pytest.mark.parametrize("exc", [
-    ValueError("a value error"),
-    TypeError("a type error"),
-])
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("a value error"),
+        TypeError("a type error"),
+    ],
+)
 def test_when_hook_raises_error_then_it_propagates(mock, exc):
 
     class SUT(Model):

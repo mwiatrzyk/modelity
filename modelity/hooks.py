@@ -1,15 +1,12 @@
 """Module containing definitions of decorator functions that can be used to
 inject user-defined hooks into model's data processing chain."""
 
-from ast import Call
 import functools
-from typing import Any, Callable, cast, Union, TypeVar
+import textwrap
+from typing import Any, Callable, Sequence, cast, TypeVar
 
 from modelity import _export_list, _utils, _hooks
-from modelity.error import Error, ErrorFactory
-from modelity.exc import UserError
 from modelity.loc import Loc, Pattern
-from modelity.unset import Unset, UnsetType
 from modelity.base import Model
 
 __all__ = export = _export_list.ExportList()  # type: ignore
@@ -269,24 +266,8 @@ def model_fixup():
     """
 
     def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, loc: Loc):
-            kw: dict[str, Any] = {}
-            if "cls" in given_param_names:
-                kw["cls"] = cls
-            if "self" in given_param_names:
-                kw["self"] = self
-            if "root" in given_param_names:
-                kw["root"] = root
-            if "ctx" in given_param_names:
-                kw["ctx"] = ctx
-            if "loc" in given_param_names:
-                kw["loc"] = loc
-            func(**kw)
-
         supported_param_names = ("cls", "self", "root", "ctx", "loc")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        proxy = _compile_proxy(func, supported_param_names)
         hook = cast(_hooks.ModelHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_type__ = _hooks.HookType.MODEL_FIXUP
@@ -421,29 +402,8 @@ def field_validator(*field_names: str):
     """
 
     def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-            given_params = given_param_names
-            kw: dict[str, Any] = {}
-            if "cls" in given_params:
-                kw["cls"] = cls
-            if "self" in given_params:
-                kw["self"] = self
-            if "root" in given_params:
-                kw["root"] = root
-            if "ctx" in given_params:
-                kw["ctx"] = ctx
-            if "errors" in given_params:
-                kw["errors"] = errors
-            if "loc" in given_params:
-                kw["loc"] = loc
-            if "value" in given_params:
-                kw["value"] = value
-            _run_validation_hook(func, kw, errors, loc, value)
-
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        proxy = _compile_proxy(func, supported_param_names)
         hook = cast(_hooks.FieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_type__ = _hooks.HookType.FIELD_VALIDATOR
@@ -547,29 +507,8 @@ def location_validator(*patterns: str):
     """
 
     def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc, value: Any):
-            given_params = given_param_names
-            kw: dict[str, Any] = {}
-            if "cls" in given_params:
-                kw["cls"] = cls
-            if "self" in given_params:
-                kw["self"] = self
-            if "root" in given_params:
-                kw["root"] = root
-            if "ctx" in given_params:
-                kw["ctx"] = ctx
-            if "errors" in given_params:
-                kw["errors"] = errors
-            if "loc" in given_params:
-                kw["loc"] = loc
-            if "value" in given_params:
-                kw["value"] = value
-            _run_validation_hook(func, kw, errors, loc, value)
-
         supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc", "value")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        proxy = _compile_proxy(func, supported_param_names)
         hook = cast(_hooks.LocationHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_type__ = _hooks.HookType.LOCATION_VALIDATOR
@@ -584,21 +523,8 @@ def location_validator(*patterns: str):
 
 
 def _make_field_processor(func: Callable, hook_type: _hooks.HookType, field_names: tuple) -> _hooks.FieldHook:
-    @functools.wraps(func)
-    def proxy(cls: type[Model], errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        kw: dict[str, Any] = {}
-        if "cls" in given_param_names:
-            kw["cls"] = cls
-        if "errors" in given_param_names:
-            kw["errors"] = errors
-        if "loc" in given_param_names:
-            kw["loc"] = loc
-        if "value" in given_param_names:
-            kw["value"] = value
-        return _run_processing_hook(func, kw, errors, loc, value)
-
     supported_param_names = ("cls", "errors", "loc", "value")
-    given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+    proxy = _compile_proxy(func, supported_param_names)
     hook = cast(_hooks.FieldHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_type__ = hook_type
@@ -607,59 +533,32 @@ def _make_field_processor(func: Callable, hook_type: _hooks.HookType, field_name
 
 
 def _make_model_validator(func: Callable, hook_type: _hooks.HookType) -> _hooks.ModelHook:
-
-    @functools.wraps(func)
-    def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, errors: list[Error], loc: Loc) -> Any:
-        given_params = given_param_names
-        kw: dict[str, Any] = {}
-        if "cls" in given_params:
-            kw["cls"] = cls
-        if "self" in given_params:
-            kw["self"] = self
-        if "root" in given_params:
-            kw["root"] = root
-        if "ctx" in given_params:
-            kw["ctx"] = ctx
-        if "errors" in given_params:
-            kw["errors"] = errors
-        if "loc" in given_params:
-            kw["loc"] = loc
-        return _run_validation_hook(func, kw, errors, loc)
-
     supported_param_names = ("cls", "self", "root", "ctx", "errors", "loc")
-    given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+    proxy = _compile_proxy(func, supported_param_names)
     hook = cast(_hooks.ModelHook, proxy)
     hook.__modelity_hook_id__ = _utils.next_unique_id()
     hook.__modelity_hook_type__ = hook_type
     return hook
 
 
-def _error_from_user_error(exc: UserError, loc: Loc, value: Any = Unset) -> Error:
-    data = exc.data or {}
-    if exc.loc is not None:
-        loc = exc.loc
-    if exc.value is not Unset:
-        value = exc.value
-    return Error(loc, exc.code, exc.msg, value, data)
-
-
-def _run_validation_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any = Unset) -> Any:
-    try:
-        return func(**kwargs)
-    except UserError as e:
-        errors.append(_error_from_user_error(e, loc, value))
-        if e.skip:
-            return True
-    except ValueError as e:
-        errors.append(ErrorFactory.exception(loc, value, e))
-
-
-def _run_processing_hook(func: Callable, kwargs: dict, errors: list, loc: Loc, value: Any) -> Union[Any, UnsetType]:
-    try:
-        return func(**kwargs)
-    except UserError as e:
-        errors.append(_error_from_user_error(e, loc, value))
-        return Unset
-    except TypeError as e:
-        errors.append(ErrorFactory.exception(loc, value, e))
-        return Unset
+def _compile_proxy(
+    func: Callable,
+    supported_param_names: Sequence[str],
+) -> Callable:
+    given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+    func_params = []
+    for name in supported_param_names:
+        if name in given_param_names:
+            func_params.append(f"{name}={name}")
+    hook_code = textwrap.dedent(
+        f"""
+    @functools.wraps(func)
+    def proxy({', '.join(supported_param_names)}):
+        return func({', '.join(func_params)})
+    """
+    )
+    l: dict[str, Any] = {}
+    g = dict(globals())
+    g["func"] = func
+    exec(hook_code, g, l)
+    return cast(Callable, l["proxy"])
