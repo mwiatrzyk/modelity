@@ -458,12 +458,16 @@ class ValidationVisitor(EmptyVisitor):
 
 @export
 class FixupVisitor(EmptyVisitor):
-    """Visitor performing model fixups by executing fixup hooks.
+    """Visitor performing model fixups.
+
+    It is implicitly used by :func:`modelity.helpers.fixup` helper.
 
     .. versionadded:: 0.36.0
     """
 
-    def __init__(self) -> None:
+    def __init__(self, root: Model, ctx: Any=None) -> None:
+        self._root = root
+        self._ctx = ctx
         self._model_stack: list[tuple[type[Model], Model]] = []
 
     def visit_model_begin(self, loc: Loc, value: Model) -> bool | None:
@@ -471,7 +475,7 @@ class FixupVisitor(EmptyVisitor):
         return None
 
     def visit_model_end(self, loc: Loc, value: Model):
-        _hooks.run_model_fixups(value.__class__, value, loc)
+        _hooks.run_model_fixups(value.__class__, value, self._root, self._ctx, loc)
         self._model_stack.pop()
 
     def visit_model_field_end(self, loc: Loc, value: Any, field: Field):

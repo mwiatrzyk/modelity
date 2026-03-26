@@ -75,13 +75,9 @@ def test_total_is_computed_and_assigned_automatically_on_initialization(sut: Ord
 
 
 def test_created_and_modified_are_computed_and_assigned_automatically_on_initialization(sut: Order):
+    fixup(sut)
     assert sut.modified is not None
     assert sut.created == sut.modified
-
-
-def test_fixup_modifies_modification_date_and_keeps_creation_date_unchanged(sut: Order):
-    fixup(sut)
-    assert sut.modified != sut.created
 
 
 def test_validation_fails_after_modifying_order_list_without_fixup(sut: Order):

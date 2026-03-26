@@ -141,9 +141,9 @@ def run_field_fixups(field: Any, cls: type[Any], self: Any, loc: Loc, value: Any
         hook(cls, self, loc, value)
 
 
-def run_model_fixups(cls: type[Any], self: Any, loc: Loc):
+def run_model_fixups(cls: type[Any], self: Any, root: Any, ctx: Any, loc: Loc):
     for hook in cast(list[ModelHook], cls._model_fixups):
-        hook(cls, self, loc)
+        hook(cls, self, root, ctx, loc)
 
 
 def run_field_validators(

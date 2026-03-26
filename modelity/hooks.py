@@ -225,10 +225,11 @@ def field_fixup(*field_names: str):
 def model_fixup():
     """Decorate model's method as a model-level fixup function.
 
-    Fixup hook can be used to fill in derived properties in model object during
-    construction or on demand when :func:`modelity.helpers.fixup` function is
-    called on a target model. This is similar to ``__post_init__`` method used
-    by Python dataclasses.
+    Fixup hooks can be run for a given model using
+    :func:`modelity.helpers.fixup` helper. This functionality can be used to
+    perform some user-defined updates in the model tree before validation takes
+    place and only after successful parsing. Fixup hooks can be used to extend
+    parsing capabilities.
 
     The decorated method can be defined with no arguments, or with any
     subsequence of the following arguments:
@@ -239,11 +240,30 @@ def model_fixup():
     **self**
         The current model object.
 
-    **loc**
-        The location in the model.
+    **root**
+        The root model.
 
-        Will be empty if this is the root model or when fixup hook is called by
-        model constructor.
+        This is the one for which :func:`modelity.helpers.fixup` was originally
+        called.
+
+    **ctx**
+        The user-defined fixup context.
+
+        This can be used to pass some external data (e.g. API call results) to
+        the model and use those during fixup. The type and structure is
+        completely up to the user, Modelity will simply pass this to the
+        user-defined fixup hooks and will not perform any additional checks.
+
+    **loc**
+        The location in the model tree.
+
+        Will be empty for root model, or non-empty for nested one.
+
+    .. versionchanged:: 0.37.0
+
+        * Now these hooks can only be called on demand via
+          :func:`modelity.helpers.fixup` helper or dedicated visitor.
+        * Added *root* and *ctx* arguments.
 
     .. versionadded:: 0.36.0
     """
@@ -251,17 +271,21 @@ def model_fixup():
     def decorator(func):
 
         @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, loc: Loc):
+        def proxy(cls: type[Model], self: Model, root: Model, ctx: Any, loc: Loc):
             kw: dict[str, Any] = {}
             if "cls" in given_param_names:
                 kw["cls"] = cls
             if "self" in given_param_names:
                 kw["self"] = self
+            if "root" in given_param_names:
+                kw["root"] = root
+            if "ctx" in given_param_names:
+                kw["ctx"] = ctx
             if "loc" in given_param_names:
                 kw["loc"] = loc
             func(**kw)
 
-        supported_param_names = ("cls", "self", "loc")
+        supported_param_names = ("cls", "self", "root", "ctx", "loc")
         given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
         hook = cast(_hooks.ModelHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()

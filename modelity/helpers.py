@@ -155,12 +155,29 @@ def validate(model: Model, ctx: Any = None):
 
 
 @export
-def fixup(model: Model):
+def fixup(model: Model, ctx: Any = None):
     """Perform fixup on given model.
+
+    This helper runs all :func:`modelity.hooks.model_fixup` hooks defined for a
+    model and also recurses into nested models. Performing fixup allows to run
+    some post-parsing and pre-validation user-defined logic to fill in the
+    model with derived or missing information.
+
+    :param model:
+        The model to fixup.
+
+    :param ctx:
+        The user-defined context object to be shared by all fixup hooks.
+
+        Can be used to pass some additional data to model, like results of API
+        calls etc.
+
+    .. versionchanged:: 0.37.0
+        Added *ctx* argument.
 
     .. versionadded:: 0.36.0
     """
-    visitor = FixupVisitor()
+    visitor = FixupVisitor(model, ctx)
     model.accept(visitor, Loc())
 
 
