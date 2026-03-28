@@ -679,8 +679,7 @@ class Model(metaclass=ModelMeta):
         if errors:
             raise ParsingError(cls, tuple(errors))
         for name in self:
-            _hooks.run_field_fixups(fields[name], cls, self, Loc(name), getattr(self, name))
-        # _hooks.run_model_fixups(self.__class__, self, Loc())
+            _hooks.run_after_field_set_hooks(fields[name], cls, self, Loc(name), getattr(self, name))
 
     def __repr__(self):
         kv = (f"{k}={getattr(self, k)!r}" for k in self.__class__.__model_fields__)
@@ -704,13 +703,13 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def __parse(cls, field: Field, errors: list[Error], loc: Loc, value: Any) -> Union[Any, UnsetType]:
-        value = _hooks.run_field_preprocessors(field, cls, errors, loc, value)
+        value = _hooks.run_field_preprocessor_hooks(field, cls, errors, loc, value)
         if is_unset(value):
             return value
         value = field.type_handler.parse(errors, loc, value)
         if is_unset(value):
             return value
-        return _hooks.run_field_postprocessors(field, cls, errors, loc, value)
+        return _hooks.run_field_postprocessor_hooks(field, cls, errors, loc, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         cls = self.__class__
@@ -722,7 +721,7 @@ class Model(metaclass=ModelMeta):
         if errors:
             raise ParsingError(cls, tuple(errors))
         if value is not Unset:
-            _hooks.run_field_fixups(field, cls, self, Loc(name), value)
+            _hooks.run_after_field_set_hooks(field, cls, self, Loc(name), value)
         super().__setattr__(name, value)
 
     def __delattr__(self, name):

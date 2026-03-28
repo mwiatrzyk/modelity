@@ -8,12 +8,12 @@ from modelity.api import (
     Gt,
     UserError,
     ValidationError,
+    field_info,
     fixup,
     validate,
-    field_fixup,
+    after_field_set,
     model_fixup,
     field_validator,
-    field_postprocessor,
 )
 
 
@@ -21,12 +21,6 @@ class OrderItem(Model):
     name: str
     quantity: Annotated[int, Gt(0)]
     price: Annotated[float, Gt(0)]
-
-    # -- field-scoped postprocessing
-
-    @field_postprocessor("name")
-    def _strip(cls, value: str):
-        return value.strip()
 
     @property
     def total_price(self) -> float:
@@ -37,24 +31,21 @@ class Order(Model):
     items: list[OrderItem]
     total: Optional[float] = None
     modified: Optional[datetime.datetime] = None
-    created: Optional[datetime.datetime] = None
+    created: Optional[datetime.datetime] = field_info(default_factory=datetime.datetime.now)
 
-    # -- construction or modification fixup hooks
+    @after_field_set("created")
+    def _initialize_modified(self, value):
+        if self.modified is None:
+            self.modified = value
 
-    @field_fixup("items")
+    @after_field_set("items")
     def _update_total(self):
         self.total = sum(x.total_price for x in self.items)
 
-    # -- construction fixup hooks
-
     @model_fixup()
-    def _update_timestamps(self):
-        now = datetime.datetime.now()
-        self.modified = now
-        if self.created is None:
-            self.created = now
-
-    # -- validation hooks
+    def _touch_modified(self):
+        self.items = self.items  # Forces `total` update via `after_field_set` hook
+        self.modified = datetime.datetime.now()
 
     @field_validator("total")
     def _verify_total(self):
@@ -77,7 +68,6 @@ def test_total_is_computed_and_assigned_automatically_on_initialization(sut: Ord
 
 
 def test_created_and_modified_are_computed_and_assigned_automatically_on_initialization(sut: Order):
-    fixup(sut)
     assert sut.modified is not None
     assert sut.created == sut.modified
 
@@ -92,3 +82,10 @@ def test_validation_passes_after_modifying_order_list_and_calling_fixup_before_v
     sut.items.append(OrderItem(name="oranges", quantity=4, price=1.5))
     fixup(sut)
     validate(sut)
+
+
+def test_modified_changes_after_fixup(sut: Order):
+    assert sut.modified is not None and sut.created is not None
+    assert sut.modified == sut.created
+    fixup(sut)
+    assert sut.modified > sut.created

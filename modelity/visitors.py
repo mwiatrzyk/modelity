@@ -395,7 +395,7 @@ class ValidationVisitor(EmptyVisitor):
         self._model_stack = collections.deque[Model]()
 
     def visit_model_begin(self, loc: Loc, value: Model):
-        status = _hooks.run_model_prevalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        status = _hooks.run_model_prevalidator_hooks(value.__class__, value, self._root, self._ctx, self._errors, loc)
         if status is True:
             return True
         self._location_validators_stack.append((loc, value))
@@ -404,7 +404,7 @@ class ValidationVisitor(EmptyVisitor):
     def visit_model_end(self, loc: Loc, value: Model):
         if len(loc) >= 1:
             self._run_location_validators(loc, value)
-        _hooks.run_model_postvalidators(value.__class__, value, self._root, self._ctx, self._errors, loc)
+        _hooks.run_model_postvalidator_hooks(value.__class__, value, self._root, self._ctx, self._errors, loc)
         self._location_validators_stack.pop()
         self._pop_model()
 
@@ -420,7 +420,7 @@ class ValidationVisitor(EmptyVisitor):
         if value is not Unset:
             model = self._current_model()
             model_type = model.__class__
-            _hooks.run_field_validators(field, model_type, model, self._root, self._ctx, self._errors, loc, value)
+            _hooks.run_field_validator_hooks(field, model_type, model, self._root, self._ctx, self._errors, loc, value)
             if isinstance(field.type_handler, TypeHandlerWithValidation):
                 field.type_handler.validate(self._errors, loc, value)
 
@@ -453,7 +453,7 @@ class ValidationVisitor(EmptyVisitor):
 
     def _run_location_validators(self, loc: Loc, value: Any):
         for base_loc, model in self._location_validators_stack:
-            _hooks.run_location_validators(
+            _hooks.run_location_validator_hooks(
                 model.__class__, model, self._root, self._ctx, self._errors, base_loc, loc, value
             )
 
@@ -470,20 +470,9 @@ class FixupVisitor(EmptyVisitor):
     def __init__(self, root: Model, ctx: Any = None) -> None:
         self._root = root
         self._ctx = ctx
-        self._model_stack: list[tuple[type[Model], Model]] = []
-
-    def visit_model_begin(self, loc: Loc, value: Model) -> bool | None:
-        self._model_stack.append((value.__class__, value))
-        return None
 
     def visit_model_end(self, loc: Loc, value: Model):
-        _hooks.run_model_fixups(value.__class__, value, self._root, self._ctx, loc)
-        self._model_stack.pop()
-
-    def visit_model_field_end(self, loc: Loc, value: Any, field: Field):
-        if not is_unset(value):
-            model_type, model = self._model_stack[-1]
-            _hooks.run_field_fixups(field, model_type, model, loc, value)
+        _hooks.run_model_fixup_hooks(value.__class__, value, self._root, self._ctx, loc)
 
 
 @export

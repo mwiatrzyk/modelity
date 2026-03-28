@@ -162,14 +162,14 @@ def field_postprocessor(*field_names: str):
 
 
 @export
-def field_fixup(*field_names: str):
-    """Decorate model's method as field-level fixup function.
+def after_field_set(*field_names: str):
+    """Decorate method to be executed after any of given fields (or all, if no
+    name was provided) is set or updated in the model with a successfully
+    parsed value.
 
-    Unlike :func:`model_fixup`, hooks decorated with this decorator are
-    executed only if matched fields are set, which are either given fields, or
-    all fields if no name was specified (just like for other field-scoped
-    hooks). Additionally, these hooks are also executed when field is later
-    modified, not just during construction.
+    This hook can be used to set derived field(-s) in the model, e.g. to also
+    set ``modified`` when ``created`` is set. However, if field is set to an
+    incorrect value, this hook will not be called.
 
     The decorated method can be defined with no arguments, or with any
     subsequence of the following arguments:
@@ -183,32 +183,21 @@ def field_fixup(*field_names: str):
     **loc**
         The location in the model.
 
-        Will be empty if this is the root model or when fixup hook is called by
-        model constructor.
+        Useful to check which field is currently being set when hook is meant
+        to be used for several fields.
 
     **value**
         The final value of a field set.
+
+        This will be the output of type parser for a current field, or a last
+        field postprocessor (if any).
 
     .. versionadded:: 0.36.0
     """
 
     def decorator(func):
-
-        @functools.wraps(func)
-        def proxy(cls: type[Model], self: Model, loc: Loc, value: Any):
-            kw: dict[str, Any] = {}
-            if "cls" in given_param_names:
-                kw["cls"] = cls
-            if "self" in given_param_names:
-                kw["self"] = self
-            if "loc" in given_param_names:
-                kw["loc"] = loc
-            if "value" in given_param_names:
-                kw["value"] = value
-            func(**kw)
-
         supported_param_names = ("cls", "self", "loc", "value")
-        given_param_names = _utils.extract_given_param_names_subsequence(func, supported_param_names)
+        proxy = _compile_proxy(func, supported_param_names)
         hook = cast(_hooks.FieldHook, proxy)
         hook.__modelity_hook_id__ = _utils.next_unique_id()
         hook.__modelity_hook_type__ = _hooks.HookType.FIELD_FIXUP
@@ -225,8 +214,9 @@ def model_fixup():
     Fixup hooks can be run for a given model using
     :func:`modelity.helpers.fixup` helper. This functionality can be used to
     perform some user-defined updates in the model tree before validation takes
-    place and only after successful parsing. Fixup hooks can be used to extend
-    parsing capabilities.
+    place and only after successful parsing. Fixup hooks can be fed with
+    user-defined context object, and therefore it is possible to pass external
+    data to set in the model before validation takes place.
 
     The decorated method can be defined with no arguments, or with any
     subsequence of the following arguments:

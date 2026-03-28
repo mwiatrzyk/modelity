@@ -109,7 +109,7 @@ Currently, both ``modified`` and ``created`` have to be explicitly given during
 construction of the model. Let's make ``created`` to be automatically assigned
 during construction to a current datetime, and ``modified`` to automatically be
 aligned with ``created``. We can achieve that by specifying **default value**
-for ``created`` field and by using :func:`modelity.hooks.field_fixup` hook:
+for ``created`` field and by using :func:`modelity.hooks.after_field_set` hook:
 
 .. testcode::
 
@@ -118,7 +118,7 @@ for ``created`` field and by using :func:`modelity.hooks.field_fixup` hook:
 
     from modelity.api import (
         Model, field_info, is_unset, UserError, Deferred, Gt, Ge, MinLen,
-        Unset, field_validator, field_fixup
+        Unset, field_validator, after_field_set
     )
 
     class OrderItem(Model):
@@ -131,7 +131,7 @@ for ``created`` field and by using :func:`modelity.hooks.field_fixup` hook:
         modified: Deferred[datetime.datetime] = Unset  # Deferred[T] -> can be omitted when constructing, but must be set before validation
         created: datetime.datetime = field_info(default_factory=datetime.datetime.now)  # current datetime will be used as default
 
-        @field_fixup("created")
+        @after_field_set("created")
         def _update_modified(self, value: datetime.datetime):
             if is_unset(self.modified):
                 self.modified = value  # Set `modified` to `created` if not set yet
