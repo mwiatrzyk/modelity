@@ -9,7 +9,7 @@ Modelity is a domain-oriented validation engine for structured Python models.
 It separates construction from validation, treats models as trees, and provides
 location-aware structured errors.
 
-Modelity is designed for complex domain models — not just data containers.
+Modelity is designed for complex domain models, not just data containers.
 
 ## Installation
 
@@ -26,8 +26,6 @@ raw input
    ↓
 parsing (field-level normalization)
    ↓
-fixup (user-defined post-initialization or post-modification hooks)
-   ↓
 model instance
    ↓
 validation (domain invariants)
@@ -43,8 +41,6 @@ A model can exist in *parsed but not yet validated* state.
 
 * Clean separation of concerns:
     - **parsing** is executed on raw data when model is created or modified,
-    - **fixup** runs after successful parsing and only for explicitly defined
-      `model_fixup` or `field_fixup` hooks,
     - **validation** is executed on demand on successfully parsed model instances.
 
 * Error handling done via dedicated `Error` class allowing to set error
@@ -55,18 +51,17 @@ A model can exist in *parsed but not yet validated* state.
 * Support for typed mutable containers (lists, sets and dicts) with type
   checking and parsing on modifications.
 
-* Support for user-defined hooks for **parsing**, **fixup** and **validation**
-  stages.
+* Easily customizable with user-defined hooks
 
 * Ability to access any part of the model from any user-defined validation hook
   to achieve complex cross-field validation logic.
 
-* Ability to access custom **validation context object** from any user-defined
-  validation hook for even more complex validation strategies (like having
-  different validators when model is created, when model is updated or when
-  model is fetched over the API).
+* Ability to access custom **context object** from any user-defined validation
+  hook for even more complex validation strategies (like having different
+  validators when model is created, when model is updated or when model is
+  fetched over the API).
 
-* Ability to register custom types for **parsing** stage.
+* Ability to register custom types.
 
 ## Lifecycle overview
 
@@ -98,17 +93,6 @@ A model can exist in *parsed but not yet validated* state.
     model is modified, or when typed mutable container is modified.
 
     Errors accumulate and raise `ParsingError`.
-
-3. Fixup stage (construction-time or explicit)
-
-    Triggered:
-    * on model instantiation
-    * on attribute assignment (only `field_fixup` hooks)
-    * via `fixup` helper
-
-    This stage allows to use user-defined model-level or field-level hooks to
-    fill in the model object with missing or derived data. This is similar to
-    ``__post_init__`` method of Python dataclasses, but slightly more capable.
 
 3. Validation stage (explicit)
 

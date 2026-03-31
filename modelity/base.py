@@ -464,11 +464,7 @@ class FieldInfo:
 @export
 @dataclasses.dataclass
 class Field:
-    """Field created from annotation.
-
-    This class implicitly implements :class:`modelity.interface.IField`
-    protocol.
-    """
+    """Dataclass containing data parsed from field's type annotation."""
 
     #: The name of this field.
     #:

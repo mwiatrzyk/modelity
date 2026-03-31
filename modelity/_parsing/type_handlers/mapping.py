@@ -1,5 +1,4 @@
 from typing import Any, Mapping, MutableMapping, get_args, get_origin
-from typing_extensions import Self
 
 from modelity._parsing.type_proxies import MutableMappingProxy
 from modelity.base import ModelVisitor, TypeHandler, TypeHandlerFactory

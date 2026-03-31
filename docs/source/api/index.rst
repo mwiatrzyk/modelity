@@ -11,7 +11,6 @@ API Reference
   modelity/exc
   modelity/helpers
   modelity/hooks
-  modelity/interface
   modelity/loc
   modelity/typing
   modelity/unset

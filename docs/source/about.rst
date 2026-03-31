@@ -20,41 +20,30 @@ Modelity enforces a clear lifecycle::
        ↓
     parsing (field-level normalization)
        ↓
-    fixup (model- or field-level fixup, e.g. setting/updating dependent fields)
-       ↓
     model instance
        ↓
     validation (domain invariants)
        ↓
     fully validated model
 
-A model can exist in *parsed but not yet validated* state. Moreover, it can be
-modified at any time and revalidated again if needed.
+A model can exist in **parsed but not yet validated** state. Moreover, it can
+be modified at any time and revalidated again if needed.
 
 Features
 --------
 
-* Models are declared using type annotations just like Python's dataclasses
-* Models use `__slots__` to make attribute read operations as fast as possible
-* Explicit handling of unset fields via :obj:`modelity.api.Unset` sentinel
-* Data processing is split into 3 stages:
-    - **parsing** (executed when model is created or modified)
-    - **fixup** (executed after successful **parsing** for fields/models that
-      have fixup hooks declared)
+* Declaring models using type annotations in similar way as when using Python's
+  built-in :mod:`dataclasses` module.
+* Explicit handling of unset fields via dedicated :obj:`modelity.api.Unset`
+  sentinel
+* Data flow is split into 2 stages:
+    - **parsing** (executed when model object is constructed or modified)
     - **validation** (executed on demand)
-* Easily customizable with hooks:
-    - :func:`modelity.api.field_preprocessor` (parsing)
-    - :func:`modelity.api.field_postprocessor` (parsing)
-    - :func:`modelity.api.model_fixup` (fixup)
-    - :func:`modelity.api.field_fixup` (fixup)
-    - :func:`modelity.api.model_prevalidator` (validation)
-    - :func:`modelity.api.field_validator` (validation)
-    - :func:`modelity.api.model_postvalidator` (validation)
-* Validators can access **entire model tree** from **any nested model**, so
-  complex cross-field validation between models is made possible
-* Validators can **share** common user-defined **validation context** that can
-  be used to alter validator behavior and reuse same models for different
-  purposes
+* Easily customizable with hooks (see :mod:`modelity.hooks` for more details)
+* Each validator can access **entire model tree**
+* Each validator can access user-defined **context object** and perform
+  validation against dynamic data that is not directly available in models
+  (e.g. data fetched from API)
 * Structured error reporting as a list of :class:`modelity.api.Error` objects.
 * Use of predefined error codes instead of error messages for easier
   customization of error reporting

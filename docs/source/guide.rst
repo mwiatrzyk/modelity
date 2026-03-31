@@ -1,552 +1,44 @@
-.. _guide:
-
 User's guide
 ============
 
-Core principles
----------------
+Declaring models
+----------------
 
-Models are defined using type annotations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The most basic model
+^^^^^^^^^^^^^^^^^^^^
 
-Modelity uses type annotations to declare fields, just like via
-:func:`dataclasses.dataclass` decorator. The only difference is the need of
-use :class:`modelity.model.Model` as a base class:
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, Unset
-
-    class User(Model):
-        name: Deferred[str] = Unset
-        email: Deferred[str] = Unset
-        age: Deferred[int] = Unset
-
-Use of ``__slots__`` instead of descriptors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-All models created using Modelity are implicitly using
-:class:`modelity.model.ModelMeta` as metaclass. This metaclass provides
-inheritance handling and generation of the ``__slots__`` attribute in models.
-Modelity does not override field reading in any way, there is Python's built-in
-logic used underneath when fields are read. Instead, Modelity overrides
-``__setattr__`` and injects data parsing logic there. As a result, model read
-operations are fast.
-
-Built-in ``Unset`` constant for unset fields
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Modelity uses special built-in :class:`modelity.unset.UnsetType` singleton
-class with provided built-in :obj:`modelity.unset.Unset` object to
-represent the unset state of model fields. When model object is created,
-all fields are initially set to ``Unset``, unless user-defined value is
-provided:
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, Unset
-
-    class User(Model):
-        name: Deferred[str] = Unset
-        email: Deferred[str] = Unset
-        age: Deferred[int] = Unset
-
-.. doctest::
-
-    >>> user = User(age=27)  # 'name' and 'email' are unset
-    >>> user.name is Unset  # check if 'name' is unset
-    True
-    >>> user.email is Unset  # check if 'email' is unset
-    True
-    >>> user.age
-    27
-
-Thanks to this special sentinel, fields that are unset are different from
-fields that are set to ``None``. Moreover, with this feature ``None``
-becomes a **first-class value** and must be explicitly accepted as a field's
-valid value.
-
-Mutability of models is important
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Modelity aims to provide full support for mutable types to prevent from
-breaking model constraints when model is modified. For example, modifying *age*
-invokes same parsing logic as used during model construction:
-
-.. doctest::
-
-    >>> bob = User(name='Bob', email='bob@example.com', age='27')  # age will be converted to integer
-    >>> bob.age
-    27
-    >>> bob.age = 'not an int'  # modifying with invalid type will fail
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
-      age:
-        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
-    >>> bob.age = '26'  # this will automatically be converted to integer
-    >>> bob.age
-    26
-
-Same logic is used for fields being declared as typed mutable containers.
-For example, let's create a list of users:
+The most basic model in Modelity is simply subclass of
+:class:`modelity.base.Model` with no fields declared:
 
 .. testcode::
 
     from modelity.base import Model
 
-    class UserStorage(Model):
-        users: list[User]
-
-.. doctest::
-
-    >>> storage = UserStorage(users=[])  # initialize with empty list
-    >>> storage.users.append(bob)  # append 'bob'
-    >>> storage.users.append({
-    ...     'name': 'Alice',
-    ...     'email': 'alice@example.com',
-    ...     'age': '25'
-    ... })  # will be converted to User
-    >>> storage.users[0]
-    User(name='Bob', email='bob@example.com', age=26)
-    >>> storage.users[1]
-    User(name='Alice', email='alice@example.com', age=25)
-    >>> storage.users.append(123)  # not allowed; cannot be converted to User
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'list[User]':
-      2:
-        Not a valid value; expected: User [code=modelity.INVALID_TYPE, value_type=int, expected_types=[User], allowed_types=[Mapping]]
-
-.. note::
-
-    Current version of Modelity has built-in support for following mutable
-    types:
-
-    * **list[T]**
-    * **set[T]**
-    * **dict[K, V]**
-
-Input data parsing is separated from model validation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Modelity splits data processing into two stages: **parsing**, where models are
-constructed from raw data, and **validation**, where integrity of existing
-model instance is checked.
-
-Input data parsing is executed automatically whenever model object is created,
-field in an existing model is set, or when field of mutable type is modified.
-The role of this stage is to ensure that input value has the right type at the
-end of assignment or modification. Data parsing is executed for each field in
-separation. If the type of the input value is incorrect and conversion was not
-successful, then :exc:`modelity.exc.ParsingError` exception is raised at this
-stage.
-
-Model validation, unlike input data parsing, happens on user's demand and is
-performed with :func:`modelity.helpers.validate` helper. The role of this stage
-is to ensure presence of required fields and to ensure that any user-defined
-cross-field dependencies are met. Model validation happens on per-model basis,
-therefore validators have access to entire model. Validators also do not have
-to check field types, as this was already performed by input data parsing
-stage. The ability to run validation on demand allows the user to progressively
-fill the model with data and validate once the model initialization is done.
-Failure of validation is signalled using :exc:`modelity.exc.ValidationError`
-exception.
-
-Presence of required fields is checked at validation stage
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Although this may be pointed out as error by static code analyzers,
-Modelity does not force you to initialize your model classes with all
-required fields set. You can, of course, but this is not required. Thanks
-to this, it is possible to initialize models progressively, as user of
-your app enters the data, with no need of filling required fields with fake
-data:
-
-.. doctest::
-
-    >>> from modelity.helpers import validate
-    >>> user = User()  # OK for Modelity, but linters may point this as error
-    >>> user.name = 'John'
-    >>> user.email = 'john@example.com'
-    >>> validate(user)  # failure; required 'age' is missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'User':
-      age:
-        This field is required [code=modelity.REQUIRED_MISSING]
-    >>> user.age = 32  # Fill the missing data
-    >>> validate(user)  # OK
-
-Defining a model class
-----------------------
-
-Introduction
-^^^^^^^^^^^^
-
-To create your own data models using Modelity you have to inherit from
-:class:`modelity.model.Model` base class and provide zero or more fields using
-type annotations.
-
-Here is the simplest possible model that can be declared using Modelity:
-
-.. testcode::
-
-    from modelity.base import Model
-
-    class Simplest(Model):
+    class EmptyModel(Model):
         pass
 
-That model has no fields and basically has no practical use. But it can be used
-as a base class for other models, allowing to later add field- or model-level
-hooks that will automatically be used by subclasses. There will be more on this
-topic in advanced guide.
-
-To create model with fields, just add one or more using type annotations:
-
-.. testcode::
-
-    from modelity.base import Model
-
-    class SingleField(Model):
-        foo: int  # field named 'foo' of type 'int'
-
-When fields are defined, Modelity performs a lookup of built-in so called
-**type descriptor** and attaches it to the field when model type is created.
-The type descriptor provides type-specific parsing and visitation logic and can
-use other type descriptors internally for complex types. Type descriptor lookup
-is performed only once and only when new type is created. If no type descriptor
-could be found, then following error is reported:
-
-.. doctest::
-
-    >>> from modelity.base import Model
-    >>> class WrongType(Model):
-    ...     foo: object
-    Traceback (most recent call last):
-      ...
-    modelity.exc.UnsupportedTypeError: unsupported type used: <class 'object'>
-
-.. _guide-optional:
-
-Optional fields
-^^^^^^^^^^^^^^^
-
-Optional fields can be declared using any of the methods depicted below.
-
-.. _guide-optional-optional:
-
-Using ``typing.Optional[T]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U** that can be parsed into **T**
-* ``None`` value
-
-.. important::
-
-   Since version 0.29.0 optional fields do not allow ``Unset`` as a valid
-   value and all unset ``Optional[T]`` fields will be rejected during model
-   validation phase.
-
-   This is due to the fact that ``Optional[T]`` is basically ``Union[T,
-   NoneType]`` and ``Unset`` simply does not fit. Thanks to this additional
-   check you can safely write e.g.::
-
-        model = load_model_from_somewhere()  # `model.foo` can either be T, None or Unset
-        ...
-        validate(model)  # Validate model; will fail if `model.foo` is unset
-        if model.foo is not None:  # Now `model.foo` will either be T, or None
-            return model.foo  # Not None, so it will be T
-
-   The best way to avoid leaving optional fields unset is to declare such
-   fields with ``None`` as default value::
-
-        class Dummy(Model):
-            foo: Optional[int] = None
-
-   See also:
-
-   * :obj:`modelity.typing.LooseOptional`
-
-Example:
-
-.. testcode::
-
-    from typing import Optional
-
-    from modelity.base import Model
-    from modelity.helpers import validate
-
-    class OptionalExample(Model):
-        foo: Optional[int] = None
-
-.. doctest::
-
-    >>> obj = OptionalExample()
-    >>> validate(obj)  # OK; all fields are optional
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = '456'  # OK; can be converted to integer
-    >>> obj.foo
-    456
-    >>> obj.foo = None  # OK; None is allowed
-    >>> obj.foo is None
-    True
-
-.. _guide-optional-strictOptional:
-
-Using ``modelity.typing.StrictOptional[T]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Strict optionals allow to explicitly declare fields that must either be set to
-a given type ``T``, or not set at all. This is especially useful for
-self-exclusive fields that must not coexist in valid model.
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U** that can be parsed as or converted into **T**
-
-Example:
-
-.. testcode::
-
-    from modelity.base import Model
-    from modelity.helpers import validate
-    from modelity.typing import StrictOptional
-
-    class StrictOptionalExample(Model):
-        foo: StrictOptional[int]
-
-.. doctest::
-
-    >>> obj = StrictOptionalExample()
-    >>> validate(obj)  # OK
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = '456'  # OK; can be converted to integer
-    >>> obj.foo
-    456
-    >>> obj.foo = None  # fail; None is not allowed for strict optionals
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'StrictOptionalExample':
-      foo:
-        This field does not allow None; expected: Union[int, UnsetType] [code=modelity.NONE_NOT_ALLOWED, value_type=NoneType, expected_type=Union[int, UnsetType]]
-
-.. important::
-
-    Strict optionals do not allow ``None``; the field can only be set to valid
-    instance of type **T** or not set at all.
-
-Using ``modelity.typing.LooseOptional[T]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. versionadded:: 0.28.0
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U** that can be parsed as or converted into **T**
-* ``None`` value
-* ``Unset`` value
-
-Example:
-
-.. testcode::
-
-    from modelity.api import Model, validate, LooseOptional
-
-    class LooseOptionalExample(Model):
-        foo: LooseOptional[int]
-
-.. doctest::
-
-    >>> obj = LooseOptionalExample()
-    >>> validate(obj)  # OK
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = '456'  # OK; can be converted to integer
-    >>> obj.foo
-    456
-    >>> obj.foo = None  # OK
-    >>> obj.foo is None
-    True
-    >>> obj.foo = Unset  # OK
-    >>> obj.foo
-    Unset
-
-Using ``typing.Union[T, U, ..., None]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U**
-* ...
-* ``None`` value
-
-Example:
-
-.. testcode::
-
-    from typing import Union
-
-    from modelity.base import Model
-    from modelity.helpers import validate
-
-    class OptionalUnionExample(Model):
-        foo: Union[int, str, None] = None
-
-.. doctest::
-
-    >>> obj = OptionalUnionExample()
-    >>> validate(obj)  # OK
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = 'spam'  # OK; valid string
-    >>> obj.foo = None  # OK
-
-Using ``typing.Union[T, U, ..., UnsetType]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U**
-* ...
-* ``Unset`` value
-
-Example:
-
-.. testcode::
-
-    from typing import Union
-
-    from modelity.base import Model
-    from modelity.typing import UnsetType
-    from modelity.helpers import validate
-
-    class StrictOptionalUnionExample(Model):
-        foo: Union[int, str, UnsetType] = Unset
-
-.. doctest::
-
-    >>> obj = StrictOptionalUnionExample()
-    >>> validate(obj)  # OK
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = 'spam'  # OK; valid string
-    >>> obj.foo = None  # fail; None is not allowed
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'StrictOptionalUnionExample':
-      foo:
-        Not a valid value; expected one of: int, str, UnsetType [code=modelity.INVALID_TYPE, value_type=NoneType, expected_types=[int, str, UnsetType]]
-
-Using ``typing.Union[T, U, ..., NoneType, UnsetType]``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Values allowed:
-
-* instances of type **T**
-* instances of type **U**
-* ...
-* ``None`` value
-* ``Unset`` value
-
-Example:
-
-.. testcode::
-
-    from typing import Union
-
-    from modelity.base import Model
-    from modelity.typing import UnsetType
-    from modelity.helpers import validate
-
-    class StrictOptionalUnionExample(Model):
-        foo: Union[int, str, None, UnsetType]
-
-.. doctest::
-
-    >>> obj = StrictOptionalUnionExample()
-    >>> validate(obj)  # OK
-    >>> obj.foo = 123  # OK; valid integer
-    >>> obj.foo = 'spam'  # OK; valid string
-    >>> obj.foo = None  # OK
-    >>> obj.foo = Unset  # OK
-
-.. _guide-deferred:
-
-Deferred fields
-^^^^^^^^^^^^^^^
-
-.. versionadded:: 0.35.0
-
-Since strict typing provided in version 0.35.0, Modelity now provides
-additional type marker :obj:`modelity.typing.Deferred`. It is used to create
-required fields that can be omitted during model instance creation, but must be
-set before model is validated. This is an explicit way of expressing Modelity
-default behavior available for versions < 0.35.0.
-
-Here's an example:
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, Unset
-
-    class User(Model):
-        name: Deferred[str] = Unset  # deferred of type string
-        age: Deferred[int] = Unset  # deferred of type int
-
-.. note::
-    In the model above, setting fields to default ``Unset`` can be omitted, but
-    it is recommended to allow empty list of parameters without linter
-    complains.
-
-.. doctest::
-
-    >>> bob = User()  # This is allowed
-    >>> validate(bob)  # FAIL; deferred `name` and `age` are missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 2 validation errors for model 'User':
-      age:
-        This field is required [code=modelity.REQUIRED_MISSING]
-      name:
-        This field is required [code=modelity.REQUIRED_MISSING]
-
-Now let's initialize deferred fields and validate again. Validation will now
-pass:
-
-.. doctest::
-
-    >>> bob.name = 'Bob'
-    >>> user.age = 32
-    >>> validate(user)  # OK; all required fields are present
-
-.. note::
-
-    In Modelity, validation is completely up to the user and the specific use
-    case. Modelity neither requires validation nor checks whether it has been
-    performed.
+Such declared class has no practical use as an instance, but it is perfectly
+fine as a base class for other domain-specific models, especially as a place to
+put application-wide filtering hooks or validators.
 
 Required fields
 ^^^^^^^^^^^^^^^
 
-All fields that are neither :ref:`optional<guide-optional>` nor
-:ref:`deferred<guide-deferred>` are considered **required**. Required fields
-must be set when model instance is created. For example:
+All fields declared with no extra type modifiers are **required** by Modelity.
+For example, this model has all fields **required**:
 
 .. testcode::
 
-    import datetime
-
-    from modelity.api import Model
+    from modelity.base import Model
 
     class User(Model):
-        name: str  # required of type string
-        email: str  # required of type string
-        dob: datetime.date  # required of type datetime.date
+        name: str
+        email: str
+        age: int
+
+All required fields must be provided by constructor when model instance is
+created or otherwise the constructor will raise
+:exc:`modelity.exc.ParsingError` exception:
 
 .. doctest::
 
@@ -554,1348 +46,2385 @@ must be set when model instance is created. For example:
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: Found 3 parsing errors for type 'User':
-      dob:
+      age:
         This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
       email:
         This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
       name:
         This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
 
-Attaching metadata to fields
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+And the model creation will succeed if all required fields are given:
 
-Modelity provides :class:`modelity.model.FieldInfo` class and a
-:func:`modelity.model.field_info` factory function for attaching metadata to
-model fields. It is recommended to use the latter, as it is better suited for
-static code checking tools. Here's an example use:
+.. doctest::
+
+    >>> user = User(name="John Doe", email="jd@example.com", age=32)
+    >>> user
+    User(name='John Doe', email='jd@example.com', age=32)
+
+The presence of required fields is additionally checked at the **validation**
+phase. For example, model with ``age`` property missing will be invalid and
+same error will be reported as for constructor, but just for ``age`` field
+which we've just removed from the model:
+
+.. doctest::
+
+    >>> from modelity.helpers import validate  # This helper is used to run validation on given model
+    >>> validate(user)  # The user is valid
+    >>> del user.age  # We've dropped `age` property...
+    >>> validate(user)  # ...and the user is no longer valid:
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
+      age:
+        This field is required [code=modelity.REQUIRED_MISSING]
+
+Deferred fields
+^^^^^^^^^^^^^^^
+
+.. versionadded:: 0.35.0
+
+Modelity allows to declare fields as **deferred** which means that the field is
+optional when model is being constructed, but must be provided before model is
+validated. This allows to fill the model with data progressively with data, for
+instance, coming from user prompts. Thanks to this mechanism you don't have to
+use intermediate data structures for storing such data -- the model will handle
+that for you. To declare fields as deferred use :obj:`modelity.typing.Deferred`
+type modifier like in example below:
 
 .. testcode::
 
-    import datetime
+    # Modelity provides an all-in-one import helper; all public names can be
+    # imported from `modelity.api`.
+    from modelity.api import (
+        Model,
+        Unset,
+        Deferred,
+        validate
+    )
+
+    class OrderItem(Model):
+        name: Deferred[str]
+        quantity: Deferred[int]
+        price: Deferred[float]
+
+Creating such declared model now becomes possible without arguments and these
+fields will be assigned with special :obj:`modelity.unset.Unset` sentinel:
+
+.. doctest::
+
+    >>> order = OrderItem()
+    >>> order
+    OrderItem(name=Unset, quantity=Unset, price=Unset)
+
+Now the model can be fed with data in steps:
+
+.. testcode::
+    :hide:
+
+    def prompt(what):
+        if what == "Enter item name":
+            return "apple"
+        if what == "Enter quantity":
+            return 2
+        if what == "Enter price":
+            return 1.5
+
+.. doctest::
+
+    >>> order.name = prompt("Enter item name")  # user answers: apple
+    >>> order
+    OrderItem(name='apple', quantity=Unset, price=Unset)
+
+Now let's try to **validate** the model. To do that we need
+:func:`modelity.helpers.validate` helper function introduced earlier and call
+it on our model:
+
+.. doctest::
+
+    >>> validate(order)
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 2 validation errors for model 'OrderItem':
+      price:
+        This field is required [code=modelity.REQUIRED_MISSING]
+      quantity:
+        This field is required [code=modelity.REQUIRED_MISSING]
+
+Validation has failed with :exc:`modelity.exc.ValidationError` as there are
+still 2 deferred fields missing in the model. To make validation pass the model
+has to be filled in with missing data:
+
+.. doctest::
+
+    >>> order.quantity = prompt("Enter quantity")  # user answers: 2
+    >>> order.price = prompt("Enter price")  # user answers: 1.5
+    >>> validate(order)  # will now pass
+
+Validation stage will be described in more details in :ref:`guide_validation`
+section.
+
+Optional fields
+^^^^^^^^^^^^^^^
+
+Modelity allows to declare optional fields using any of the following type
+modifiers:
+
+===================================== ================ ==================
+Modifier                              Allows ``None``? Can be left unset?
+===================================== ================ ==================
+:obj:`typing.Optional`                Yes              No
+:obj:`modelity.typing.LooseOptional`  Yes              Yes
+:obj:`modelity.typing.StrictOptional` No               Yes
+===================================== ================ ==================
+
+Since Modelity treats ``None`` as a first-class value it cannot use it to
+represent the unset state of a field. Instead, a dedicated
+:obj:`modelity.unset.Unset` sentinel was created and therefore handling
+optionality using standard :obj:`typing.Optional` alone may be insufficient
+(see the table) as it might cause false positives during typical ``if
+model.field is not None`` comparisons.
+
+And now let's take a tour around all modifiers that are used to declare fields
+as **optional**.
+
+Using ``typing.Optional[T]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Allowed values:
+
+* objects of type ``T``
+* objects of type ``U`` that can be parsed as ``T``
+* ``None``
+
+Use cases:
+
+* non-unsettable optionals; either ``T`` or ``None``
+
+Example:
+
+.. testcode::
 
     from typing import Optional
 
-    from modelity.base import Model, field_info
-    from modelity.typing import StrictOptional
+    from modelity.api import Model, validate
 
-    class User(Model):
-        name: str = field_info(title='Name of the user', examples=['Joe', 'Bob', 'Alice'])  # field info used here
-        email: str
-        dob: datetime.date
-
-In the example above, we've attached *title* and *examples* metadata parameters
-to the *name* field. To access these metadata, use *__model_fields__* property
-of the model class:
+    class OptionalExample(Model):
+        foo: Optional[int] = None  # IMPORTANT: Optional[T] cannot be unset
 
 .. doctest::
 
-    >>> User.__model_fields__['name'].field_info.title
-    'Name of the user'
+    >>> model = OptionalExample()
+    >>> validate(model)  # OK
+    >>> model.foo is None  # It was initialized with None
+    True
+    >>> model.foo = 123  # OK; 123 is an int
+    >>> model.foo
+    123
+    >>> model.foo = "456"  # OK; "456" can be successfully converted to int
+    >>> model.foo
+    456
+    >>> model.foo = None  # OK; can be set to None
+    >>> model.foo is None
+    True
+    >>> del model.foo
+    >>> model.foo  # Now this is unset
+    Unset
+    >>> validate(model)  # FAIL: Optional[T] cannot be unset
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'OptionalExample':
+      foo:
+        This field does not allow Unset; expected: Union[int, NoneType] [code=modelity.UNSET_NOT_ALLOWED, expected_type=Union[int, NoneType]]
 
-Accessing declared fields
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Using ``modelity.typing.LooseOptional[T]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Fields declared for a model can be accessed via
-:attr:`modelity.model.ModelMeta.__model_fields__` attribute that is only
-available for model type, not model instance. For example, we can list fields
-that are available in the **User** model:
+Allowed values:
+
+* objects of type ``T``
+* objects of type ``U`` that can be parsed as ``T``
+* ``None``
+* :obj:`modelity.unset.Unset`
+
+Use cases:
+
+* unsettable optionals; ``T``, ``None`` or ``Unset``
+
+Example:
 
 .. testcode::
 
-    from modelity.base import Model
+    from modelity.api import Model, LooseOptional, validate
 
-    class User(Model):
-        name: str
-        email: str
-        age: int
+    class LooseOptionalExample(Model):
+        foo: LooseOptional[int]
 
 .. doctest::
 
-    >>> list(User.__model_fields__)
-    ['name', 'email', 'age']
-
-When accessing particular field, :class:`modelity.model.Field` object is
-returned that can be used to access things like field name, field type, field
-info etc.
-
-.. doctest::
-
-    >>> from modelity.base import Field
-    >>> field = User.__model_fields__['name']
-    >>> isinstance(field, Field)
+    >>> model = LooseOptionalExample()
+    >>> validate(model)  # OK
+    >>> model.foo
+    Unset
+    >>> model.foo = 123  # OK
+    >>> model.foo
+    123
+    >>> model.foo = "456"  # OK; "456" can be parsed as int
+    >>> model.foo
+    456
+    >>> model.foo = None  # OK
+    >>> model.foo is None
     True
-    >>> field.name
-    'name'
-    >>> field.typ
-    <class 'str'>
-    >>> field.optional
-    False
+    >>> validate(model)  # OK
+    >>> del model.foo
+    >>> model.foo
+    Unset
+    >>> validate(model)  # OK
 
-Setting default values
-^^^^^^^^^^^^^^^^^^^^^^
+Using ``modelity.typing.StrictOptional[T]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When field has default value set, it implicitly becomes optional, even if it is
-required. Default values are used when model object is created and no other
-value was given for a field. Default values can be specified using any of the
-methods given below.
+Allowed values:
+
+* objects of type ``T``
+* objects of type ``U`` that can be parsed as ``T``
+* :obj:`modelity.unset.Unset`
+
+Use cases:
+
+* for declaring fields that must either be set to ``T`` or not set at all
+
+Example:
+
+.. testcode::
+
+    from modelity.api import (
+        Model, StrictOptional, model_postvalidator, validate, is_unset,
+        UserError
+    )
+
+    class Response(Model):
+        """Strict optional example model.
+
+        This shows the practical use case; response object can either have
+        result or error, never both. A separate user-defined hook is used for
+        cross-field checks.
+        """
+        result: StrictOptional[dict]
+        error: StrictOptional[str]
+
+        @model_postvalidator()
+        def _either_result_or_error(self):
+            if not is_unset(self.result) and not is_unset(self.error):
+                raise UserError("cannot pass both result and error in the response")
+
+.. doctest::
+
+    >>> model = Response()
+    >>> validate(model)  # OK
+    >>> model.result = {"value": 123}  # OK
+    >>> model.error = None # FAIL; StrictOptional[T] forbids None
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Response':
+      error:
+        This field does not allow None; expected: Union[str, UnsetType] [code=modelity.NONE_NOT_ALLOWED, value_type=NoneType, expected_type=Union[str, UnsetType]]
+    >>> model.error  # still unset
+    Unset
+    >>> model.error = "an error"  # OK; field was set...
+    >>> validate(model)  # FAIL: ...but cross field checks will now fail
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Response':
+      (empty):
+        cannot pass both result and error in the response [code=modelity.USER_ERROR]
+    >>> del model.error
+    >>> validate(model)  # OK; now only `result` is present
+
+Default values
+^^^^^^^^^^^^^^
 
 Using direct assignment
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+The most basic way of declaring default values for a model field is to declare
+that field and assign it to a value that will become its default value:
+
 .. testcode::
 
-    from modelity.base import Model
-    from modelity.helpers import validate
+    from modelity.api import Model
 
-    class DirectAssignmentDefault(Model):
-        foo: int = 123  # field of type int, with default value of 123
+    class DefaultExample(Model):
+        foo: int = 123
 
 .. doctest::
 
-    >>> obj = DirectAssignmentDefault()
-    >>> validate(obj)  # OK; default value is used
-    >>> obj.foo
-    123
+    >>> model = DefaultExample()  # OK; using 123 as default value for `foo`
+    >>> model
+    DefaultExample(foo=123)
+    >>> another_model = DefaultExample(foo=456)  # OK; using 456 value for `foo`
+    >>> another_model
+    DefaultExample(foo=456)
 
-.. note::
-
-    When direct assignment is used, default value is converted into
-    :class:`modelity.model.FieldInfo` object implicitly and can be accessed like in this
-    example:
-
-    .. doctest::
-
-        >>> DirectAssignmentDefault.__model_fields__['foo'].field_info.default
-        123
-
-Using ``modelity.model.field_info`` helper
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This is explicit form of direct assignment, allowing to set additional metadata
-along with the default value. You just need to use
-:func:`modelity.model.field_info` helper. For example:
+Default values are no different than any other input values, so given the
+example below if ``"789"`` is used as a default then it will be parsed into
+integer number during model construction:
 
 .. testcode::
 
-    from typing import Optional
+    from modelity.api import Model
 
-    from modelity.base import Model, field_info
-    from modelity.helpers import validate
-
-    class User(Model):
-        # Set both 'default' and 'title' for field
-        middle_name: Optional[str] = field_info(default='', title="User's middle name")
+    class DefaultExample(Model):
+        foo: int = "789"
 
 .. doctest::
 
-    >>> User.__model_fields__['middle_name'].field_info.title
-    "User's middle name"
-    >>> joe = User()
-    >>> joe.middle_name
-    ''
+    >>> model = DefaultExample()
+    >>> model
+    DefaultExample(foo=789)
 
-Using default factory
-~~~~~~~~~~~~~~~~~~~~~
-
-It is also possible to use :func:`modelity.model.field_info` helper to set
-default value factory function instead of fixed default value. This is needed
-for auto-generated IDs, unique keys, current dates, random values etc. For
-example, we can use it to automatically assigned user ID:
+And if invalid value will be used as a default then creating model without args
+will fail:
 
 .. testcode::
 
-    import itertools
-
-    from modelity.base import Model, field_info
-
-    _id = itertools.count(1)
-
-    class User(Model):
-        id: int = field_info(default_factory=lambda: next(_id))
-
-.. doctest::
-
-    >>> one = User()
-    >>> one.id
-    1
-    >>> two = User()
-    >>> two.id
-    2
-
-Invalid default values
-~~~~~~~~~~~~~~~~~~~~~~
-
-In Modelity, default values are processed like any other values, so model
-construction will fail if default value is incorrect and no other value was
-given:
-
-.. testcode::
-
-    from modelity.base import Model
+    from modelity.api import Model
 
     class InvalidDefaultExample(Model):
-        foo: int = 'not an int'
+        foo: int = "not an integer"
 
 .. doctest::
 
-    >>> InvalidDefaultExample() # fail; default value is not an integer
+    >>> model = InvalidDefaultExample()
     Traceback (most recent call last):
       ...
     modelity.exc.ParsingError: Found 1 parsing error for type 'InvalidDefaultExample':
       foo:
         Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
-    >>> obj = InvalidDefaultExample(foo=123)  # OK; 123 shadows invalid default value
-    >>> obj.foo
-    123
 
 .. important::
 
-    You have to use the right type for default values to avoid unexpected
-    parsing errors like the one from example above. This applies to all methods
-    of default value declaration.
+    Default values are currently not evaluated when declaring models, so pay
+    attention to default values and their types when declaring those to avoid
+    unexpected errors like the one above.
 
-Annotating fields with constraints
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Mutable default values
+~~~~~~~~~~~~~~~~~~~~~~
 
-Modelity provides support for :obj:`typing.Annotated` type wrapper allowing to
-specify per-field constraints that can be found in :mod:`modelity.constraints`
-module. For example, it is possible to restrict *email* field with a regular
-expression that can only be satisfied by a valid e-mail address:
+In Modelity you can safely use mutable values as field's defaults, as those are
+deep copied when model is created. For example, you can set empty list as
+default value for list field:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class MutableExample(Model):
+        foo: list[int] = []
+
+And now, you don't have to initialize ``foo`` with empty list when constructing
+models:
+
+.. doctest::
+
+    >>> model = MutableExample()
+    >>> model.foo
+    []
+    >>> model.foo.append(123)  # Here we append first element
+    >>> model.foo
+    [123]
+
+And the original default value is still an empty list:
+
+.. doctest::
+
+    >>> MutableExample.__model_fields__['foo'].field_info.default  # This is how field metadata can be accessed (there is a dedicated section on this topic)
+    []
+
+Using ``field_info`` helper
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Same functionality can be achieved when :func:`modelity.base.field_info` helper
+is used in place of direct default value assignment. In fact, Modelity
+automatically converts fixed default values to :class:`modelity.base.FieldInfo`
+objects unless one is set explicitly using said function. Here's an example:
+
+.. testcode::
+
+    from modelity.api import Model, field_info
+
+    class DefaultExample(Model):
+        foo: int = field_info(default=123)  # same as `foo: int = 123`
+
+Such solution gives you the possibility of adding more metadata to field than
+just a default value. There will be more on this in the upcoming chapter.
+
+Computed default values
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Modelity also supports declaring default values by assigning factory function
+instead of fixed static default. To do this you will also need
+:func:`modelity.base.field_info` helper like in previous section. This is very
+useful to get e.g. the current date and time when the model is created:
+
+.. testcode::
+    :hide:
+
+    import datetime
+
+    def utcnow():
+        return datetime.datetime(2026, 1, 1, 10, 10)
+
+.. testcode::
+
+    import datetime
+
+    from modelity.api import Model, field_info
+
+    class Order(Model):
+        items: list[str] = []
+        created: datetime.datetime = field_info(default_factory=utcnow)  # `utcnow` is a no-argument function returning datetime
+
+Now when the model is created, ``created`` field will be set to current date
+and time in UTC:
+
+.. doctest::
+
+    >>> model = Order()
+    >>> model
+    Order(items=[], created=datetime.datetime(2026, 1, 1, 10, 10))
+
+Attaching metadata to fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity supports attaching metadata to fields using
+:func:`modelity.base.field_info` helper. It was already presented earlier and
+used to declare default values, but let's now show some more examples. Consider
+this one:
+
+.. testcode::
+
+    from modelity.api import Model, field_info
+
+    class OrderItem(Model):
+        name: str = field_info(title="Item name", examples=["apple", "banana", "orange"])
+        quantity: int = field_info(title="Number of items")
+        price: float = field_info(title="The price of a single unit")
+
+These metadata does not take place in model processing, but can be used as a
+source of additional data for external tools, like documentation generators. To
+access these metadata, you have to use
+:attr:`modelity.base.ModelMeta.__model_fields__` property:
+
+.. doctest::
+
+    >>> list(OrderItem.__model_fields__)  # list of field names
+    ['name', 'quantity', 'price']
+    >>> name = OrderItem.__model_fields__["name"]  # get `name` field
+    >>> name.field_info.title
+    'Item name'
+    >>> name.field_info.examples
+    ['apple', 'banana', 'orange']
+
+Please proceed to :func:`modelity.base.field_info` for more information.
+
+Using ``typing.Annotated`` and field-level constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity comes with :mod:`modelity.constraints` module containing field-level
+constraints that can be attached to fields using :obj:`typing.Annotated` type
+modifier. Such declared fields are automatically verified when field is set, or
+when model is validated. The latter is crucial for fields with mutable
+containers, where modifying container's content may invalidate the constraint.
+
+Here's an example:
 
 .. testcode::
 
     from typing import Annotated
 
-    from modelity.base import Model
-    from modelity.constraints import Regex
+    from modelity.api import Model, MinLen, Gt, Ge
 
-    class User(Model):
-        email: Annotated[str, Regex(r'[a-z]+\@[a-z]+\.[a-z]{2,3}')]
+    class OrderItem(Model):
+        name: Annotated[str, MinLen(1)]  # empty string is not allowed
+        quantity: Annotated[int, Gt(0)]  # greater than, i.e. > 0
+        price: Annotated[float, Ge(0)]  # greater than or equal to, i.e. >= 0
 
-Constraints are used to execute field-specific validation that is executed when
-model object is created:
+    class Order(Model):
+        items: Annotated[list[OrderItem], MinLen(1)]  # at least one order
 
-.. doctest::
-
-    >>> bob = User(email='bob@example.com')  # OK
-    >>> bob.email
-    'bob@example.com'
-    >>> alice = User(email='alice@example')  # wrong e-mail address
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
-      email:
-        String does not match the expected format [code=modelity.INVALID_STRING_FORMAT, value_type=str, expected_pattern='[a-z]+\\@[a-z]+\\.[a-z]{2,3}']
-
-Or when model object is modified:
+Now let's create first buggy **OrderItem** and see what's happening:
 
 .. doctest::
 
-    >>> bob.email
-    'bob@example.com'
-    >>> bob.email = 'bob'
+    >>> buggy = OrderItem(name="", quantity=-1, price=-1.5)
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
-      email:
-        String does not match the expected format [code=modelity.INVALID_STRING_FORMAT, value_type=str, expected_pattern='[a-z]+\\@[a-z]+\\.[a-z]{2,3}']
+    modelity.exc.ParsingError: Found 3 parsing errors for type 'OrderItem':
+      name:
+        Expected length >= 1 [code=modelity.INVALID_LENGTH, value_type=str, min_length=1]
+      price:
+        Value must be >= 0 [code=modelity.OUT_OF_RANGE, value_type=float, min_inclusive=0]
+      quantity:
+        Value must be > 0 [code=modelity.OUT_OF_RANGE, value_type=int, min_exclusive=0]
 
-Constraints are also verified during validation. Consider this example:
+As you can see, the constraints are failing, as we've intentionally set
+incorrect values for fields. Let's now create a valid model and try to set one
+of its field to an invalid value:
+
+.. doctest::
+
+    >>> apple = OrderItem(name="apple", quantity=1, price=1.5)  # OK
+    >>> apple.name = ""  # FAIL; empty string is not allowed
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'OrderItem':
+      name:
+        Expected length >= 1 [code=modelity.INVALID_LENGTH, value_type=str, min_length=1]
+
+The constraints are automatically checked when fields are modified and
+:exc:`modelity.exc.ParsingError` reported then gives an instant feedback.
+However, if mutable field is modified (not overwritten) then the constrains
+will not be re-evaluated:
+
+.. doctest::
+
+    >>> order = Order(items=[apple])  # OK; initialized with one element
+    >>> len(order.items)
+    1
+    >>> order.items.clear()  # Remove all items from the list; NO ERROR!
+    >>> len(order.items)
+    0
+
+Why there is no error despite the fact that now the minimum length constraint
+is broken? Well, the field itself WAS NOT changed (it still points to the same
+list object) therefore constraint check was not triggered. But the model is in
+fact invalid now -- we can check that using :func:`modelity.helpers.validate`
+helper function:
+
+.. doctest::
+
+    >>> from modelity.helpers import validate
+    >>> validate(order)
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Order':
+      items:
+        Expected length >= 1 [code=modelity.INVALID_LENGTH, min_length=1]
+
+Validating model re-evaluates field-level constraints and that makes the thing
+working as a whole even for mutable fields. This is one of the reasons why
+Modelity have separated data processing into two distinct stages.
+
+Using inheritance
+^^^^^^^^^^^^^^^^^
+
+In Modelity models are created by inheriting from :class:`modelity.base.Model`
+base class. But every single created model class can be a base class itself and
+this can be used to create bases with common fields and/or user-defined hooks.
+Consider following example:
 
 .. testcode::
 
-    from typing import Annotated
+    from modelity.api import Model, field_postprocessor
 
-    from modelity.base import Model
-    from modelity.helpers import validate
-    from modelity.constraints import MinLen, MaxLen
+    class Base(Model):
+        id: int
 
-    class MutableListExample(Model):
-        foo: Annotated[list, MinLen(1), MaxLen(4)]  # Mutable list with 1..4 elements
+        @field_postprocessor()
+        def _strip_string_values(cls, value):
+            if isinstance(value, str):
+                return value.strip()
+            return value
 
-Field *foo* from the example above can be mutated after creation of the model.
-This can potentially break constraints:
+    class Author(Base):
+        first_name: str
+        last_name: str
 
-.. doctest::
+    class Book(Base):
+        title: str
+        author: Author
 
-    >>> obj = MutableListExample(foo=[1, 2, 3, 4])  # OK; 4 elements in the list
-    >>> obj.foo.append(5)  # 5th element added, constraint is broken, but no error is reported
-
-And now the validation will fail, as the constraints are no longer satisfied:
-
-.. doctest::
-
-    >>> obj.foo
-    [1, 2, 3, 4, 5]
-    >>> validate(obj)  # fail; too many elements
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'MutableListExample':
-      foo:
-        Expected length <= 4 [code=modelity.INVALID_LENGTH, max_length=4]
-
-This is possible thanks to the one of the core features of Modelity library;
-splitting data processing into data parsing and model validation.
+The example above introduced a :func:`modelity.hooks.field_postprocessor` hook
+that runs when field is set and after successful type parsing. Since it was
+declared without arguments, the hook will be called for every field and if
+value is a string it will be stripped.
 
 .. note::
 
-    You can create your own constraints by inheriting from
-    :class:`modelity.interface.IConstraint` abstract base class.
+    Check :ref:`guide_hooks` for more information about user-defined hooks.
+
+Since the hook was declared in base class, both **Author** and **Book** models
+are now automatically using it, as well as the ``id`` field that was also
+inherited:
+
+.. doctest::
+
+    >>> author = Author(id=1, first_name=" John", last_name="Doe ")  # Leading and trailing spaces will be stripped
+    >>> book = Book(id=2, author=author, title=" Good Old Book ")  # same here
+    >>> author
+    Author(id=1, first_name='John', last_name='Doe')
+    >>> book.title
+    'Good Old Book'
+
+Having hooks that are performing common cleanup operations on data in one place
+is a recommended practice according to DRY principle and using inheritance to
+achieve that is one option.
+
+Using mixins
+^^^^^^^^^^^^
+
+A more elastic way of reusing common functionality is to use **mixins** instead
+or in addition to base classes. Mixins will let you wrap hooks in reusable and
+named classes that can later be injected to models without breaking or
+rebuilding entire inheritance tree. And, it is also quite easy to add more
+mixins if needed.
+
+.. important::
+
+    Only hooks can currently be provided via mixins; fields must still rely on
+    inheritance mechanism.
+
+Let's rewrite previous example and now let's extract string stripping hook to a
+separate **SupportsStripping** mixin:
+
+.. testcode::
+
+    from modelity.api import Model, field_postprocessor
+
+    class Base(Model):  # This is our base model
+        id: int
+
+    class SupportsStripping:  # This is our mixin with string stripping hook
+
+        @field_postprocessor()
+        def _strip_string_values(cls, value):
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+    class Author(Base, SupportsStripping):  # Use mixin
+        first_name: str
+        last_name: str
+
+    class Book(Base, SupportsStripping):  # Same here
+        title: str
+        author: Author
+
+And now, the models behave exactly the same as previously, but are now sharing
+string striping hook via mixin:
+
+.. doctest::
+
+    >>> author = Author(id=1, first_name=" John", last_name="Doe ")  # Leading and trailing spaces will be stripped
+    >>> book = Book(id=2, author=author, title=" Good Old Book ")  # same here
+    >>> author
+    Author(id=1, first_name='John', last_name='Doe')
+    >>> book.title
+    'Good Old Book'
 
 Working with model objects
 --------------------------
 
-All examples in this section are based on this model type:
+Constructing model objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Let's consider following model declaration:
 
 .. testcode::
 
-    from modelity.api import Model, Deferred
+    from modelity.api import Model
 
-    class User(Model):
-        name: Deferred[str]
-        email: Deferred[str]
-        age: Deferred[int]
+    class OrderItem(Model):
+        name: str  # required
+        quantity: int = 1  # required, but with default value
+        price: float  # required
 
-Setting and unsetting fields
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Instantiating a model without arguments automatically sets all fields to
-:obj:`modelity.unset.Unset` object:
+To create instance of such model you have to pass field names and corresponding
+values as arguments for a built-in keyword-only constructor:
 
 .. doctest::
 
-    >>> user = User()
-    >>> user.name is Unset
-    True
-    >>> user.email is Unset
-    True
-    >>> user.age is Unset
-    True
+    >>> apples = OrderItem(name="apple", price=1.5)  # sets 'name' and 'apple', 'quantity' uses default value
+    >>> apples
+    OrderItem(name='apple', quantity=1, price=1.5)
+    >>> oranges = OrderItem(name="orange", quantity=2, price=2.5)  # override default set for 'quantity'
+    >>> oranges
+    OrderItem(name='orange', quantity=2, price=2.5)
 
-To set the field, you just need to assign it with a value of valid type:
-
-.. doctest::
-
-    >>> user.age = 27
-    >>> user.age is Unset  # Now the `age` is not longer unset
-    False
-    >>> user.age
-    27
-
-If the field is tried to be set to a value of invalid type, then
-:exc:`modelity.exc.ParsingError` is raised and the old value remains intact:
+If you forget about required fields, Modelity will inform you with following
+error:
 
 .. doctest::
 
-    >>> user.age = 'not an int'
+    >>> empty = OrderItem()  # 'name' and 'price' must be set
     Traceback (most recent call last):
       ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
-      age:
-        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
-    >>> user.age
-    27
+    modelity.exc.ParsingError: Found 2 parsing errors for type 'OrderItem':
+      name:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+      price:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
 
-After field is set, it can be unset. This can be achieved either by setting the
-field with :obj:`modelity.unset.Unset` value, or by deleting model's attribute
-that needs to be cleared. Both ways are equivalent:
+Customizing model construction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Overloading ``__init__`` method is **strongly discouraged** in Modelity as it
+may break the interface that is expected by Modelity internals. However, if you
+really need to do so, here's a safe boilerplate example:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class OrderItem(Model):
+        name: str
+        quantity: int
+        price: float
+
+        def __init__(self, **kwargs):  # IMPORTANT!
+            if "quantity" not in kwargs:  # before "real" init
+                kwargs["quantity"] = 1
+            super().__init__(**kwargs)  # IMPORTANT!
+            if self.price < 0:  # after "real" init
+                self.price = 0
+
+In general, the rule of thumb is to keep it keyword-only and to **always** call
+base class constructor. Now let's check how this works:
 
 .. doctest::
 
-    >>> user.age = Unset
-    >>> user.age is Unset
-    True
-    >>> user.age = 27
-    >>> user.age
-    27
-    >>> del user.age
-    >>> user.age
+    >>> bananas = OrderItem(name="banana", price=-2.0)
+    >>> bananas
+    OrderItem(name='banana', quantity=1, price=0.0)
+
+A much better and **recommended** solution is to create per-model factory
+method that has its own, user-defined interface and is not part of Modelity
+internals. For example, you may want to create models using positional
+arguments. Here's an example of such factory method:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class OrderItem(Model):
+        name: str
+        quantity: int
+        price: float
+
+        @classmethod
+        def create(cls, name: str, price: float, quantity: int=1) -> "OrderItem":
+            return cls(name=name, quantity=quantity, price=price)
+
+Besides allowing to pass arguments in either keyword or positional way the
+custom method can also reorder arguments and set some defaults. Underneath the
+method is still calling built-in constructor. Here's how this can be used:
+
+.. doctest::
+
+    >>> onions = OrderItem.create("onion", 0.75, quantity=3)
+    >>> onions
+    OrderItem(name='onion', quantity=3, price=0.75)
+
+Unset fields
+^^^^^^^^^^^^
+
+Modelity handles unset fields using special :obj:`modelity.unset.Unset`
+sentinel, which is a singleton instance of :class:`modelity.unset.UnsetType`
+class. This special value is used by Modelity to explicitly represent fields
+that were not set in the constructor or fields that were removed from the model
+after it was created.
+
+All non-required and unsettable fields are **implicitly** unset if no other
+default value was given:
+
+.. testcode::
+
+    from modelity.api import Model, StrictOptional
+
+    class Example(Model):
+        foo: StrictOptional[int]
+        bar: StrictOptional[str]
+
+.. doctest::
+
+    >>> model = Example()  # No argument given
+    >>> model.foo
+    Unset
+    >>> model.foo
     Unset
 
-Using ``repr`` on model objects
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+However, it is usually better to **explicitly** set those fields to ``Unset``,
+as it plays better with code linters and type checking tools (i.e. no warnings
+about missing required params):
 
-Mockify supplies user-defined model with built-in implementation of the
-``__repr__`` method that is used by :func:`repr` function. It can be used to
-get string representation of the current model state. For example:
+.. testcode::
+
+    from modelity.api import Model, StrictOptional, Unset
+
+    class Example(Model):
+        foo: StrictOptional[int] = Unset  # Same behavior as before, but explicit
+        bar: StrictOptional[str] = Unset
+
+Modelity provides a :func:`modelity.unset.is_unset` helper that can be used to
+check if the field is set or not. It is recommended to use this helper instead
+of manually checking ``if model.field is not Unset`` as it performs **type
+narrowing**, so LSPs will automatically know the remaining types:
 
 .. doctest::
 
-    >>> user = User()
-    >>> repr(user)
-    'User(name=Unset, email=Unset, age=Unset)'
-    >>> user.name = 'Bob'
-    >>> user.email = 'bob@example.com'
-    >>> repr(user)
-    "User(name='Bob', email='bob@example.com', age=Unset)"
-    >>> user.age = 27
-    >>> repr(user)
-    "User(name='Bob', email='bob@example.com', age=27)"
+    >>> from modelity.api import is_unset
+    >>> model = Example()
+    >>> is_unset(model.foo)
+    True
+    >>> model.foo = 123
+    >>> is_unset(model.foo)  # not unset; the LSP will know that `foo` is an integer
+    False
 
-The order of fields in model's textual representation is always the same as
-order in which the fields were declared in a model class.
+Inspecting models using ``repr`` function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Checking if two model objects are equal
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+All models provide default implementation of :meth:`object.__repr__` magic
+method that will print text representation of the model. The representation
+includes model class name and its field names with current values. For example:
 
-In Modelity, two model objects are equal if an only if:
+.. testcode::
 
-* both are instances of the same model class,
-* both have same fields set,
-* all fields are set to equal values.
+    from modelity.api import Model, Unset, LooseOptional
+
+    class Dummy(Model):
+        foo: int
+        bar: Optional[str] = None
+        baz: LooseOptional[float] = Unset
+
+.. doctest::
+
+    >>> repr(Dummy(foo=123))
+    'Dummy(foo=123, bar=None, baz=Unset)'
+    >>> repr(Dummy(foo=123, baz=3.14))
+    'Dummy(foo=123, bar=None, baz=3.14)'
+
+Comparing two model instances
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity provides built-in implementation of the :meth:`object.__eq__` method
+for checking if two Python objects are equal. Two model objects, ``a`` and
+``b``, are equal if and only if all of these statements are true:
+
+* both objects are instances of **same** model type,
+* both objects have exactly same fields set,
+* all fields that are set are equal.
+
+Some examples:
+
+.. testcode::
+
+    from modelity.api import Model, LooseOptional
+
+    class Foo(Model):
+        spam: LooseOptional[int]
+
+    class Bar(Model):
+        spam: LooseOptional[int]
+
+.. doctest::
+
+    >>> Foo() == Foo()
+    True
+    >>> Foo(spam=123) == Foo(spam=123)
+    True
+    >>> Foo() == Bar()  # Two different types
+    False
+    >>> Foo(spam=123) == Foo()  # Different amount of fields set
+    False
+    >>> Foo(spam=123) == Foo(spam=456)  # Different field values
+    False
+
+Checking if field is set
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+To check if a field is set, ``in`` operator can be used:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class Dummy(Model):
+        a: LooseOptional[int]
+        b: LooseOptional[int]
+
+.. doctest::
+
+    >>> foo = Dummy()
+    >>> "a" in foo
+    False
+    >>> foo.a = 123
+    >>> "a" in foo
+    True
+    >>> foo.a = None  # IMPORTANT: None is a first class value!
+    >>> "a" in foo
+    True
+    >>> del foo.a
+    >>> "a" in foo
+    False
+
+.. important::
+
+    In Modelity, unset fields are all fields that are set to
+    :obj:`modelity.unset.Unset` object, so assigning a field with ``Unset``
+    manually is basically equivalent of using ``del`` operator:
+
+    .. doctest::
+
+        >>> from modelity.unset import Unset
+        >>> bar = Dummy(a=123)
+        >>> "a" in bar
+        True
+        >>> bar.a = Unset
+        >>> "a" in bar
+        False
+
+Iteration over set fields only
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity supplies models with :meth:`object.__iter__` method implementation
+that iterates through the model, in field-defined order, and yields names of
+fields that are currently set:
+
+.. testcode::
+
+    from modelity.api import Model, LooseOptional
+
+    class IterExample(Model):
+        a: int
+        b: int
+        c: LooseOptional[int]
+        d: LooseOptional[int]
+
+.. doctest::
+
+    >>> one = IterExample(a=1, b=2)
+    >>> list(one)
+    ['a', 'b']
+    >>> two = IterExample(a=1, b=2, c=3)
+    >>> list(two)
+    ['a', 'b', 'c']
+
+As a bonus, there also is a helper :func:`modelity.helpers.has_fields_set` that
+can be used to check if any of model fields is set:
+
+.. doctest::
+
+    >>> from modelity.api import has_fields_set
+    >>> has_fields_set(one)
+    True
+    >>> has_fields_set(two)
+    True
+    >>> one.a = one.b = Unset  # NOTE: Presence of required fields is double-checked during later validation
+    >>> has_fields_set(one)
+    False
+
+Setting and getting attributes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since models in Modelity are **mutable** by design, assigning value to a field
+of an existing model object invokes exactly the same value parsing logic as
+when model constructor is used. Here are some examples:
+
+.. testcode::
+
+    from modelity.api import Model, LooseOptional
+
+    class SetGetDelExample(Model):
+        foo: LooseOptional[int]
+
+.. doctest::
+
+    >>> model = SetGetDelExample()  # OK; no required fields
+    >>> model.foo  # getting attribute; it is Unset now
+    Unset
+    >>> model.foo = 123  # setting attribute; parsing logic is executed
+    >>> model.foo
+    123
+    >>> model.foo = "spam"  # FAIL; neither int, nor it can be parsed as int
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'SetGetDelExample':
+      foo:
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
+    >>> model.foo  # old value remains
+    123
+
+Deleting attributes
+^^^^^^^^^^^^^^^^^^^
+
+Attributes can be deleted from model object, but this is just a syntactic sugar
+over assignment of an attribute with :obj:`modelity.unset.Unset` value. Any
+model field can be deleted from the model after successful construction. This
+is safe for as long as the model is later (re-)validated with
+:func:`modelity.helpers.validate` function. For example:
+
+.. testcode::
+
+    from modelity.api import Model, validate
+
+    class Dummy(Model):
+        foo: int
+
+.. doctest::
+
+    >>> dummy = Dummy(foo=123)
+    >>> dummy.foo
+    123
+    >>> del dummy.foo
+    >>> dummy.foo
+    Unset
+    >>> validate(dummy)  # FAIL; we've just deleted required field
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
+      foo:
+        This field is required [code=modelity.REQUIRED_MISSING]
+    >>> dummy.foo = 456
+    >>> dummy.foo
+    456
+    >>> validate(dummy)  # OK
+
+Applying visitors to models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+One of Modelity design decisions was to use **visitor pattern** to separate
+model structure from algorithms operating on that structure.
+
+Modelity provides few built-in visitor implementations (for validation and
+serialization) available in :mod:`modelity.visitors` module, an ABC
+:class:`modelity.base.ModelVisitor` for creating custom ones from a scratch,
+and a :meth:`modelity.base.Model.accept` method for applying visitors on
+models.
+
+There is also a :mod:`modelity.helpers` module containing helpers for hiding
+boilerplate code (e.g. :func:`modelity.helpers.dump` for serialization or
+:func:`modelity.helpers.validate` for validation) but you still can instantiate
+and run visitors manually whenever needed.
+
+Here's a simple example:
+
+.. testcode::
+
+    from modelity.api import Model, Loc
+
+    class OrderItem(Model):
+        name: str
+        quantity: int
+        price: float
+
+    class Order(Model):
+        id: int
+        items: list[OrderItem]
+
+Now let's create some order object:
+
+.. doctest::
+
+    >>> apple = OrderItem(name="apple", quantity=1, price=2.5)
+    >>> banana = OrderItem(name="banana", quantity=2, price=1.5)
+    >>> orange = OrderItem(name="orange", quantity=4, price=0.75)
+    >>> order = Order(id=1, items=[apple, banana, orange])
+
+And finally, let's dump it to dict using :class:`modelity.visitors.DumpVisitor`
+visitor:
+
+.. doctest::
+
+    >>> from modelity.api import DumpVisitor
+    >>> out = {}
+    >>> visitor = DumpVisitor(out)
+    >>> order.accept(visitor, Loc())
+    >>> out
+    {'id': 1, 'items': [{'name': 'apple', 'quantity': 1, 'price': 2.5}, {'name': 'banana', 'quantity': 2, 'price': 1.5}, {'name': 'orange', 'quantity': 4, 'price': 0.75}]}
+
+Data processing pipeline
+------------------------
+
+Input data parsing
+^^^^^^^^^^^^^^^^^^
+
+Data parsing happens when a new model instance is created, when fields in
+existing models are modified, or when mutable containers are modified. This
+stage is executed on a field-level basis and its role is to ensure that data
+stored in the model respects model field types, or to **reject** the input data
+completely if it does not.
+
+Failed parsing is signalled with :exc:`modelity.exc.ParsingError` exception
+that is raised with all parsing errors collected for all fields.
+
+Preprocessing chain
+~~~~~~~~~~~~~~~~~~~
+
+Preprocessing is an optional first step of data parsing that happens for an
+individual fields if those have user-defined **preprocessors** assigned via
+dedicated :func:`modelity.hooks.field_preprocessor` decorator. This decorator
+can be declared for all fields, or for a given subset of fields depending on
+whether or not and which field names are given during declaration.
+
+Preprocessors can report errors either by raising
+:exc:`modelity.exc.UserError`, or by manually creating
+:class:`modelity.error.Error` object and adding it to the ``errors`` list (see
+hook :func:`modelity.hooks.field_preprocessor` for more details on this). If
+any of preprocessors report one or more errors, the parsing as a whole will
+fail.
+
+Preprocessors are used to clean up and normalize the data before it is passed
+further to the type parsing step. The very common use case is to restrict input
+data just to a subset of input types (i.e. only JSON-compatible ones) or to
+perform actions like string stripping to remove whitespace characters.
+
+The data flow for preprocessing chain looks as follows::
+
+    (raw input) ->
+    [1st preprocessor -> [2nd preprocessor -> ... -> N-th preprocessor ->]]
+    (preprocessed output)
+
+Here's an example:
+
+.. testcode::
+
+    from modelity.exc import UserError
+    from modelity.base import Model
+    from modelity.hooks import field_preprocessor
+
+    class JsonRestrictingModel(Model):
+        """Base class for models allowing only JSON-compatible input values."""
+
+        @field_preprocessor()  # Will run for all fields
+        def _restrict_input(cls, value):
+            if value is not None and not isinstance(value, (int, float, str, bool, list, dict)):
+                raise UserError("non JSON-compatible value")  # Will terminate parsing
+            return value
+
+    class OrderItem(JsonRestrictingModel):
+        name: str
+        quantity: int
+        price: float
+
+        @field_preprocessor("name", "quantity", "price")  # Fields for which the hook will run
+        def _strip_strings(cls, value):
+            if isinstance(value, str):
+                return value.strip()  # call strip() only if input value is a string
+            return value
+
+.. doctest::
+
+    >>> apples = OrderItem(name=" apple ", quantity=" 2 ", price=" 3.25 ")  # This would fail without '_strip_strings' preprocessor
+    >>> apples
+    OrderItem(name='apple', quantity=2, price=3.25)
+    >>> apples.name = object()
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'OrderItem':
+      name:
+        non JSON-compatible value [code=modelity.USER_ERROR, value_type=object]
+
+Type parsing
+~~~~~~~~~~~~
+
+Type parsing runs in a field-level scope, individually for each field, on the
+preprocessed data delivered by the last preprocessor set for a field being
+currently parsed, or for raw input data if no preprocessors were found.
+
+Parsing step runs the core logic of Modelity built-in parsing system and
+ensures that all fields of a model have the right value (i.e. instance of type
+set for that field), or otherwise tries to parse input as the type field
+expects. Finally, if input value is neither instance of the right type, nor it
+can be parsed as one, parsing step fails and :class:`modelity.error.Error` is
+reported with precise cause and :exc:`modelity.exc.ParsingError` is raised.
+
+The data flow for type parsing looks as follows::
+
+    (preprocessed output) -> type parser -> (parsed output)
+
+Although we've already seen that in action, let's have some more examples as a
+recap:
+
+.. testcode::
+
+    from modelity.base import Model
+
+    class OrderItem(Model):
+        name: str
+        quantity: int
+        price: float
+
+    class Order(Model):
+        items: list[OrderItem]
+
+Now, let's take a look at the following example:
+
+.. doctest::
+
+    >>> apples = OrderItem(name="apple", quantity=3, price=1.5)  # The right types
+    >>> apples
+    OrderItem(name='apple', quantity=3, price=1.5)
+    >>> oranges = OrderItem(name="orange", quantity="3", price="1.5")  # Not the right types, but successfully parsed
+    >>> oranges
+    OrderItem(name='orange', quantity=3, price=1.5)
+    >>> incorrect = OrderItem(name="incorrect", quantity="three", price="one and the half")  # FAIL: Cannot parse
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 2 parsing errors for type 'OrderItem':
+      price:
+        Not a valid float value [code=modelity.PARSE_ERROR, value_type=str, expected_type=float]
+      quantity:
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
+
+First object, ``apples``, was created using the exact value types model
+expects. Second object, ``oranges``, was also created successfully, but
+original input given as string was parsed to the right type. Third example,
+``incorrect``, has failed as Modelity could not parse given strings as integer
+and float numbers.
+
+Same logic happens when existing models are modified:
+
+.. doctest::
+
+    >>> apples.quantity = "4"  # OK; this can be parsed
+    >>> apples.quantity
+    4
+    >>> oranges.price = 1  # OK; int can be parsed as float
+    >>> oranges.price
+    1.0
+    >>> oranges.quantity = "four"  # FAIL; cannot parse `four` as int
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'OrderItem':
+      quantity:
+        Not a valid int value [code=modelity.PARSE_ERROR, value_type=str, expected_type=int]
+    >>> oranges.quantity  # The old value remains intact
+    3
+
+Now let's take a look at few more examples showing how parsing of the container
+types work. Parsing containers involves both parsing container itself, and each
+individual item:
+
+* OK; all elements already have the right type
+
+    .. doctest::
+
+        >>> first = Order(items=[apples, oranges])
+        >>> first.items[0] is apples
+        True
+        >>> first.items[1] is oranges
+        True
+
+* OK; :class:`dict` can be parsed as **OrderItem** if all required fields are
+  present and all fields have the right values:
+
+    .. doctest::
+
+        >>> second = Order(items=[{"name": "strawberry", "quantity": "7", "price": "3.5"}])
+        >>> second.items[0]
+        OrderItem(name='strawberry', quantity=7, price=3.5)
+
+* FAIL; cannot parse :class:`int` value as a :class:`list` container
+
+    .. doctest::
+
+        >>> fail1 = Order(items=123)
+        Traceback (most recent call last):
+          ...
+        modelity.exc.ParsingError: Found 1 parsing error for type 'Order':
+          items:
+            Not a valid value; expected: list[OrderItem] [code=modelity.INVALID_TYPE, value_type=int, expected_types=[list[OrderItem]], allowed_types=[Sequence], forbidden_types=[str, bytes]]
+
+* FAIL; cannot parse :class:`int` as **OrderItem**
+
+    >>> fail2 = Order(items=[apples, oranges, 123])  # FAIL; cannot parse 123 as OrderItem
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'Order':
+      items.2:
+        Not a valid value; expected: OrderItem [code=modelity.INVALID_TYPE, value_type=int, expected_types=[OrderItem], allowed_types=[Mapping]]
+
+* FAIL; empty dict does not contain all fields required by **OrderItem** model:
+
+    >>> fail3 = Order(items=[apples, oranges, {}])  # FAIL; the dict does not have all required fields set
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 3 parsing errors for type 'Order':
+      items.2.name:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+      items.2.price:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+      items.2.quantity:
+        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
+
+Postprocessing chain
+~~~~~~~~~~~~~~~~~~~~
+
+Postprocessing is an optional last step of data parsing that happens for an
+individual fields if those have user-defined **postprocessors** assigned via
+dedicated :func:`modelity.hooks.field_postprocessor` decorator. This decorator
+can be declared for all fields, or for a given subset of fields depending on
+whether or not and which field names are given during declaration.
+
+Postprocessors can report errors either by raising
+:exc:`modelity.exc.UserError`, or by manually creating
+:class:`modelity.error.Error` object and adding it to the ``errors`` list (see
+hook :func:`modelity.hooks.field_postprocessor` for more details on this). If
+any of postprocessors report one or more errors, the parsing as a whole will
+fail.
+
+Postprocessors receive data from type parser and can assume that input value
+for the first preprocessor already has the right type (there is no need to
+check that). The role of postprocessors is to perform field-level validation,
+data normalization that does not affect field's type, or both. The value
+returned by the last postprocessor in the chain will be used as field's value.
+
+The data flow for postprocessing chain looks as follows::
+
+    (parsed output) ->
+    [1st postprocessor -> [2nd postprocessor -> ... -> N-th postprocessor ->]]
+    (field value)
+
+.. important::
+
+    There is no more type checking after preprocessing step, so preprocessors
+    can potentially **alter** field type without being noticed. This is fine
+    for as long as the new type is **compatible** with field's type (e.g. is a
+    subclass), but **SHOULD BE** avoided for incompatible types as those will
+    break the contract enforced by the model.
+
+Here's a practical example of using postprocessing hook:
+
+.. testcode::
+
+    import math
+
+    from modelity.base import Model
+    from modelity.hooks import field_postprocessor
+
+    class Vec2D(Model):
+        """Model representing a 2-dimensional vector."""
+        x: float
+        y: float
+
+        def length(self):
+            """Compute vector's length."""
+            return math.sqrt(self.x**2 + self.y**2)
+
+        def normalized(self) -> "Vec2D":
+            """Compute normalized version of this vector."""
+            l = self.length()
+            return Vec2D(x=self.x/l, y=self.y/l)
+
+    class Object2D(Model):
+        """Model representing 2-dimensional object."""
+        pos: Vec2D
+        dir: Vec2D
+        speed: float
+
+        @field_postprocessor("dir")  # Applied only to `dir` vector
+        def _normalize_direction(cls, value: Vec2D):
+            return value.normalized()  # `value` is guaranteed to be Vec2D
+
+.. doctest::
+
+    >>> p = Vec2D(x=1, y=3)  # position vector
+    >>> d = Vec2D(x=5, y=5)  # direction vector
+    >>> obj = Object2D(pos=p, dir=d, speed=0.75)  # here the postprocessor will be used on `d`
+    >>> obj.pos is p  # This one was not modified by postprocessor
+    True
+    >>> obj.dir is not d  # This one was normalized by postprocessor
+    True
+    >>> obj.dir
+    Vec2D(x=0.7071067811865475, y=0.7071067811865475)
+
+.. _fixup_step:
+
+Adding missing or derived data to models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Using ``after_field_set`` hook
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Modelity provides :func:`modelity.hooks.after_field_set` hook that can be used
+to wrap a function to be executed when a field is set to a valid value. The
+hook can be triggered by any model field (if declared without args) or with any
+of the given fields (otherwise).
+
+Here's an example:
+
+.. testcode::
+
+    import datetime
+
+    from modelity.base import Model
+    from modelity.loc import Loc
+    from modelity.typing import Deferred
+    from modelity.hooks import after_field_set
+
+    class FileInfo(Model):
+        path: str
+        size: int
+        created: datetime.datetime
+        modified: Deferred[datetime.datetime]  # Make it deferred, so it will not be required during construction
+
+        @after_field_set("path", "size", "created")
+        def _reset_modified(self, loc: Loc, value: datetime.datetime):
+            if loc[-1] == "created":
+                self.modified = value  # Modified shouldn't precede `created`
+            else:
+                self.modified = datetime.datetime.now()  # Update modification time when `path` or `size` is changed
+
+.. doctest::
+
+    >>> foo = FileInfo(path="/foo.txt", size=1024, created=datetime.datetime.now())  # Will also set `modified`
+    >>> foo.created == foo.modified
+    True
+
+And same will happen if ``created`` is later modified:
+
+.. doctest::
+
+    >>> foo.created = datetime.datetime(1999, 1, 1, 10, 10)
+    >>> foo.modified
+    datetime.datetime(1999, 1, 1, 10, 10)
+
+And if parsing of ``created`` field fails, the hook will not be executed:
+
+.. doctest::
+
+    >>> foo.created = "invalid"
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 1 parsing error for type 'FileInfo':
+      created:
+        Not a valid datetime format; expected one of: YYYY-MM-DDThh:mm:ssZZZZ, YYYY-MM-DDThh:mm:ss.ffffffZZZZ, YYYY-MM-DDThh:mm:ss, YYYY-MM-DDThh:mm:ss.ffffff, YYYY-MM-DD hh:mm:ss ZZZZ, YYYY-MM-DD hh:mm:ss.ffffff ZZZZ, YYYY-MM-DD hh:mm:ss, YYYY-MM-DD hh:mm:ss.ffffff, YYYYMMDDThhmmssZZZZ, YYYYMMDDThhmmss.ffffffZZZZ, YYYYMMDDThhmmss, YYYYMMDDThhmmss.ffffff, YYYYMMDDhhmmssZZZZ, YYYYMMDDhhmmss.ffffffZZZZ, YYYYMMDDhhmmss, YYYYMMDDhhmmss.ffffff [code=modelity.INVALID_DATETIME_FORMAT, value_type=str, expected_formats=['YYYY-MM-DDThh:mm:ssZZZZ', 'YYYY-MM-DDThh:mm:ss.ffffffZZZZ', 'YYYY-MM-DDThh:mm:ss', 'YYYY-MM-DDThh:mm:ss.ffffff', 'YYYY-MM-DD hh:mm:ss ZZZZ', 'YYYY-MM-DD hh:mm:ss.ffffff ZZZZ', 'YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD hh:mm:ss.ffffff', 'YYYYMMDDThhmmssZZZZ', 'YYYYMMDDThhmmss.ffffffZZZZ', 'YYYYMMDDThhmmss', 'YYYYMMDDThhmmss.ffffff', 'YYYYMMDDhhmmssZZZZ', 'YYYYMMDDhhmmss.ffffffZZZZ', 'YYYYMMDDhhmmss', 'YYYYMMDDhhmmss.ffffff']]
+    >>> foo.modified == foo.created
+    True
+    >>> foo.modified
+    datetime.datetime(1999, 1, 1, 10, 10)
+
+And also, when any of the fields is changed, model will automatically update
+``modified`` time:
+
+.. doctest::
+
+    >>> foo.modified == foo.created
+    True
+    >>> foo.path = "/bar.txt"  # Will trigger the hook and update modification time
+    >>> foo.modified == foo.created
+    False
+
+You can of course add some additional conditions, like setting the value only
+if it is unset.
+
+.. important::
+
+    This hook must be properly configured to avoid recursion errors. In the
+    example above, ``modified`` field was intentionally ignored as changing it
+    would also cause the hook to fire, and that would cause ``modified`` to be
+    altered... causing infinite recursion error.
+
+Using ``model_fixup`` hook
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :func:`modelity.hooks.after_field_set` hook shown earlier will not be
+called when modifying mutable fields in-place. To overcome this obstacle, a
+dedicated :func:`modelity.hooks.model_fixup` hook is also provided. It operates
+at the model level and can only be run if :func:`modelity.helpers.fixup` helper
+is explicitly called on a model.
+
+Here's an example:
+
+.. testcode::
+
+    from modelity.base import Model
+    from modelity.hooks import model_fixup
+    from modelity.helpers import fixup
+
+    class OrderItem(Model):
+        name: str
+        quantity: int
+        price: float
+
+    class Order(Model):
+        items: list[OrderItem] = []
+        total: float = 0.0
+
+        @model_fixup()
+        def _adjust_total(self):
+            self.total = sum(x.quantity * x.price for x in self.items)
+
+.. doctest::
+
+    >>> apples = OrderItem(name="apple", quantity=2, price=1.5)
+    >>> oranges = OrderItem(name="orange", quantity=3, price=2.0)
+    >>> order = Order()
+    >>> order.total
+    0.0
+    >>> order.items.append(apples)
+    >>> order.items.append(oranges)
+    >>> order.total  # No change
+    0.0
+    >>> fixup(order)  # Here the `_adjust_total` will be called
+    >>> order.total
+    9.0
+
+The mechanism of model fixing up is backed up with a dedicated visitor (see
+:class:`modelity.visitors.FixupVisitor`) and that brings the possibility
+of running all model fixup hooks for the entire model tree using just a single
+call to :func:`modelity.helpers.fixup` function for the root model only. For
+example, let's now create a collection of orders:
+
+.. testcode::
+
+    from modelity.base import Model
+
+    class UserOrders(Model):
+        login: str
+        orders: list[Order] = []
+        total: float = 0.0
+
+        @model_fixup()
+        def _adjust_user_total(self):
+            self.total = sum(x.total for x in self.orders)
+
+.. doctest::
+
+    >>> apples = OrderItem(name="apple", quantity=2, price=1.5)
+    >>> oranges = OrderItem(name="orange", quantity=3, price=2.0)
+    >>> order = Order()
+    >>> order.items.append(apples)
+    >>> order.items.append(oranges)
+    >>> user_orders = UserOrders(login="john.doe")
+    >>> user_orders.orders.append(order)
+    >>> fixup(user_orders)  # Will run both `_adjust_total` for Order model, and `_adjust_user_total` for UserOrders model
+    >>> user_orders.total
+    9.0
+
+Validating models
+^^^^^^^^^^^^^^^^^
+
+Modelity does not validate models automatically, but instead lets you decide if
+and when the models will be validated. Recommended way of validating models is
+to use :func:`modelity.helpers.validate` helper. Alternatively, if you need more
+fine-tuned customization, you can subclass
+:class:`modelity.visitors.ValidationVisitor` built-in default validation visitor
+(the one used by helper) or even to create your own validation visitor from
+scratch (for advanced users).
+
+Errors reported during validation step are all collected and raised as a single
+:class:`modelity.exc.ValidationError` exception. This is different from
+:class:`modelity.exc.ParsingError` used during parsing, so you can
+differentiate errors raised at parsing step from the errors raised during
+validation. This may be useful especially when loading complete models from
+untrusted external data.
+
+Unlike parsing step, where single error is causing instant full stop for a
+processed field, all validators are always allowed to execute even if there
+already are errors reported (with exception of
+:func:`modelity.hooks.model_prevalidator` that can be used to skip remaining
+validators for a model it was declared in).
+
+.. note::
+
+    Both exceptions inherit from same :class:`modelity.exc.ModelError`, so you
+    can catch that if you don't care at what phase the exception was raised.
+
+Built-in validation, like input data parsing, is divided into user-pluggable
+steps that will be explained in details in the next sections.
+
+.. important::
+
+    Modelity assumes that validators have **no side effects**. In other words,
+    validators **must not** modify model being validated in any way. Models are
+    **read only** from the validators point of view. Any modifications must be
+    done **before** validation either with manual field setting, or by using
+    **fixup hooks** (see :ref:`fixup_step` for more details). The only dynamic
+    data allowed to be modified (if really needed) is user-defined **context**
+    object passed to validators. See :ref:`validate_with_context` for more
+    details.
+
+Model prevalidation chain
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Model-level prevalidators can be declared using
+:func:`modelity.hooks.model_prevalidator` hook. Model prevalidators are
+executed before any other validators (even built-in ones like check of required
+fields presence) and can be used to perform cross-field validation with
+optional skipping of other validators (including built-in validators) for the
+current model and all its nested models (if it has any). There can be multiple
+model prevalidators defined and in such case all are executed in their
+declaration order.
+
+Here's a practical example of using model prevalidator to conditionally skip
+validation of blog post if it is a draft:
+
+.. testcode::
+
+    from typing import Literal
+
+    from modelity.api import Model, UserError, Deferred, model_prevalidator, validate
+
+    class BlogPost(Model):
+        title: Deferred[str]  # We will be filling these fields progressively
+        content: Deferred[str]
+        tags: list[str] = []
+        status: Deferred[Literal["draft", "published"]] = "draft"  # By default it is a draft
+
+        @model_prevalidator()
+        def _check_draft_status(self, ctx):
+            if self.status == "draft":
+                # In draft mode, skip all other validations
+                return True
+            # Otherwise, proceed with normal validation
+            return
+
+.. doctest::
+
+    >>> post = BlogPost(title="A story to tell")  # Just a title, no content yet
+    >>> post.status
+    'draft'
+    >>> validate(post)  # OK; validation skipped, as `post` is a draft
+    >>> post.status = "published"  # Let's now try to publish our post
+    >>> validate(post)  # FAIL; content is still missing
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'BlogPost':
+      content:
+        This field is required [code=modelity.REQUIRED_MISSING]
+    >>> post.content = "A long, long time ago..."
+    >>> validate(post)  # OK
+
+This example demonstrates how model prevalidator can be used to implement
+conditional validation logic, such as allowing incomplete data in draft mode
+while enforcing strict validation for published content.
+
+Built-in validation
+~~~~~~~~~~~~~~~~~~~
+
+When model prevalidators are done, then built-in validation runs on a per-field
+basis. Built-in validation ensures that all required fields are present (both
+construction-time required, and validation-time required), prevents
+non-unsettable fields (like :obj:`typing.Optional`) from being left unset, and
+re-runs field-level constraints declared using :obj:`typing.Annotated` type
+wrapper with constraints from :mod:`modelity.constraints` module.
+
+Here's a brief example:
+
+.. testcode::
+
+    from typing import Annotated, Optional
+
+    from modelity.api import Model, Deferred, MinLen, validate
+
+    class DummyModel(Model):
+        foo: int  # construction-time required
+        bar: Deferred[int]  # validation-time required
+        baz: Optional[str] = None  # equivalent of Union[str, None]; `Unset` is not a valid value
+        spam: Annotated[list, MinLen(1)] = [1]  # can be modified after creation, so it must be re-checked
+
+.. doctest::
+
+    >>> model = DummyModel(foo=123)  # OK; all required fields set
+    >>> model
+    DummyModel(foo=123, bar=Unset, baz=None, spam=[1])
+    >>> validate(model)  # FAIL; deferred field `bar` is missing
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'DummyModel':
+      bar:
+        This field is required [code=modelity.REQUIRED_MISSING]
+    >>> model.bar = 456
+    >>> validate(model)  # OK
+    >>> del model.baz  # make `baz` Unset
+    >>> validate(model)  # FAIL; `baz` cannot be unset
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'DummyModel':
+      baz:
+        This field does not allow Unset; expected: Union[str, NoneType] [code=modelity.UNSET_NOT_ALLOWED, expected_type=Union[str, NoneType]]
+    >>> model.baz = "baz"  # Set a value to `baz` field
+    >>> validate(model)  # OK
+    >>> model.spam.clear()  # Clear mutable field
+    >>> model.spam
+    []
+    >>> validate(model)  # FAIL; MinLen(1) constraint failed
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'DummyModel':
+      spam:
+        Expected length >= 1 [code=modelity.INVALID_LENGTH, min_length=1]
+
+Field validation chain
+~~~~~~~~~~~~~~~~~~~~~~
+
+Field-level validation chain can be configured for each field individually and
+is executed **only** if the field **has value set**. To declare field-level
+validator, you have to use :func:`modelity.hooks.field_validator` hook. Field
+validators are best way to implement cross-field validation logic, where
+validated field depends on one or more other fields. For example:
+
+.. testcode::
+
+    from modelity.api import Model, field_validator
+
+    class RegistrationForm(Model):
+        username: str
+        password: str
+        repeated_password: str
+
+        @field_validator("repeated_password")
+        def _check_if_same_as_password(self, value):
+            if value != self.password:
+                raise UserError("passwords do not match")
+
+.. doctest::
+
+    >>> from modelity.api import validate
+    >>> form = RegistrationForm(username="john.doe", password="p@ssw0rd", repeated_password="passw0rd")
+    >>> validate(form)  # FAIL; passwords don't match
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'RegistrationForm':
+      repeated_password:
+        passwords do not match [code=modelity.USER_ERROR]
+    >>> form.repeated_password = "p@ssw0rd"
+    >>> validate(form)  # OK
+
+Location-based validation chain
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Location-based validation kind of extends field-level validation explained in
+previous section. It allows to validate based on location patterns, not just
+field names. Thanks to this you can declare validator that belongs to the model
+while reaching into nested structures. To declare location-based validation,
+:func:`modelity.hooks.location_validator` hook must be used.
+
+Location validators use period-separated paths relative to the model where
+validator was declared. Each path element can either be a field name, a key in
+a mapping, and index in sequence, or one of the following wildcards:
+
+* ``*`` to match any number of path segments,
+* ``?`` to match exactly one location segment.
 
 For example:
 
 .. testcode::
 
-    from modelity.api import Model, Deferred
+    from modelity.api import Model, UserError, location_validator
 
-    class A(Model):
-        pass
+    class Address(Model):
+        street: str
+        city: str
+        zip_code: str
 
-    class B(Model):
-        pass
+    class Person(Model):
+        name: str
+        home_address: Address
+        work_address: Address
 
-    class C(Model):
-        a: Deferred[int]
-        b: Deferred[int]
-        c: Deferred[int]
-
-.. doctest::
-
-    >>> A() != B()  # not equal; two different types
-    True
-    >>> A() == A()  # equal; same type, same fields set (which is none in this case)
-    True
-    >>> C(a=1) != C()  # not equal; different fields set
-    True
-    >>> C(a=1, b=2, c=3) == C(a=1, b=2, c=3)  # equal; same fields set to same values
-    True
-    >>> C(a=1) != C(a=2)  # not equal; same fields set, but not to with equal values
-    True
-
-Checking if field is set
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The simplest and fastest way of checking if field is set is to compare field's
-value with :obj:`modelity.unset.Unset` sentinel:
+        @location_validator("?.zip_code")
+        def _validate_zip_code(self, value):
+            if not value.isdigit() or len(value) != 5:
+                raise UserError("invalid zip code")
 
 .. doctest::
 
-    >>> from modelity.unset import Unset
-    >>> bob = User(name='Bob')
-    >>> bob.name is Unset
-    False
-    >>> bob.email is Unset
-    True
+    >>> from modelity.api import validate
+    >>> person = Person(
+    ...     name="John",
+    ...     home_address={"street": "123 Main St", "city": "Anytown", "zip_code": "12345"},
+    ...     work_address={"street": "456 Office Rd", "city": "Anytown", "zip_code": "abcde"}
+    ... )
+    >>> validate(person)  # FAIL; invalid zip code in work_address
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Person':
+      work_address.zip_code:
+        invalid zip code [code=modelity.USER_ERROR]
+    >>> person.work_address.zip_code = "67890"
+    >>> validate(person)  # OK
 
-Since Modelity always initializes all fields, this approach will never raise
-any exception for as long as existing model field is accessed. Alternatively,
-you can use ``in`` operator:
+.. important::
+
+    Location validators are evaluated at runtime, so the cost of using those
+    may be higher than other validators. It is usually better to use other
+    validators (f.e. :func:`modelity.hooks.field_validator`) if same results
+    can be achieved.
+
+Model postvalidation chain
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Model-wide postvalidation is the final step of validation for a given model
+instance. To declare postvalidator for a given model,
+:func:`modelity.hooks.model_postvalidator` hook must be used. It is recommended
+to use postvalidators as a default choice to attach model-wide validation to
+models, unless you need validation skipping functionality.
+
+Here's an example:
+
+.. testcode::
+
+    from modelity.api import Model, UserError, model_postvalidator
+
+    class Person(Model):
+        name: str
+        age: int
+
+        @model_postvalidator()
+        def validate_age(self):
+            if self.age < 0:
+                raise UserError("Age cannot be negative")
 
 .. doctest::
 
-    >>> 'name' in bob
-    True
-    >>> 'email' in bob
-    False
+    >>> from modelity.api import validate
+    >>> person = Person(name="John", age=-5)
+    >>> validate(person)
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'Person':
+      (empty):
+        Age cannot be negative [code=modelity.USER_ERROR]
+    >>> person.age = 30
+    >>> validate(person)  # OK
 
-This works exactly the same as direct attribute access, but can be used safely
-with non-existing fields:
+Advanced validation
+-------------------
+
+.. _validate_with_context:
+
+Validating with user-defined context
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Modelity allows you to pass context object of your choice to validation chain
+and access it from inside your validators. Thanks to this it is possible to
+choose different validation strategies depending on the use case. For example,
+you can use this feature to completely disable validation for models fetched
+from a trusted source.
+
+Since you need to call :func:`modelity.helpers.validate` at some point from
+your application's code, you are also capable of passing your own context
+object via ``ctx`` argument and access it from validators using the same
+argument name. For Modelity, the context is completely transparent and it is
+simply passed to all validators "as is" without any modifications.
+
+For example:
+
+.. testcode::
+
+    from typing import Optional
+
+    from modelity.api import Model, model_prevalidator, field_validator, UserError
+
+    class User(Model):
+        name: str
+
+        @model_prevalidator()
+        def _prevalidate(self, ctx: Optional[dict]):
+            if ctx and ctx.get('trusted_source'):
+                return True  # Skip other validators for this model if this is a trusted source
+
+        @field_validator("name")
+        def _validate_name(self, value):
+            if len(value) < 3:
+                raise UserError("Name must be at least 3 characters")
 
 .. doctest::
 
-    >>> 'non_existing_field' in bob
-    False
+    >>> from modelity.api import validate
+    >>> user = User(name="Jo")
+    >>> validate(user)  # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: ...
+    >>> user = User(name="Jo")
+    >>> validate(user, ctx={'trusted_source': True})
+    >>> user.name
+    'Jo'
 
-.. note::
+You can also create a mixin or a base class for an easier reuse of such
+mechanism for any model:
 
-    There also is a :func:`modelity.helpers.has_fields_set` helper available to
-    check if model object has at least one field set.
+.. testcode::
 
-Iterating over model object
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    from typing import Optional
 
-Model objects are iterable. Iterating over models yields names of fields that
-are set, in the order defined in model type:
+    from modelity.api import Model, model_prevalidator, field_validator, UserError
+
+    class TrustedSkips:  # Mixin declaration
+
+        @model_prevalidator()
+        def _prevalidate(self, ctx: Optional[dict]):
+            if ctx and ctx.get('trusted_source'):
+                return True  # Skip other validators for this model if this is a trusted source
+
+    class User(Model, TrustedSkips):  # Mixin use
+        name: str
+
+        @field_validator("name")
+        def _validate_name(self, value):
+            if len(value) < 3:
+                raise UserError("Name must be at least 3 characters")
 
 .. doctest::
 
-    >>> empty = User()
-    >>> list(empty)
-    []
-    >>> list(bob)
-    ['name']
-    >>> bob.email = 'bob@example.com'
-    >>> list(bob)
-    ['name', 'email']
+    >>> from modelity.api import validate
+    >>> user = User(name="")
+    >>> validate(user)  # FAIL; validation runs normally
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: Found 1 validation error for model 'User':
+      name:
+        Name must be at least 3 characters [code=modelity.USER_ERROR]
+    >>> ctx = {"trusted_source": True}
+    >>> validate(user, ctx=ctx)  # PASS; validation skipped
 
-Using hooks
------------
+All validation hooks have access to context object via ``ctx`` argument. See
+:mod:`modelity.hooks` for more information.
 
-Modelity provides several hooks that can be used to customize data processing
-in user defined models. These hooks can be found in :mod:`modelity.hooks`
-module and are divided into following categories:
+Accessing entire model tree during validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Input data processing hooks**
+Each validator can access root model via dedicated ``root`` argument. The root
+model is the one for which :func:`modelity.helpers.validate` was originally
+called and is passed to all validators, including ones in nested models. This
+gives the possibility to access any part of the model tree from any validator
+and it allows to perform complex cross-field, or cross-model verifications at
+the cost of making nested models aware of where those are used in.
 
-    Field-specific hooks that are executed when field is set. These hooks are
-    later subdivided into:
+Here's an example:
 
-    **Field preprocessing hooks**
+.. testcode::
 
-        Available via :func:`modelity.hooks.field_preprocessor` decorator.
+    from modelity.api import Model, UserError, field_validator, ValidationError
 
-        Used to add input data filtering to be executed before type parsing
-        takes place.
+    class Address(Model):
+        city: str
+        postal_code: str
 
-    **Field postprocessing hooks**
+        @field_validator("postal_code")
+        def _validate_postal_code(self, root: Model, value: str):
+            # Access root model to validate based on other fields
+            if isinstance(root, User) and root.country == "US":
+                if not value.isdigit() or len(value) != 5:
+                    raise UserError("US postal code must be 5 digits")
 
-        Available via :func:`modelity.hooks.field_postprocessor` decorator.
+    class User(Model):
+        name: str
+        country: str
+        address: Address
 
-        Used to add field-level validation or data conversion logic to be
-        executed after successful preprocessing and data parsing steps. This is
-        the final step of input data parsing stage and results of these hooks
-        are stored in the model as final field's value.
+.. doctest::
 
-**Model validation hooks**
+    >>> user = User(name="John", country="US", address=Address(city="NYC", postal_code="1000X"))
+    >>> from modelity.api import validate
+    >>> validate(user)  # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ValidationError: ...
+    >>> user = User(name="John", country="US", address=Address(city="NYC", postal_code="10001"))
+    >>> validate(user)
+    >>> user.address.postal_code
+    '10001'
 
-    Model- and field-specific hooks executed during validation. All validation
-    hooks have access to entire model object and can freely access any field
-    they want. These are subdivided into:
+.. tip::
 
-    **Model prevalidation hooks**
+    Similar behavior can be achieved from the root model when
+    :func:`modelity.hooks.location_validator` is used. However, the cost of
+    using location validators is higher as those are dynamically matched to
+    model locations during validation and cannot be precomputed.
 
-        Available via :func:`modelity.hooks.model_prevalidator` decorator.
+Registering custom types
+------------------------
 
-        Executed in model-wide scope **before** any built-in validation takes
-        place. Can be used to override built-in validation; if model
-        prevalidator fails, further validation steps are skipped.
+Introducing **type handlers**
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    **Field validation hooks**
+Modelity implements parsing mechanism via so called **type handlers**. These
+are subclasses of :class:`modelity.base.TypeHandler` abstract base class that
+need to implement two mandatory methods:
 
-        Available via :func:`modelity.hooks.field_validator` decorator.
+* ``parse`` (with type parsing logic),
+* and ``accept`` (with visitor accepting logic).
 
-        Executed only if the field has value assigned. But that is the only
-        difference, as these hooks can freely access other fields if needed.
+This mechanism is used by Modelity during compilation of type annotations which
+is done shortly after model declaration ends (not in runtime!). Modelity does
+that in recursive way. For example, for ``list[int]`` type following actions
+take place to build needed type handler:
 
-    **Location-based validation hooks**
+1. Find type handler for ``list`` type.
+2. Find type handler for ``int`` type.
+3. Build ``list[int]`` type handler from handlers found in previous steps.
+4. Use created type handler for field annotated with ``list[int]``.
 
-        Available via :func:`modelity.hooks.location_validator` decorator.
+If needed type could not be found, :exc:`modelity.exc.UnsupportedTypeError`
+exception is raised, preventing the model type from being successfully created
+and giving instant feedback for the user.
 
-        Similar to field validation hooks, but allows the caller to access
-        nested field, or collection items of a model if its location suffix
-        matches provided location pattern.
+First custom type handler
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-        .. versionadded:: 0.27.0
+Let's assume we have following type defined:
 
-    **Model postvalidation hooks**
+.. testcode::
 
-        Available via :func:`modelity.hooks.model_postvalidator` decorator.
+    import dataclasses
 
-        Similar to model prevalidation hooks, but executed **after**
-        prevalidators, built-in validators and field validators.
+    @dataclasses.dataclass
+    class Vec2D:
+        x: float
+        y: float
 
-Using ``field_preprocessor`` hook
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Let's now try to use it as a type of Modelity model:
 
-This hook can be enabled using :func:`modelity.hooks.field_preprocessor` decorator.
+.. doctest::
 
-Preprocessing hooks can be used to filter input data and prepare it for parsing
-step, or to reject certain input value types, f.e. allowing only string as the
-input. Value returned by preprocessing hook is either passed as an input for
-the next preprocessing hook (if any), or as an input for parsing step (in this
-was the last preprocessor).
+    >>> from modelity.api import Model
+    >>> class Object(Model):
+    ...     position: Vec2D
+    ...     direction: Vec2D
+    Traceback (most recent call last):
+      ...
+    modelity.exc.UnsupportedTypeError: unsupported type used: <class 'Vec2D'>
 
-Preprocessors can signal errors either by raising :exc:`TypeError`, or by
-modifying ``errors`` list and returning :obj:`modelity.unset.Unset` object.
+As you can see, Modelity cannot handle our new type out of the box and it
+reports :exc:`modelity.exc.UnsupportedTypeError` exception when model is
+declared. To fix that, we need to create type handler for our **Vec2D** type
+introduced earlier. This is a simplified version of how such type handler could
+look like:
 
-Example 1: White characters stripping
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. testcode::
+
+    from typing import Any
+
+    from modelity.api import TypeHandler, Loc, Error, ModelVisitor, ErrorFactory, Unset, UnsetType
+
+    class Vec2DTypeHandler(TypeHandler):
+
+        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+            if isinstance(value, Vec2D):
+                return value  # No conversion needed
+            if not isinstance(value, tuple) or len(value) != 2:
+                errors.append(ErrorFactory.invalid_type(loc, value, [Vec2D]))
+                return Unset
+            return Vec2D(*value)  # Convert a 2-dimensional tuple
+
+        def accept(self, visitor: ModelVisitor, loc: Loc, value: Any):
+            visitor.visit_any(loc, value)  # Calls most generic visitor method
+
+Now, the newly created type handler must be registered in Modelity. To do that
+you need to use :func:`modelity.base.register_type_handler_factory` function:
+
+.. doctest::
+
+    >>> from modelity.api import register_type_handler_factory
+    >>> register_type_handler_factory(Vec2D, lambda typ, **opts: Vec2DTypeHandler())
+
+And now we can successfully declare our model:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class Object(Model):
+        position: Vec2D
+        direction: Vec2D
+
+.. doctest::
+
+    >>> car = Object(position=(0, 0), direction=(0, 1))
+    >>> car
+    Object(position=Vec2D(x=0, y=0), direction=Vec2D(x=0, y=1))
+
+And since now Modelity knows the new type, it also implicitly knows how to
+handle it when used with other known types, especially containers:
+
+.. testcode::
+
+    from modelity.api import Model
+
+    class ObjectCollection(Model):
+        objects: list[Object]
+
+.. doctest::
+
+    >>> collection = ObjectCollection(objects=[])
+    >>> collection.objects.append(car)  # OK
+    >>> collection.objects.append({"position": (2, 3), "direction": (4, 5)})  # OK; parsing needed
+    >>> collection.objects
+    [Object(position=Vec2D(x=0, y=0), direction=Vec2D(x=0, y=1)), Object(position=Vec2D(x=2, y=3), direction=Vec2D(x=4, y=5))]
+
+Using built-in type handler from custom type handler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Let's once again recall **Vec2D** introduced earlier:
+
+.. testcode::
+
+    import dataclasses
+
+    @dataclasses.dataclass
+    class Vec2D:
+        x: float
+        y: float
+
+It has ``x`` and ``y`` float fields, but our previous type handler was not
+implemented with float parsing in mind, so following will be parsed
+successfully, but the type will not be coerced:
+
+.. doctest::
+
+    >>> obj = Object(position=("2", "3"), direction=("4", "5"))
+    >>> obj.position
+    Vec2D(x='2', y='3')
+    >>> obj.direction
+    Vec2D(x='4', y='5')
+
+To fix that, we need to use type handler for **float** type while parsing our
+own **Vec2D** type. The following full example shows how this can be
+accomplished:
+
+.. testcode::
+
+    from typing import Any
+
+    from modelity.api import (
+        TypeHandler, Loc, Error, ModelVisitor, ErrorFactory, Unset, UnsetType,
+        register_type_handler_factory, create_type_handler
+    )
+
+    class Vec2DTypeHandler(TypeHandler):
+        """Type handler for ``Vec2D`` type."""
+
+        def __init__(self):
+            self._float_type_handler = create_type_handler(float)  # Obtain type handler for `float` type
+
+        def parse(self, errors: list[Error], loc: Loc, value: Any) -> Any | UnsetType:
+            if isinstance(value, Vec2D):
+                return value  # No conversion needed
+            if not isinstance(value, tuple) or len(value) != 2:
+                errors.append(ErrorFactory.invalid_type(loc, value, [Vec2D]))
+                return Unset
+            x = self._float_type_handler.parse(errors, loc + Loc('x'), value[0])  # Invoke Modelity built-in float conversion
+            y = self._float_type_handler.parse(errors, loc + Loc('y'), value[1])  # Same here
+            return Vec2D(x, y)  # Use converted values
+
+        def accept(self, visitor: ModelVisitor, loc: Loc, value: Any):
+            visitor.visit_any(loc, value)  # Calls most generic visitor method
+
+    # Overwrite previous type handler for `Vec2D`
+    register_type_handler_factory(Vec2D, lambda typ, **opts: Vec2DTypeHandler())
+
+    # Now declare model that uses `Vec2D`
+    class Object(Model):
+        position: Vec2D
+        direction: Vec2D
+
+And now let's see this in action:
+
+.. doctest::
+
+    >>> obj = Object(position=("2", "3"), direction=("4", "5"))
+    >>> obj.position  # This is now converted to float
+    Vec2D(x=2.0, y=3.0)
+    >>> obj.direction
+    Vec2D(x=4.0, y=5.0)
+
+As you can see, both the input tuple and coordinates are now converted.
+Moreover, since we've reused float parser, we have also implicitly implemented
+error handling if coordinates are incorrect:
+
+.. doctest::
+
+    >>> obj.position = ("ka", "boom")
+    Traceback (most recent call last):
+      ...
+    modelity.exc.ParsingError: Found 2 parsing errors for type 'Object':
+      position.x:
+        Not a valid float value [code=modelity.PARSE_ERROR, value_type=str, expected_type=float]
+      position.y:
+        Not a valid float value [code=modelity.PARSE_ERROR, value_type=str, expected_type=float]
+
+Hook inheritance
+----------------
+
+Declaring base model with common hooks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When using hooks you will declare hook directly in the model class for most
+cases. However, sometimes same hook needs to be provided for other models as
+well. Consider this example:
 
 .. testcode::
 
     from modelity.base import Model
     from modelity.hooks import field_preprocessor
 
-    class User(Model):
-        name: str
-        email: str
-        age: int
+    class First(Model):
+        foo: str
 
-        @field_preprocessor('name', 'email', 'age')  # names of fields this hook will be used for
-        def _strip_white_chars(value):  # any name can be used here, but underscore prefix is recommended
-            if isinstance(value, str):  # we only want to strip strings
+        @field_preprocessor("foo")
+        def _strip_string(value):
+            if isinstance(value, str):
                 return value.strip()
             return value
 
-.. doctest::
+    class Second(Model):
+        bar: str
 
-    >>> bob = User(name=' Bob ', email='bob@example.com ', age=32)  # white chars from 'user' and 'email' will be stripped
-    >>> bob.name
-    'Bob'
-    >>> bob.email
-    'bob@example.com'
-    >>> bob.age
-    32
-
-Example 2: Allow only strings as inputs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, Unset, field_preprocessor
-
-    class User(Model):
-        name: Deferred[str]
-        email: Deferred[str]
-        age: Deferred[int]
-
-        @field_preprocessor()  # run this hook for every field
-        def _reject_non_string(errors, value):
-            if not isinstance(value, str):
-                raise TypeError('only strings are allowed as input')
+        @field_preprocessor("bar")
+        def _strip_string(value):  # duplicated!
+            if isinstance(value, str):
+                return value.strip()
             return value
 
-.. doctest::
-
-    >>> user = User()  # OK; no field is set
-    >>> user.age = 27  # fail; not a string
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'User':
-      age:
-        only strings are allowed as input [code=modelity.EXCEPTION, value_type=int, exc_type=TypeError]
-    >>> user.age = '27'  # OK
-    >>> user.age
-    27
-
-Using ``field_postprocessor`` hook
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This hook can be enabled using :func:`modelity.hooks.field_postprocessor` decorator.
-
-Postprocessing hooks are executed if and only if previous preprocessing (if
-any) and type parsing steps were successful. Postprocessors can be used to
-perform field-specific validations that needs to be executed when field is set,
-or to alter data returned by parser. Postprocessors also have partial read
-access to other fields (if accessed field is declared before the field for
-which postprocessing is executed) and full write access to other fields.
-
-Value returned by postprocessor is then passed as an input for the next
-postprocessor (if any) or stored in the model (if this was the last
-postprocessor).
-
-Postprocessors can signal errors either by raising :exc:`TypeError`, or by
-modifying ``errors`` list and returning :obj:`modelity.unset.Unset` object.
-
-.. important::
-
-    There is no more type checking after postprocessing execution, so pay
-    attention to the value returned by each postprocessor. It is possible to
-    change type of the value when postprocessors are used, but not recommended,
-    as it will break the contract (user of our model may expect integer and get
-    string instead, for instance).
-
-Example 1: Data alteration
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. testcode::
-
-    import math
-
-    from modelity.api import Model, Deferred, field_postprocessor
-
-    class Vec2D(Model):
-        x: float
-        y: float
-
-        def length(self) -> float:
-            return math.sqrt(self.x**2 + self.y**2)
-
-        def normalized(self) -> "Vec2D":
-            len = self.length()
-            return Vec2D(x=self.x / len, y=self.y / len)
-
-    class Car(Model):
-        direction: Deferred[Vec2D]
-
-        @field_postprocessor('direction')
-        def _normalize(value):
-            return value.normalized()
+We have two models that need some preprocessing logic for string inputs to get
+rid of white characters. The example from above duplicates same functionality,
+but works just fine from the model user's PoV:
 
 .. doctest::
 
-    >>> direction = Vec2D(x=3, y=4)
-    >>> direction.length()  # the length of original vector
-    5.0
-    >>> car = Car()
-    >>> car.direction = direction  # here postprocessor is applied
-    >>> car.direction.length()  # the length is now 1, as the vector was normalized
-    1.0
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> first.foo
+    '123'
+    >>> second.bar
+    '456'
 
-Example 2: Enforce validation of nested models
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When using nested models, postprocessor can be used to automatically run
-validation when field is set. This is not required, however, but we can enforce
-assignment of an already valid objects only:
-
-.. testcode::
-
-    import math
-
-    from modelity.api import Model, Deferred, validate, field_postprocessor
-
-    class Vec2D(Model):
-        x: float
-        y: float
-
-        def length(self) -> float:
-            return math.sqrt(self.x**2 + self.y**2)
-
-        def normalized(self) -> "Vec2D":
-            len = self.length()
-            return Vec2D(x=self.x / len, y=self.y / len)
-
-    class Car(Model):
-        position: Deferred[Vec2D]
-        direction: Deferred[Vec2D]
-
-        @field_postprocessor()  # Run for all fields
-        def _validate_vec2D(value):
-            if isinstance(value, Vec2D):
-                validate(value)
-            return value
-
-        @field_postprocessor('direction')  # Only 'direction' will be normalized
-        def _normalize(value):
-            return value.normalized()
-
-.. doctest::
-
-    >>> car = Car()  # OK; no field is set
-    >>> car.position = Vec2D(x=0, y=0)  # OK; all required fields are set
-    >>> car.position = Vec2D(x=0)  # fail; 'y' is missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'Vec2D':
-      y:
-        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
-    >>> car.direction = Vec2D(y=4)  # fail; 'x' is missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'Vec2D':
-      x:
-        This field is required [code=modelity.REQUIRED_MISSING, value_type=UnsetType]
-    >>> car.direction = Vec2D(x=3, y=4)  # OK
-    >>> car.direction.length()  # Normalization postprocessor still works
-    1.0
-
-Using ``model_prevalidator`` hook
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This hook can be enabled using :func:`modelity.hooks.model_prevalidator` decorator.
-
-Model prevalidation is first step of model validation, happening just before
-built-in validators and required field presence checking. Model prevalidators
-can access all fields of the model they are declared in, therefore it is
-capable of performing cross-field validation easily.
-
-Example 1: Cross-field validation on per-model basis
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Let's assume we have a model with two fields and we need to check cross-field
-dependencies on a per-model basis. Here's an example:
+However, this is not an elegant solution, as the example break DRY principle.
+Let's modify it a bit and extract logic to a separate helper function:
 
 .. testcode::
 
     from modelity.base import Model
-    from modelity.helpers import validate
-    from modelity.unset import Unset
-    from modelity.hooks import model_prevalidator
+    from modelity.hooks import field_preprocessor
 
-    class Example(Model):
-        colors_available: list[str] = ['red', 'green', 'blue']
-        color_selected: str = ""
+    def _strip_string(value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
-        @model_prevalidator()
-        def _check_color_selected(self):
-            if self.color_selected not in self.colors_available:
-                raise ValueError(f"unsupported color: {self.color_selected}")
+    class First(Model):
+        foo: str
 
-.. doctest::
+        @field_preprocessor("foo")
+        def _strip_string(value):
+            return _strip_string(value)
 
-    >>> obj = Example()
-    >>> obj.color_selected = 'red'
-    >>> validate(obj)  # OK; existing color given
-    >>> obj.color_selected = 'black'
-    >>> validate(obj)  # failure; wrong color given
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
-      (empty):
-        unsupported color: black [code=modelity.EXCEPTION, exc_type=ValueError]
+    class Second(Model):
+        bar: str
 
+        @field_preprocessor("bar")
+        def _strip_string(value):  # duplicated!
+            return _strip_string(value)
 
-Example 2: Validation skipping
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Let's check what will happen if we validate the model from previous example
-without setting **color_selected** field:
+Now it is slightly better, and the functionality is still the same:
 
 .. doctest::
 
-    >>> obj = Example()
-    >>> validate(obj)
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
-      (empty):
-        unsupported color:  [code=modelity.EXCEPTION, exc_type=ValueError]
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> first.foo
+    '123'
+    >>> second.bar
+    '456'
 
-As you can see, our custom model prevalidator was executed along with the
-built-in required field check. In this case this is kind of redundant error, so
-let's fix it by disabling built-in validation. To do so, we have to modify our
-original model prevalidator to add error manually and return ``True`` from it
-to skip other validators:
+However, we still need to remember to add 3 additional lines to each single
+model that will need such stripping functionality. The best solution for that
+is to create a common base class and declare stripping hook **inside base
+class**. After further refactoring, the code looks as follows:
 
 .. testcode::
 
-    from modelity.api import Model, Error, Loc, validate, Unset, model_prevalidator
-
-    class Example(Model):
-        colors_available: list[str] = ['red', 'green', 'blue']
-        color_selected: str = ""
-
-        @model_prevalidator()
-        def _check_color_selected(self, errors, loc):  # `errors` and `loc` are needed to create error
-            if self.color_selected not in self.colors_available:
-                # Create custom error and add it to the errors list.
-                # This is RECOMMENDED way of creating custom errors, as it
-                # gives full access to Error constructor allowing to set both
-                # custom error message, custom error code, and error location.
-                errors.append(
-                    Error(
-                        loc + Loc('color_selected'),  # error location; we can point to the actual field if needed
-                        "custom.INVALID_VALUE",  # custom error code
-                        f"unsupported color: {self.color_selected}",  # custom error message
-                        self.color_selected  # the current incorrect value
-                    )
-                )
-            return True  # No more validators will be called for this model
-
-And now, there will only be a single error:
-
-.. doctest::
-
-    >>> obj = Example()
-    >>> validate(obj)
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Example':
-      color_selected:
-        unsupported color:  [code=custom.INVALID_VALUE]
+    from modelity.base import Model
+    from modelity.hooks import field_preprocessor
 
 
-And of course, if valid value is given, then validation will pass:
+    class Base(Model):
+
+        @field_preprocessor()  # use this hook for any field...
+        def _strip_string(value):  # ...especially if we don't use it for any particular field
+            if isinstance(value, str):
+                return value.strip()
+            return value
+
+
+    class First(Base):
+        foo: str
+
+
+    class Second(Base):
+        bar: str
+
+
+    class Third(Base):  # Just one more class to automatically reuse stripping logic
+        baz: str
+
+And let's check this in practice once again:
 
 .. doctest::
 
-    >>> obj = Example(color_selected='red')
-    >>> validate(obj)  # OK
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> third = Third(baz=" 789 ")
+    >>> first.foo, second.bar, third.baz
+    ('123', '456', '789')
 
-.. important::
-
-    Please note that we had to create error manually to force model
-    prevalidation to return ``True``. If fact, this is RECOMMENDED way of
-    creating custom errors; raising exceptions is just a shortcut.
-
-Using ``field_validator`` hook
+Using mixin classes with hooks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This hook can be enabled using :func:`modelity.hooks.field_validator` decorator.
+.. versionadded:: 0.24.0
 
-Field validators are executed for selected fields only and only if the field
-has value set. It should be used to verify if validated field has correct data
-by comparing it in user-defined way with one or more other fields in the model.
-Also, unlike model-level validators, the error location is filled to point to
-the validated field, not entire model.
+Sometimes having all the hooks in a single common base class, or even several
+separate base classes, is too rigid and forces you to inherit from base class
+even if the model is logically not a subclass of such base. To resolve such
+issues, Modelity now provides an easy way to declare hooks inside non-model
+mixin classes that can then be mixed in to any model you want.
 
-For example:
-
-.. testcode::
-
-    from modelity.api import Model, field_validator, validate
-
-    class User(Model):
-        email: Deferred[str]
-        repeated_email: Deferred[str]
-
-        @field_validator('repeated_email')
-        def _check_if_the_same(self, value):
-            if self.email != value:
-                raise ValueError('incorrect repeated e-mail address')
-
-.. doctest::
-
-    >>> bob = User()
-    >>> validate(bob)  # fail; required fields are missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 2 validation errors for model 'User':
-      email:
-        This field is required [code=modelity.REQUIRED_MISSING]
-      repeated_email:
-        This field is required [code=modelity.REQUIRED_MISSING]
-    >>> bob.email = 'bob@example.com'
-    >>> validate(bob)  # fail; 'repeated_email' is missing
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'User':
-      repeated_email:
-        This field is required [code=modelity.REQUIRED_MISSING]
-    >>> bob.repeated_email = 'bob@example.com'
-    >>> validate(bob)  # OK
-    >>> alice = User(email='alice@example.com', repeated_email='bob@example.com')
-    >>> validate(alice)  # fail; emails are not equal
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'User':
-      repeated_email:
-        incorrect repeated e-mail address [code=modelity.EXCEPTION, exc_type=ValueError]
-
-
-Using ``location_validator`` hook
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. versionadded:: 0.27.0
-
-This hook can be enabled using :func:`modelity.hooks.location_validator` decorator.
-
-It allows to access fields of a nested model, or individual collection items
-directly from model validator. This allows to add complex validation logic
-based on nested fields with no need to alter existing nested models. Thanks to
-this, same model can be used in different situations, with different validation
-requirements defined for each.
-
-Here's an example:
-
-.. testcode::
-
-    from typing import Optional
-
-    from modelity.base import Model
-    from modelity.hooks import location_validator
-    from modelity.helpers import validate
-
-    class User(Model):
-        email: str
-        name: Optional[str] = None
-
-    class Storage(Model):
-        users: list[User]
-
-        @location_validator("users.?")
-        def _require_name(value):
-            if not value.name:
-                raise ValueError("stored users must have name assigned")
-
-.. doctest::
-
-    >>> bob = User(email="bob@example.com")
-    >>> accounts = Storage(users=[bob])
-    >>> validate(bob)  # OK; `name` is optional
-    >>> validate(accounts)  # FAIL; here `name` is required by location validator
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Storage':
-      users.0:
-        stored users must have name assigned [code=modelity.EXCEPTION, exc_type=ValueError]
-
-
-As you can see, `name` is optional as a part of **User**, but becomes required
-when user is used as an item in `users` list.
-
-Using ``model_postvalidator`` hook
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This hook can be enabled using :func:`modelity.hooks.model_postvalidator` decorator.
-
-Model postvalidators are executed after all other validators and are best way
-to perform cross-field checks in the model scope. For example, let's rewrite
-example from above to use model postvalidator instead:
-
-.. testcode::
-
-    from modelity.base import Model
-    from modelity.unset import Unset
-    from modelity.hooks import model_postvalidator
-    from modelity.helpers import validate
-
-    class User(Model):
-        email: Deferred[str]
-        repeated_email: Deferred[str]
-
-        @model_postvalidator()
-        def _check_if_emails_match(self):
-            if self.email is Unset or self.repeated_email is Unset:
-                return
-            if self.email != self.repeated_email:
-                raise ValueError("the 'email' field does not match 'repeated_email' field")
-
-.. doctest::
-
-    >>> john = User(email='john@example.com', repeated_email='John@example.com')
-    >>> validate(john)
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'User':
-      (empty):
-        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, exc_type=ValueError]
-
-Please note, that postvalidator runs in the model scope, therefore error
-location points to the model. It is empty, because the model is the root model.
-For nested model, the error would point to a field in a parent model instead:
-
-.. testcode::
-
-    class UserStore(Model):
-        users: list[User]
-
-.. doctest::
-
-    >>> store = UserStore(users=[])
-    >>> store.users = [User(email='john@example.com', repeated_email='JOHN@example.com')]
-    >>> validate(store)
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'UserStore':
-      users.0:
-        the 'email' field does not match 'repeated_email' field [code=modelity.EXCEPTION, exc_type=ValueError]
-
-
-Reporting errors from user-defined hooks
-----------------------------------------
-
-By raising ``TypeError``
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-When :exc:`TypeError` is raised by any of the following hooks:
-
-* :func:`modelity.hooks.field_preprocessor`
-* :func:`modelity.hooks.field_postprocessor`
-
-then it is intercepted by Modelity and converted into
-:class:`modelity.error.Error` object and attached to
-:exc:`modelity.exc.ParsingError` exception.
-
-For example:
+Let's slightly extend an example from above to see how to use mixins:
 
 .. testcode::
 
     from modelity.api import Model, Deferred, field_preprocessor
 
-    class Dummy(Model):
-        foo: Deferred[int]
 
-        @field_preprocessor()
-        def _ensure_string(value):
-            if not isinstance(value, str):
-                raise TypeError("Only strings are accepted")
+    class StringStrippingMixin:  # this is a mixin; we don't inherit from model
+
+        @field_preprocessor()  # use this hook for any field...
+        def _strip_string(value):  # ...especially if we don't use it for any particular field
+            if isinstance(value, str):
+                return value.strip()
             return value
 
-.. doctest::
 
-    >>> dummy = Dummy()
-    >>> dummy.foo = "123"  # OK
-    >>> dummy.foo
-    123
-    >>> dummy.foo = 123  # FAIL; for some reason we want all input to be string
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'Dummy':
-      foo:
-        Only strings are accepted [code=modelity.EXCEPTION, value_type=int, exc_type=TypeError]
+    class Base(Model, StringStrippingMixin):  # base class for First and Second; both will use the mixin
+        pass
 
-By raising ``ValueError``
-^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When :exc:`ValueError` is raised by any of the following hooks:
+    class First(Base):
+        foo: Deferred[str]
 
-* :func:`modelity.hooks.model_prevalidator`
-* :func:`modelity.hooks.model_postvalidator`
-* :func:`modelity.hooks.field_validator`
-* :func:`modelity.hooks.location_validator`
 
-then it is intercepted by Modelity and converted into
-:class:`modelity.error.Error` object and attached to
-:exc:`modelity.exc.ValidationError` exception.
+    class Second(Base):
+        bar: Deferred[str]
 
-For example:
 
-.. testcode::
+    class Third(Model):  # Here we don't use our mixin...
+        baz: Deferred[str]
 
-    from modelity.api import Model, field_preprocessor, StrictOptional, Unset, validate
 
-    class Dummy(Model):
-        foo: StrictOptional[int]
-        bar: StrictOptional[int]
+    class Fourth(Third, StringStrippingMixin):  # ...and here we do
+        spam: Deferred[str]
 
-        @model_prevalidator()
-        def _ensure_either_foo_or_bar(self):
-            if self.foo is not Unset and self.bar is not Unset:
-                raise ValueError("Either `foo` or `bar` can be set, not both")
+And the final check looks as follows:
 
 .. doctest::
 
-    >>> dummy = Dummy()
-    >>> validate(dummy)  # OK; both are optional
-    >>> dummy.foo = 123
-    >>> validate(dummy)  # OK; just `foo` given so far
-    >>> dummy.bar = 456
-    >>> validate(dummy)  # FAIL; both given
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'Dummy':
-      (empty):
-        Either `foo` or `bar` can be set, not both [code=modelity.EXCEPTION, exc_type=ValueError]
-
-By raising ``modelity.exc.UserError``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. versionadded:: 0.30.0
-
-This is the most generic way of reporting errors from user-defined hooks. It
-can be used by any hook and, depending on the hook type, will result in an
-:class:`modelity.error.Error` object being attached to either
-:exc:`modelity.exc.ParsingError` or :exc:`modelity.exc.ValidationError`
-exception.
-
-For example:
-
-   .. testcode::
-
-    from modelity.api import Model, Deferred, field_validator, validate, UserError
-
-    class User(Model):
-        email: Deferred[str]
-        repeated_email: Deferred[str]
-
-        @field_validator("repeated_email")
-        def _check_if_repeated_same(self, value):
-            if self.email != value:
-                raise UserError("Repeated e-mail does not match e-mail", data={'email': self.email, 'repeated_email': value})
-
-.. doctest::
-
-    >>> user = User(email="jd@example.com", repeated_email="j.d@example.com")
-    >>> validate(user)  # FAIL
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ValidationError: Found 1 validation error for model 'User':
-      repeated_email:
-        Repeated e-mail does not match e-mail [code=modelity.USER_ERROR, email='jd@example.com', repeated_email='j.d@example.com']
-
-Check :exc:`modelity.exc.UserError` docs for more options.
-
-By manually modifying ``errors`` list
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This is the most generic way of reporting errors. You basically create
-:class:`modelity.error.Error` objects by hand and manually adding it to
-``errors`` list.
-
-For example:
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, Error, field_preprocessor
-
-    class Dummy(Model):
-        foo: Deferred[int]
-
-        @field_preprocessor()
-        def _ensure_string(errors: list[Error], loc, value):
-            if not isinstance(value, str):
-                errors.append(Error(loc, "user.USER_ERROR", "Only strings are accepted", value, data={"given_type": type(value)}))
-                return Unset
-            return value
-
-.. doctest::
-
-    >>> dummy = Dummy()
-    >>> dummy.foo = 123
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'Dummy':
-      foo:
-        Only strings are accepted [code=user.USER_ERROR, value_type=int, given_type=int]
-
-This is the most verbose way of reporting errors, but it also offers the
-greatest flexibility for customization. For example, you can easily modify
-location of the error.
-
-Check :exc:`modelity.error.Error` for the list of options available.
-
-.. tip::
-
-   Since ``errors`` list is mutable and shared across all hooks when parsing or
-   validating, you can also *remove* errors from the list if needed. This is
-   especially useful with :func:`modelity.hooks.model_postvalidator` hook that
-   runs after all other validation hooks defined for a model.
-
-Customizing type parsers
-------------------------
-
-Some of the built-in Modelity type parsers can be customized via so called
-**type options**. These options can be set using keyword arguments of
-:func:`modelity.model.field_info` helper function, or directly, via
-:attr:`modelity.model.FieldInfo.type_opts` attribute.
-
-bool
-^^^^
-
-Options available:
-
-``true_literals: list[Any]``
-    The list of literals evaluating to ``True``.
-
-``false_literals: list[Any]``
-    The list of literals evaluating to ``False``.
-
-Example:
-
-.. testcode::
-
-    from modelity.api import Model, Deferred, field_info
-
-    class BoolExample(Model):
-        foo: Deferred[bool] = field_info(true_literals=['on'], false_literals=['off'])
-
-.. doctest::
-
-    >>> obj = BoolExample()
-    >>> obj.foo = True  # as usual; assign boolean
-    >>> obj.foo
-    True
-    >>> obj.foo = 'on'  # this would fail without type options
-    >>> obj.foo
-    True
-    >>> obj.foo = 'off'  # this would fail without type options
-    >>> obj.foo
-    False
-
-datetime.datetime
-^^^^^^^^^^^^^^^^^
-
-Options available:
-
-``expected_datetime_formats: list[str]``
-    The list of input datetime formats.
-
-    Every string that matches one of these formats will be successfully parsed
-    as a datetime object.
-
-    Following placeholders are available:
-
-    * **YYYY** - 4-digit year number,
-    * **MM** - 2-digit month number (01..12),
-    * **DD** - 2-digit day number (01..31),
-    * **hh** - 2-digit hour (00..23)
-    * **mm** - 2-digit minute (00..59)
-    * **ss** - 2-digit second (00..59)
-    * **ffffff** - 6-digit microseconds (000000..999999)
-    * **ZZZZ** - timezone (f.e. +0200)
-
-Example:
-
-.. testcode::
-
-    import datetime
-
-    from modelity.api import Model, Deferred, field_info
-
-    class DateTimeExample(Model):
-        foo: Deferred[datetime.datetime] = field_info(
-            expected_datetime_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD']
-        )
-
-.. doctest::
-
-    >>> obj = DateTimeExample()
-    >>> obj.foo = '1999-01-02 11:22:33'  # OK
-    >>> obj.foo
-    datetime.datetime(1999, 1, 2, 11, 22, 33)
-    >>> obj.foo = '2025-01-03'  # OK
-    >>> obj.foo
-    datetime.datetime(2025, 1, 3, 0, 0)
-    >>> obj.foo = '02-01-1999'  # fail; does not match any of the input formats
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'DateTimeExample':
-      foo:
-        Not a valid datetime format; expected one of: YYYY-MM-DD hh:mm:ss, YYYY-MM-DD [code=modelity.INVALID_DATETIME_FORMAT, value_type=str, expected_formats=['YYYY-MM-DD hh:mm:ss', 'YYYY-MM-DD']]
-
-.. doctest::
-
-    >>> from modelity.helpers import dump
-    >>> obj.foo = '2025-01-02 11:22:33'
-    >>> obj.foo
-    datetime.datetime(2025, 1, 2, 11, 22, 33)
-    >>> dump(obj)  # `output_datetime_format` will be used
-    {'foo': '2025-01-02T11:22:33.000000'}
-
-datetime.date
-^^^^^^^^^^^^^
-
-Options available:
-
-``expected_date_formats: list[str]``
-    The list of input date formats.
-
-    Every string that matches one of these formats will be successfully parsed
-    as a datet object.
-
-    Following placeholders are available:
-
-    * **YYYY** - 4-digit year number,
-    * **MM** - 2-digit month number (01..12),
-    * **DD** - 2-digit day number (01..31),
-
-Example:
-
-.. testcode::
-
-    import datetime
-
-    from modelity.base import Model, field_info
-
-    class DateExample(Model):
-        foo: datetime.date = field_info(
-            expected_date_formats=['YYYY-MM-DD', 'DD-MM-YYYY']
-        )
-
-.. doctest::
-
-    >>> obj = DateExample(foo='1999-01-02')  # OK
-    >>> obj.foo
-    datetime.date(1999, 1, 2)
-    >>> obj.foo = '02-03-2025'  # OK
-    >>> obj.foo
-    datetime.date(2025, 3, 2)
-    >>> obj.foo = '02-01-1999 11:22:33'  # fail; does not match any of the input formats
-    Traceback (most recent call last):
-      ...
-    modelity.exc.ParsingError: Found 1 parsing error for type 'DateExample':
-      foo:
-        Not a valid date format; expected one of: YYYY-MM-DD, DD-MM-YYYY [code=modelity.INVALID_DATE_FORMAT, value_type=str, expected_formats=['YYYY-MM-DD', 'DD-MM-YYYY']]
-
-.. doctest::
-
-    >>> from modelity.helpers import dump
-    >>> obj.foo = '2025-01-02'
-    >>> obj.foo
-    datetime.date(2025, 1, 2)
-    >>> dump(obj)  # `output_date_format` will be used
-    {'foo': '2025-01-02'}
+    >>> first = First(foo=" 123")
+    >>> second = Second(bar="456 ")
+    >>> third = Third(baz=" 789 ")
+    >>> fourth = Fourth(spam=' spam ')
+    >>> first.foo, second.bar, third.baz, fourth.spam
+    ('123', '456', ' 789 ', 'spam')

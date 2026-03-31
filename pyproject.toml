@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "modelity"
 version = "0.36.0"
-description = "Data parsing and validation library for Python"
+description = "Domain-oriented validation engine for structured Python models."
 authors = ["Maciej Wiatrzyk <maciej.wiatrzyk@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -18,7 +18,6 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
 typing-extensions = "^4.12.2"
-
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
