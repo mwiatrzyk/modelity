@@ -410,7 +410,7 @@ class ValidationVisitor(EmptyVisitor):
 
     def visit_model_field_begin(self, loc: Loc, value: Any, field: Field):
         if value is Unset:
-            if field.deferred:
+            if field.validation_required:
                 self._errors.append(ErrorFactory.required_missing(loc))
             elif not field.unsettable:
                 self._errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))

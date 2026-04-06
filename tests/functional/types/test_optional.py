@@ -21,8 +21,15 @@ def field_info():
     return None
 
 
-@pytest.mark.parametrize("field_type", [Optional[int]])
 class TestOptional:
+
+    @pytest.fixture
+    def SUT(self):
+
+        class SUT(Model):
+            foo: Optional[int] = None
+
+        return SUT
 
     @pytest.mark.parametrize(
         "given_input, expected_output, expected_dump_output",

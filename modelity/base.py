@@ -470,47 +470,77 @@ class Field:
     protocol.
     """
 
-    #: Field's name.
+    #: The name of this field.
     #:
-    #: This is the name of a field used in a model.
+    #: This is also the name of an attribute in the model.
     name: str
 
-    #: Field's type.
-    #:
-    #: This is type annotation used to declare a field in a model.
+    #: The type annotation set for this field.
     typ: Any
 
-    #: Field's type handler.
+    #: The type handler set for this field.
     #:
-    #: This is assigned when model type is created and is used during model
-    #: construction to parse input values into model-defined types.
+    #: It is derived from field's type annotation set as :attr:`typ`.
     type_handler: TypeHandler
 
     _: dataclasses.KW_ONLY
 
-    #: Field's user-defined info object.
+    #: The additional metadata assigned for this field.
+    #:
+    #: Everything declared using :func:`field_info` goes into here.
     field_info: Optional[FieldInfo] = None
 
-    #: See :attr:`modelity.interface.IField.optional`.
-    optional: bool = False
+    #: Flag telling if this field is required during model construction.
+    #:
+    #: Fields that are construction-required will cause model construction
+    #: failure (with :attr:`modelity.error.ErrorCode.REQUIRED_MISSING` error
+    #: code) if those are missing in model's constructor and have no default
+    #: values set.
+    #:
+    #: .. note::
+    #:      Fields that are construction-required are also implicitly
+    #:      validation-required; if construction-required fields are removed
+    #:      from a model object after it was successfully created, the
+    #:      validation step will still report same error.
+    #:
+    #: .. versionadded:: 0.37.0
+    construction_required: bool = False
 
-    #: See :attr:`modelity.interface.IField.unsettable`.
+    #: Flag telling if this field is required during model validation.
+    #:
+    #: Such fields can be skipped during model construction (the model
+    #: construction will not fail), but are required to be set before validation
+    #: takes place. This is used by :obj:`modelity.typing.Deferred` type wrapper.
+    #:
+    #: .. note::
+    #:      This flag is automatically set to ``True`` for
+    #:      construction-required fields.
+    #:
+    #: .. versionadded:: 0.37.0
+    validation_required: bool = False
+
+    #: Flag telling if :obj:`modelity.unset.Unset` is a valid value for this
+    #: field.
+    #:
+    #: This is used both during construction and validation stages and will
+    #: eventually cause :attr:`modelity.error.ErrorCode.UNSET_NOT_ALLOWED`
+    #: error if field is left unset. For example, fields marked with
+    #: :obj:`typing.Optional` cannot be unset; you have to initialize with
+    #: either value, or a ``None``.
+    #:
+    #: .. versionchanged:: 0.37.0
+    #:      Now this is also checked during model construction in addition to
+    #:      validation.
     unsettable: bool = False
-
-    #: See :attr:`modelity.interface.IField.deferred`.
-    deferred: bool = False
 
     @property
     def required(self) -> bool:
-        """Flag indicating whether this field is required during parsing.
+        """Flag telling if this field is required.
 
-        A model with required field will fail parsing if the field is not
-        provided to model constructor and does not have default value set.
-        Any field that is neither optional nor deferred is required.
-
-        .. versionadded:: 0.35.0
+        A field is required if at least one of :attr:`construction_required`
+        and :attr:`validation_required` attributes is set to ``True``.
         """
-        return not self.optional and not self.deferred
+        return self.construction_required or self.validation_required
 
     def has_default(self) -> bool:
         """Check if this field has default value set.
@@ -585,15 +615,17 @@ class ModelMeta(type):
             field_info = attrs.pop(field_name, Unset)
             if not isinstance(field_info, FieldInfo):
                 field_info = FieldInfo(default=field_info)
-            optional = is_any_optional(annotation)
+            construction_required = not is_any_optional(annotation) and not is_deferred(annotation)
+            validation_required = construction_required or is_deferred(annotation)
+            unsettable = is_unsettable(annotation) or is_deferred(annotation)
             bound_field = Field(
                 field_name,
                 annotation,
                 create_type_handler(annotation, **field_info.type_opts),
                 field_info=field_info,
-                optional=optional,
-                unsettable=is_unsettable(annotation) if optional else False,
-                deferred=is_deferred(annotation) if not optional else False,
+                construction_required=construction_required,
+                validation_required=validation_required,
+                unsettable=unsettable,
             )
             _hooks.assign_field_hooks(bound_field, all_hooks, field_name)
             out[field_name] = bound_field
@@ -668,13 +700,17 @@ class Model(metaclass=ModelMeta):
         cls = self.__class__
         fields = cls.__model_fields__
         for name, field in fields.items():
+            loc = Loc(name)
             value = kwargs.pop(name, Unset)
             if value is Unset:
                 value = field.compute_default()
-                if value is Unset and not field.optional and not field.deferred:
-                    errors.append(ErrorFactory.required_missing(Loc(name)))
+                if value is Unset:
+                    if field.construction_required:
+                        errors.append(ErrorFactory.required_missing(loc))
+                    elif not field.unsettable:
+                        errors.append(ErrorFactory.unset_not_allowed(loc, field.typ))
             if value is not Unset:
-                value = self.__parse(field, errors, Loc(name), value)
+                value = self.__parse(field, errors, loc, value)
             super().__setattr__(name, value)
         if errors:
             raise ParsingError(cls, tuple(errors))
