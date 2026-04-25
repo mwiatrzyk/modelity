@@ -1,3 +1,21 @@
+## 0.37.0 (2026-04-25)
+
+### BREAKING CHANGES
+
+- dropped `self` argument from `field_postprocessor` hook
+- `model_fixup` hooks are now only executed explicitly via `fixup` helper
+- `field_fixup` was replaced with `after_field_set` hook
+- Dropped `Field.optional` and `Field.deferred` attrs.
+- Now `Field.required` is True if field is either
+construction-required or validation-required.
+
+### Feat
+
+- dropped `self` argument from `field_postprocessor` hook
+- `model_fixup` hooks are now only executed explicitly via `fixup` helper
+- `field_fixup` was replaced with `after_field_set` hook
+- add `Field.construction_required` and `Field.validation_required` attrs
+
 ## 0.36.0 (2026-03-20)
 
 ### BREAKING CHANGES
