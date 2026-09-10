@@ -1,6 +1,6 @@
 [project]
 name = "modelity"
-version = "0.37.0"
+version = "0.38.0"
 description = "Domain-oriented validation engine for structured Python models."
 authors = [
     { name = "Maciej Wiatrzyk", email = "maciej.wiatrzyk@gmail.com" }
