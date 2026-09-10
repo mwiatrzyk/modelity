@@ -15,7 +15,7 @@ when_fix = "patch"
 [[semver.version_files]]
 path = "pyproject.toml"
 prefix = "version"
-section = "[tool.poetry]"
+section = "[project]"
 encoding = "utf-8"
 
 [[semver.version_files]]
