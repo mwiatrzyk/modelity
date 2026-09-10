@@ -11,18 +11,17 @@ commands:
       python_version:
         type: string
     steps:
-      - run: pyenv local <<parameters.python_version>>
       - restore_cache:
           name: restore dependency cache
           keys:
-            - poetry-py<<parameters.python_version>>-{{ checksum "poetry.lock" }}
-      - run: poetry env use <<parameters.python_version>>
-      - run: poetry install -q
+            - uv-py<<parameters.python_version>>-{{ checksum "uv.lock" }}
+      - run: uv python pin <<parameters.python_version>>
+      - run: uv sync
       - save_cache:
           name: save dependency cache
-          key: poetry-py<<parameters.python_version>>-{{ checksum "poetry.lock" }}
+          key: uv-py<<parameters.python_version>>-{{ checksum "uv.lock" }}
           paths:
-            - ~/.cache/pypoetry/
+            - .venv
 
 jobs:
   test:
@@ -35,7 +34,7 @@ jobs:
       - checkout
       - install-deps:
           python_version: <<parameters.python_version>>
-      - run: poetry run inv check
+      - run: uv run inv check
 
   bump:
     docker:
@@ -46,8 +45,8 @@ jobs:
       - add_ssh_keys
       - install-deps:
           python_version: "3.13"
-      - run: pip install bumpify
-      - run: bumpify bump
+      #- run: pip install bumpify
+      - run: uvx --python=3.13 bumpify bump
       - run: git push --set-upstream origin $CIRCLE_BRANCH
       - run: git push --tags
 
@@ -59,9 +58,9 @@ jobs:
       - configure-git
       - install-deps:
           python_version: "3.13"
-      - run: poetry build
-      - run: poetry config pypi-token.pypi $PYPI_API_TOKEN
-      - run: poetry publish
+      - run: uv build
+      - run: uv publish --dry-run --token $PYPI_API_TOKEN
+      - run: uv publish --token $PYPI_API_TOKEN
 
 workflows:
   test-bump-deploy:
@@ -69,7 +68,7 @@ workflows:
       - test:
           matrix:
             parameters:
-              python_version: ["3.10", "3.11", "3.12", "3.13"]
+              python_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
       - bump:
           requires:
             - test

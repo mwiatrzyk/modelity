@@ -8,6 +8,7 @@ import typing_extensions
 from modelity import _export_list, _utils
 from modelity.exc import ParsingError
 from modelity.typing import is_any_optional, is_deferred, is_unsettable
+from modelity import _compat
 
 from . import _hooks
 from .loc import Loc
@@ -599,12 +600,12 @@ class ModelMeta(type):
         _hooks.assign_location_hooks(model_type, all_hooks)
         return model_type
 
-    @staticmethod
-    def _collect_fields(bases: tuple, attrs: dict, all_hooks: list[_hooks.BaseHook]) -> dict[str, Field]:
+    @classmethod
+    def _collect_fields(cls, bases: tuple, attrs: dict, all_hooks: list[_hooks.BaseHook]) -> dict[str, Field]:
         out: dict[str, Field] = {}
         for base in bases:
             out.update(getattr(base, "__model_fields__", {}))
-        annotations = attrs.pop("__annotations__", {})
+        annotations = _compat.get_annotations_from_class_attrs(attrs)  # type: ignore
         for field_name, annotation in annotations.items():
             if field_name in _IGNORED_FIELD_NAMES:
                 continue
