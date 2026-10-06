@@ -3,6 +3,7 @@ import datetime
 import enum
 import ipaddress
 import pathlib
+from types import UnionType
 from typing import Annotated, Any, Literal, MutableSequence, Union, get_origin
 
 from modelity import _utils
@@ -109,6 +110,7 @@ _type_handler_map = {
     # ------------------------
     Annotated: lambda typ, type_opts: create_annotated_type_handler(typ, create_type_handler, **type_opts),
     Union: lambda typ, type_opts: create_union_type_handler(typ, create_type_handler, **type_opts),
+    UnionType: lambda typ, type_opts: create_union_type_handler(typ, create_type_handler, **type_opts),
 }
 
 

@@ -787,6 +787,20 @@ class TestUnionTypeHandler:
     def test_validate_successfully(self, model):
         validate(model)
 
+    class TestUnionDeclaredUsingOr:
+
+        class UUT(Model):
+            foo: int | str | bool
+
+        @pytest.mark.parametrize("input_value, output_value", [
+            (123, 123),
+            ("spam", "spam"),
+            (True, True),
+        ])
+        def test_construct(self, input_value, output_value):
+            uut = self.UUT(foo=input_value)
+            assert uut.foo == output_value
+
 
 class TestTupleTypeHandler:
 

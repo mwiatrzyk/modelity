@@ -556,7 +556,7 @@ class TestUnionTypeHandler:
     def test_construct_fails_if_non_union_given(self, typ, type_handler_factory_mock):
         with pytest.raises(TypeError) as excinfo:
             UnionTypeHandler(typ, type_handler_factory_mock)
-        assert str(excinfo.value) == f"expected Union[T, ...], got {_utils.describe(typ)} instead"
+        assert str(excinfo.value) == f"expected Union[T, ...] or UnionType[...], got {_utils.describe(typ)} instead"
 
     @pytest.mark.parametrize(
         "typ, type_opts",

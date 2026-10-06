@@ -1,3 +1,4 @@
+from types import UnionType
 from typing import Annotated, Any, Union, get_args, get_origin
 
 from modelity import _utils
@@ -153,8 +154,8 @@ class UnionTypeHandler(TypeHandler):
 
     def __init__(self, typ: Any, type_handler_factory: TypeHandlerFactory, /, **type_opts):
         origin = get_origin(typ)
-        if origin is not Union:
-            raise TypeError(f"expected Union[T, ...], got {_utils.describe(typ)} instead")
+        if origin not in (Union, UnionType):
+            raise TypeError(f"expected Union[T, ...] or UnionType[...], got {_utils.describe(typ)} instead")
         self._inner_types = get_args(typ)
         self._inner_type_handlers = [type_handler_factory(t, **type_opts) for t in self._inner_types]
 
