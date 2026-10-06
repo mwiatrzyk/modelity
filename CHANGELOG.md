@@ -1,3 +1,13 @@
+## 0.39.0 (2026-10-06)
+
+### Fix
+
+- `bool` type can now properly handle unhashable input values
+
+### Feat
+
+- add support for unions declared using pipe, e.g. `int | str | bool`
+
 ## 0.38.0 (2026-09-10)
 
 ### Feat
