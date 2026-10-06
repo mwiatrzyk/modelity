@@ -14,8 +14,8 @@ from modelity.unset import Unset, UnsetType
 class BoolTypeHandler(TypeHandler):
 
     def __init__(self, true_literals: Optional[Sequence] = None, false_literals: Optional[Sequence] = None):
-        self._true_literals_set = set(true_literals or [])
-        self._false_literals_set = set(false_literals or [])
+        self._true_literals_set = list(true_literals or [])
+        self._false_literals_set = list(false_literals or [])
         self._extra_data = {}
         if true_literals is not None:
             self._extra_data["true_literals"] = list(true_literals)

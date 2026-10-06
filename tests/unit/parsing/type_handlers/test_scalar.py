@@ -52,6 +52,8 @@ class TestBoolTypeHandler:
             (None, [0, "off"], loc, 0, False, []),
             (None, [0, "off"], loc, "off", False, []),
             (None, None, loc, 123, Unset, [ErrorFactory.parse_error(loc, 123, bool)]),
+            (None, None, loc, {}, Unset, [ErrorFactory.parse_error(loc, {}, bool)]),
+            (None, None, loc, [], Unset, [ErrorFactory.parse_error(loc, [], bool)]),
         ],
     )
     def test_parse(self, uut: UUT, loc: Loc, value: Any, expected_output: Any, expected_errors: list):
